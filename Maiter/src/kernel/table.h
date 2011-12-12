@@ -14,6 +14,10 @@ namespace dsm {
 struct TableBase;
 struct Table;
 
+template <class K, class V1, class V2, class V3>
+class TypedGlobalTable;
+
+
 class TableData;
 
 // This interface is used by global tables to communicate with the outside
@@ -78,7 +82,7 @@ struct Sharder : public SharderBase {
 
 template <class K, class V, class D>
 struct Initializer : public InitializerBase {
-  virtual void initTable(int shard_id) = 0;
+  virtual void initTable(int shard_id, TypedGlobalTable<K, V, V, D>* table) = 0;
 };
 
 template <class V>
@@ -89,7 +93,7 @@ struct Accumulator : public AccumulatorBase {
 
 template <class K, class V, class D>
 struct Sender : public SenderBase {
-  virtual void send(const V& delta, const D& data) = 0;
+  virtual void send(const V& delta, const D& data, MaiterKernel<K, V, D>* output) = 0;
   virtual V reset(const K& k, const V& delta) = 0;
 };
 
