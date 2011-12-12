@@ -6,7 +6,7 @@ using namespace dsm;
 
 DECLARE_string(graph_dir);
 DECLARE_string(result_dir);
-DECLARE_int32(num_nodes);
+DECLARE_int64(num_nodes);
 DECLARE_double(portion);
 DECLARE_double(termcheck_threshold);
 
@@ -26,53 +26,53 @@ static vector<int> readUnWeightLinks(string links){
 }
 
 struct PagerankInitializer : public Initializer<int, float, vector<int> > {
-	void initTable(int shard_id){
-		if(!table->initialized()) table->InitStateTable();
-			table->resize(FLAGS_num_nodes);
+    void initTable(int shard_id, TypedGlobalTable<int, float, float, vector<int> >* table){
+        if(!table->initialized()) table->InitStateTable();
+            table->resize(FLAGS_num_nodes);
 
-			string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), shard_id);
-			ifstream inFile;
-			inFile.open(patition_file.c_str());
-			if (!inFile) {
-			cerr << "Unable to open file" << patition_file;
-			exit(1); // terminate with error
-		}
+            string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), shard_id);
+            ifstream inFile;
+            inFile.open(patition_file.c_str());
+            if (!inFile) {
+            cerr << "Unable to open file" << patition_file;
+            exit(1); // terminate with error
+        }
 
-		char line[1024000];
-		while (inFile.getline(line, 1024000)) {
-			string linestr(line);
-			int pos = linestr.find("\t");
-			int source = boost::lexical_cast<int>(linestr.substr(0, pos));
-			string links = linestr.substr(pos+1);
-			vector<int> linkvec = readUnWeightLinks(links);
+        char line[1024000];
+        while (inFile.getline(line, 1024000)) {
+            string linestr(line);
+            int pos = linestr.find("\t");
+            int source = boost::lexical_cast<int>(linestr.substr(0, pos));
+            string links = linestr.substr(pos+1);
+            vector<int> linkvec = readUnWeightLinks(links);
 
-			table->put(source, 0.2, 0, linkvec);
-		}
-	}
+            table->put(source, 0.2, 0, linkvec);
+        }
+    }
 };
 
 struct PagerankSender : public Sender<int, float, vector<int> > {
-	void send(const float& delta, const vector<int>& data){
-		  int size = (int) data.size();
-		  vector<int>::iterator it;
+    void send(const float& delta, const vector<int>& data, MaiterKernel<int, float, vector<int> >* output){
+        int size = (int) data.size();
+        vector<int>::iterator it;
 
-		  float outv = delta * 0.8 / size;
-		  for(it=data.begin(); it!=data.end(); it++){
-			  int target = *it;
-			  sendto(target, outv);
-		  }
-	}
+        float outv = delta * 0.8 / size;
+        for(it=data.begin(); it!=data.end(); it++){
+            int target = *it;
+            output->sendto(target, outv);
+        }
+    }
 
-	float reset(const int& k, const float& delta){
-		return 0;
-	}
+    float reset(const int& k, const float& delta){
+        return 0;
+    }
 };
 
 struct PagerankTermChecker : public TermChecker<int, float> {
-    double curr = 0;
+    static double curr = 0;
 
     double set_curr(){
-            return curr;
+        return curr;
     }
 
     double partia_calculate(TermCheckIterator<int, float>* statetable){
@@ -108,8 +108,18 @@ static int Pagerank(ConfigData& conf) {
                                         new PagerankSender,
                                         new PagerankTermChecker);
 
-    run_maiter(kernel);
+    kernel->conf = conf;
+    kernel->schedule_portion = FLAGS_portion;
+    kernel->output = FLAGS_result_dir;
+    kernel->sharder = new Sharding::Mod;
+    kernel->initializer = new PagerankInitializer;
+    kernel->accum = new Accumulators<float>::Sum;
+    kernel->sender = new PagerankSender;
+    kernel->termchecker = new PagerankTermChecker;
+    
+    kernel->run();
 
     return 0;
 }
+
 REGISTER_RUNNER(Pagerank);
