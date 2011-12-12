@@ -36,8 +36,8 @@ static vector<Link> readWeightLinks(string links){
     return linkvec;
 }
 
-struct AdsorptionScheduler : public Scheduler<int, float> {
-    float priority(const int& k, const float& v1){
+struct AdsorptionScheduler : public Scheduler<int, float, float> {
+    float priority(const int& k, const float& v1, const float& v2){
         return priority_map[k];
     }
 };

@@ -424,10 +424,10 @@ bool Master::termcheck() {
    bool bterm = ((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->terminate(partials);
   
   VLOG(0) << "Termination check at " << barrier_timer->elapsed() << " finished in " << cp_timer.elapsed() << 
-          " total current " << StringPrintf("%.05f", ((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->curr) << 
+          " total current " << StringPrintf("%.05f", ((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->set_curr()) << 
           " total updates " << total_updates << endl;
   conv_track_log << "Termination check at " << barrier_timer->elapsed() << " finished in " << cp_timer.elapsed() << 
-          " total current " << StringPrintf("%.05f", ((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->curr)  <<
+          " total current " << StringPrintf("%.05f", ((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->set_curr())  <<
           " total updates " << total_updates << "\n";
   conv_track_log.flush();
   

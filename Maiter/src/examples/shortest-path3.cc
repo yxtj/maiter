@@ -73,7 +73,7 @@ static int Shortest_Path3(ConfigData& conf) {
 	int shards = conf.num_workers();
 	VLOG(0) << "shards " << shards;
   graph = CreateTable<int, float, float, vector<Link> >(0, shards, FLAGS_portion, new Sharding::Mod,
-		  new Accumulators<float>::Min, new Schedulers<int, float>::Opposite, new ShortestPathTermChecker);
+		  new Accumulators<float>::Min, new Schedulers<int, float, float>::Opposite, new ShortestPathTermChecker);
 
   if (!StartWorker(conf)) {
     Master m(conf);

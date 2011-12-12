@@ -421,7 +421,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF3(const K &k, const V3 &v) {
 
 template<class K, class V1, class V2, class V3>
 void TypedGlobalTable<K, V1, V2, V3>::incrRecvDelta(const int source, const K &k, const V1 &v) {
-  ((Accumulator<V1>*)info_.accum)->Accumulate(&recv_delta[source], v);
+  ((Accumulator<V1>*)info_.accum)->accumulate(&recv_delta[source], v);
 }
 
 template<class K, class V1, class V2, class V3>

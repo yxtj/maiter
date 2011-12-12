@@ -8,14 +8,7 @@ set(EXAMPLE_LIBS ${EXAMPLE_LIBS} boost_thread-mt util z lzo2 pthread rt)
 add_custom_target(example_proto DEPENDS ${EXAMPLE_PB_HDR})
 
 add_library(example 
-            pagerank2.cc
-            pagerank3.cc
-            shortest-path2.cc
-            shortest-path3.cc
-            adsorption2.cc
-            adsorption3.cc
-            katz2.cc
-            katz3.cc
+            pagerank.cc
             gengraph.cc
             ${EXAMPLE_PB_HDR} 
             ${EXAMPLE_PB_SRC})

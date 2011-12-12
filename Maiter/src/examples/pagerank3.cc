@@ -64,7 +64,7 @@ static int Pagerank3(ConfigData& conf) {
 	int shards = conf.num_workers();
 	VLOG(0) << "shards " << shards;
   pages = CreateTable<int, float, float, vector<int> >(0, shards, FLAGS_portion, new Sharding::Mod,
-		  new Accumulators<float>::Sum, new Schedulers<int, float>::Direct, new PagerankTermChecker);
+		  new Accumulators<float>::Sum, new Schedulers<int, float, float>::Direct, new PagerankTermChecker);
 
   if (!StartWorker(conf)) {
     Master m(conf);

@@ -33,8 +33,8 @@ static vector<int> readUnWeightLinks(string links){
     return linkvec;
 }
 
-struct KatzScheduler : public Scheduler<int, float> {
-    float priority(const int& k, const float& v1){
+struct KatzScheduler : public Scheduler<int, float, float> {
+    float priority(const int& k, const float& v1, const float& v2){
         return priority_map[k];
     }
 };

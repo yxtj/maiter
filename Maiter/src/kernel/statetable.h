@@ -31,6 +31,7 @@ private:
     V1 v1;
     V2 v2;
     V3 v3;
+    V1 priority;
     bool in_use;
     bool has_v1;
   };
@@ -137,16 +138,19 @@ public:
                 //get the cut index, everything larger than the cut will be scheduled
                 sort(sampled_pos.begin(), sampled_pos.end(), compare_priority(parent_));
                 int cut_index = sample_size*parent_.info_.schedule_portion;
-                V1 threshold = ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[sampled_pos[cut_index]].k, parent_.buckets_[sampled_pos[cut_index]].v1);
+                V1 threshold = parent_.buckets_[sampled_pos[cut_index]].priority;
+                //V1 threshold = ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[sampled_pos[cut_index]].k, parent_.buckets_[sampled_pos[cut_index]].v1);
 
                 VLOG(1) << "cut index " << cut_index << " theshold " << threshold << " pos " << sampled_pos[cut_index] << " max " << parent_.buckets_[sampled_pos[0]].v1;
 
-                if(cut_index==0 || ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[sampled_pos[0]].k, parent_.buckets_[sampled_pos[0]].v1) == threshold){
+                if(cut_index==0 || parent_.buckets_[sampled_pos[0]].priority == threshold){
+                //if(cut_index==0 || ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[sampled_pos[0]].k, parent_.buckets_[sampled_pos[0]].v1) == threshold){
                         //to avoid non eligible records
                         int i;
                         for(i=0; i<parent_.size_; i++){
                                 if(parent_.buckets_[i].in_use && parent_.buckets_[i].has_v1
-                                                && ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[i].k, parent_.buckets_[i].v1) >= threshold){
+                                        && parent_.buckets_[i].priority >= threshold){
+                                        //&& ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[i].k, parent_.buckets_[i].v1) >= threshold){
                                         scheduled_pos.push_back(i);
                                 }
                         }
@@ -154,7 +158,8 @@ public:
                         int i;
                         for(i=0; i<parent_.size_; i++){
                                 if(parent_.buckets_[i].in_use && parent_.buckets_[i].has_v1
-                                                && ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[i].k, parent_.buckets_[i].v1) > threshold){
+                                                && parent_.buckets_[i].priority >= threshold){
+                                                //&& ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[i].k, parent_.buckets_[i].v1) > threshold){
                                         scheduled_pos.push_back(i);
                                 }
                         }
@@ -188,8 +193,8 @@ public:
             StateTable<K, V1, V2, V3> &parent;
             compare_priority(StateTable<K, V1, V2, V3> &inparent): parent(inparent) {}
           bool operator()(const int a, const int b) {
-              return ((Scheduler<K, V1>*)parent.info_.scheduler)->priority(parent.buckets_[a].k, parent.buckets_[a].v1)
-                              > ((Scheduler<K, V1>*)parent.info_.scheduler)->priority(parent.buckets_[b].k, parent.buckets_[b].v1);
+              return ((Accumulator<V1>*)parent.info_.accum)->priority(parent.buckets_[a].v1, parent.buckets_[a].v2)
+                              > ((Accumulator<V1>*)parent.info_.accum)->priority(parent.buckets_[b].v1, parent.buckets_[b].v2);
           }
         };
 
@@ -275,8 +280,9 @@ public:
   void reset() {}
 
   bool compare_priority(int i, int j) {
-  	return ((Scheduler<K, V1>*)info_.scheduler)->priority(buckets_[i].k, buckets_[i].v1)
-  			> ((Scheduler<K, V1>*)info_.scheduler)->priority(buckets_[j].k, buckets_[j].v1);
+      return buckets_[i].priority > buckets_[j].priority;
+  	//return ((Scheduler<K, V1>*)info_.scheduler)->priority(buckets_[i].k, buckets_[i].v1)
+  			//> ((Scheduler<K, V1>*)info_.scheduler)->priority(buckets_[j].k, buckets_[j].v1);
   }
 
   TableIterator *get_iterator(TableHelper* helper, bool bfilter) {
@@ -576,6 +582,7 @@ void StateTable<K, V1, V2, V3>::updateF1(const K& k, const V1& v) {
     CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
 
     buckets_[b].v1 = v;
+    buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(buckets_[b].v1, buckets_[b].v2);
     buckets_[b].has_v1 = false;
     total_updates++;
 }
@@ -603,7 +610,7 @@ void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v) {
   int b = bucket_for_key(k);
 
   CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
-  ((Accumulator<V1>*)info_.accum)->Accumulate(&buckets_[b].v1, v);
+  ((Accumulator<V1>*)info_.accum)->accumulate(&buckets_[b].v1, v);
   buckets_[b].has_v1 = true;
 }
 
@@ -612,7 +619,7 @@ void StateTable<K, V1, V2, V3>::accumulateF2(const K& k, const V2& v) {
   int b = bucket_for_key(k);
 
   CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
-  ((Accumulator<V2>*)info_.accum)->Accumulate(&buckets_[b].v2, v);
+  ((Accumulator<V2>*)info_.accum)->accumulate(&buckets_[b].v2, v);
 }
 
 template <class K, class V1, class V2, class V3>
@@ -652,6 +659,7 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
       buckets_[b].v2 = v2;
       buckets_[b].v3 = v3;
       buckets_[b].has_v1 = true;
+      buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(v1, v2);
       ++entries_;
     }
   } else {
@@ -660,6 +668,7 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
     buckets_[b].v2 = v2;
     buckets_[b].v3 = v3;
     buckets_[b].has_v1 = true;
+    buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(v1, v2);
   }
 }
 }

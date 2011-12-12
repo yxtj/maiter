@@ -10,24 +10,45 @@ DECLARE_double(portion);
 DECLARE_int32(shortestpath_source);
 
 static TypedGlobalTable<int, float, float, vector<Link> > *graph;
+static map<int, float> leastweight_map;
 
-static vector<Link> readWeightLinks(string links){
+static vector<Link> readWeightLinks(string links, float** weight){
     vector<Link> linkvec;
     int spacepos = 0;
+    float minweight = 99999999;
     while((spacepos = links.find_first_of(" ")) != links.npos){
         Link to(0, 0);
+
         if(spacepos > 0){
             string link = links.substr(0, spacepos);
             int cut = links.find_first_of(",");
             to.end = boost::lexical_cast<int>(link.substr(0, cut));
             to.weight = boost::lexical_cast<float>(link.substr(cut+1));
+            
+            if(to.weight < minweight){
+                minweight = to.weight;
+            }
         }
         links = links.substr(spacepos+1);
         linkvec.push_back(to);
     }
     
+    *weight = &minweight;
     return linkvec;
 }
+
+struct ShortestPathScheduler : public Scheduler<int, float, float> {
+    float priority(const int& k, const float& v1, const float& v2){
+        return -(v1+leastweight_map[k]);
+    }
+};
+
+struct ShortestPathScheduler2 : public Scheduler<int, float, float> {
+    float priority(const int& k, const float& v1, const float& v2){
+        return v2-std::min(v1, v2);
+        //return (v1+v2)-v2;
+    }
+};
 
 struct ShortestPathTermChecker : public TermChecker<int, float> {
     double last;
@@ -70,7 +91,9 @@ static int Shortest_Path2(ConfigData& conf) {
 	VLOG(0) << "shards " << shards;
   graph = CreateTable<int, float, float, vector<Link> >(0, shards, FLAGS_portion, new Sharding::Mod,
 		  new Accumulators<float>::Min, 
-                  new Schedulers<int, float>::Opposite, 
+                  //new Schedulers<int, float, float>::Opposite, 
+                  //new ShortestPathScheduler,
+                  new ShortestPathScheduler2,
                   new ShortestPathTermChecker);
 
   if (!StartWorker(conf)) {
@@ -106,7 +129,10 @@ public:
                 int pos = linestr.find("\t");
                 int source = boost::lexical_cast<int>(linestr.substr(0, pos));
                 string links = linestr.substr(pos+1);
-                vector<Link> linkvec = readWeightLinks(links);
+                float* minweight = new float();
+                vector<Link> linkvec = readWeightLinks(links, &minweight);
+                
+                leastweight_map[source] = *minweight;
 
                 if(source == FLAGS_shortestpath_source){
                     graph->put(source, 0, imax, linkvec);

@@ -276,7 +276,7 @@ void DeltaTable<K, V1>::accumulate(const K& k, const V1& v) {
   if(b == -1){
 	  put(k, v);
   }else{
-	  ((Accumulator<V1>*)info_.accum)->Accumulate(&buckets_[b].v1, v);
+	  ((Accumulator<V1>*)info_.accum)->accumulate(&buckets_[b].v1, v);
   }
 }
 

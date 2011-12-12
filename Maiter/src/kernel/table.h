@@ -28,10 +28,12 @@ struct TableHelper {
 };
 
 struct SharderBase {};
+struct InitializerBase {};
 struct AccumulatorBase {};
-struct BlockInfoBase {};
-struct SchedulerBase {};
+struct SenderBase {};
 struct TermCheckerBase {};
+
+struct BlockInfoBase {};
 
 
 typedef int TriggerID;
@@ -69,19 +71,26 @@ struct Trigger : public TriggerBase {
 
 // Each table is associated with a single accumulator.  Accumulators are
 // applied whenever an update is supplied for an existing key-value cell.
-template <class V>
-struct Accumulator : public AccumulatorBase {
-  virtual void Accumulate(V* a, const V& b) = 0;
-};
-
 template <class K>
 struct Sharder : public SharderBase {
   virtual int operator()(const K& k, int shards) = 0;
 };
 
-template <class K, class V1>
-struct Scheduler : public SchedulerBase {
-  virtual V1 priority(const K& k, const V1& v1) = 0;
+template <class K, class V, class D>
+struct Initializer : public InitializerBase {
+  virtual void initTable(int shard_id) = 0;
+};
+
+template <class V>
+struct Accumulator : public AccumulatorBase {
+  virtual void accumulate(V* a, const V& b) = 0;
+  virtual V priority(const V& state, const V& delta) = 0;
+};
+
+template <class K, class V, class D>
+struct Sender : public SenderBase {
+  virtual void send(const V& delta, const D& data) = 0;
+  virtual V reset(const K& k, const V& delta) = 0;
 };
 
 template <class K, class V>
@@ -94,7 +103,7 @@ struct TermCheckIterator {
 
 template <class K, class V>
 struct TermChecker : public TermCheckerBase {
-    double curr;
+    virtual double set_curr() = 0;
     virtual double partia_calculate(TermCheckIterator<K, V>* statetable) = 0;
     virtual bool terminate(vector<double> partials) = 0;
 };
@@ -103,19 +112,18 @@ struct TermChecker : public TermCheckerBase {
 template <class V>
 struct Accumulators {
   struct Min : public Accumulator<V> {
-    void Accumulate(V* a, const V& b) { *a = std::min(*a, b); }
+    void accumulate(V* a, const V& b) { *a = std::min(*a, b); }
+    V priority(const V& state, const V& delta) {return state - std::min(state, delta);}
   };
 
   struct Max : public Accumulator<V> {
-    void Accumulate(V* a, const V& b) { *a = std::max(*a, b); }
+    void accumulate(V* a, const V& b) { *a = std::max(*a, b); }
+    V priority(const V& state, const V& delta) {return std::max(state, delta) - state;}
   };
 
   struct Sum : public Accumulator<V> {
-    void Accumulate(V* a, const V& b) { *a = *a + b; }
-  };
-
-  struct Replace : public Accumulator<V> {
-    void Accumulate(V* a, const V& b) { *a = b; }
+    void accumulate(V* a, const V& b) { *a = *a + b; }
+    V priority(const V& state, const V& delta) {return delta;}
   };
 };
 
@@ -132,18 +140,6 @@ struct Sharding {
     int operator()(const uint32_t& key, int shards) { return key % shards; }
   };
 };
-
-template <class K, class V1>
-struct Schedulers {
-  struct Direct : public Scheduler<K, V1> {
-    V1 priority(const K& k, const V1& v1) { return v1; }
-  };
-
-  struct Opposite : public Scheduler<K, V1> {
-    V1 priority(const K& k, const V1& v1) { return -v1; }
-  };
-};
-
 
 #endif		//#ifdef SWIG / #else
 
@@ -170,7 +166,6 @@ public:
     key_marshal = value1_marshal = value2_marshal = value3_marshal = NULL;
     accum = NULL;
     sharder = NULL;
-    scheduler = NULL;
     termchecker = NULL;
   }
 
@@ -187,7 +182,6 @@ public:
 
   AccumulatorBase *accum;
   SharderBase *sharder;
-  SchedulerBase *scheduler;
   TermCheckerBase *termchecker;
 
   MarshalBase *key_marshal;

@@ -115,10 +115,10 @@ static int GenGraph(ConfigData& conf) {
 	VLOG(0) << "shards " << shards;
         if(FLAGS_weighted){
             graph = CreateTable<int, double, double, vector<int> >(0, shards, 1, new Sharding::Mod,
-                        new Accumulators<double>::Sum, NULL, NULL);
+                        new Accumulators<double>::Sum, NULL);
         }else{
             graph = CreateTable<int, double, double, vector<int> >(0, shards, 1, new Sharding::Mod,
-                        new Accumulators<double>::Sum, NULL, NULL);
+                        new Accumulators<double>::Sum, NULL);
         }
   
 
