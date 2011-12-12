@@ -14,7 +14,7 @@ DEFINE_bool(dump_results, false, "");
 DEFINE_string(graph_dir, "subgraphs", "");
 DEFINE_string(result_dir, "result", "");
 DEFINE_int32(max_iterations, 100, "");
-DEFINE_int32(num_nodes, 100, "");
+DEFINE_int64(num_nodes, 100, "");
 DEFINE_double(portion, 1, "");
 DEFINE_double(termcheck_threshold, 1000000000, "");
 

@@ -26,14 +26,11 @@ static vector<int> readUnWeightLinks(string links){
 }
 
 struct PagerankInitializer : public Initializer<int, float, vector<int> > {
-    void initTable(int shard_id, TypedGlobalTable<int, float, float, vector<int> >* table){
-        if(!table->initialized()) table->InitStateTable();
-            table->resize(FLAGS_num_nodes);
-
-            string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), shard_id);
-            ifstream inFile;
-            inFile.open(patition_file.c_str());
-            if (!inFile) {
+    void initTable(TypedGlobalTable<int, float, float, vector<int> >* table, int shard_id){
+        string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), shard_id);
+        ifstream inFile;
+        inFile.open(patition_file.c_str());
+        if (!inFile) {
             cerr << "Unable to open file" << patition_file;
             exit(1); // terminate with error
         }
@@ -52,14 +49,12 @@ struct PagerankInitializer : public Initializer<int, float, vector<int> > {
 };
 
 struct PagerankSender : public Sender<int, float, vector<int> > {
-    void send(const float& delta, const vector<int>& data, MaiterKernel<int, float, vector<int> >* output){
+    void send(const float& delta, const vector<int>& data, vector<pair<int, float> >* output){
         int size = (int) data.size();
-        vector<int>::iterator it;
-
         float outv = delta * 0.8 / size;
-        for(it=data.begin(); it!=data.end(); it++){
+        for(vector<int>::const_iterator it=data.begin(); it!=data.end(); it++){
             int target = *it;
-            output->sendto(target, outv);
+            output->push_back(make_pair(target, outv));
         }
     }
 
@@ -69,7 +64,7 @@ struct PagerankSender : public Sender<int, float, vector<int> > {
 };
 
 struct PagerankTermChecker : public TermChecker<int, float> {
-    static double curr = 0;
+    double curr;
 
     double set_curr(){
         return curr;
@@ -101,24 +96,18 @@ struct PagerankTermChecker : public TermChecker<int, float> {
 };
 
 static int Pagerank(ConfigData& conf) {
-    MaiterKernel<int, float, vector<int> >* kernel = new MaiterKernel(conf, FLAGS_portion, FLAGS_result_dir,
+    MaiterKernel<int, float, vector<int> >* kernel = new MaiterKernel<int, float, vector<int> >(
+                                        conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
                                         new Sharding::Mod,
                                         new PagerankInitializer,
                                         new Accumulators<float>::Sum,
                                         new PagerankSender,
                                         new PagerankTermChecker);
-
-    kernel->conf = conf;
-    kernel->schedule_portion = FLAGS_portion;
-    kernel->output = FLAGS_result_dir;
-    kernel->sharder = new Sharding::Mod;
-    kernel->initializer = new PagerankInitializer;
-    kernel->accum = new Accumulators<float>::Sum;
-    kernel->sender = new PagerankSender;
-    kernel->termchecker = new PagerankTermChecker;
+    
     
     kernel->run();
 
+    delete kernel;
     return 0;
 }
 

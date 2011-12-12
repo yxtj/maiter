@@ -82,7 +82,7 @@ struct Sharder : public SharderBase {
 
 template <class K, class V, class D>
 struct Initializer : public InitializerBase {
-  virtual void initTable(int shard_id, TypedGlobalTable<K, V, V, D>* table) = 0;
+  virtual void initTable(TypedGlobalTable<K, V, V, D>* table, int shard_id) = 0;
 };
 
 template <class V>
@@ -93,7 +93,7 @@ struct Accumulator : public AccumulatorBase {
 
 template <class K, class V, class D>
 struct Sender : public SenderBase {
-  virtual void send(const V& delta, const D& data, MaiterKernel<K, V, D>* output) = 0;
+  virtual void send(const V& delta, const D& data, vector<pair<K, V> >* output) = 0;
   virtual V reset(const K& k, const V& delta) = 0;
 };
 

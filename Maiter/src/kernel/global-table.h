@@ -189,12 +189,14 @@ public:
   }
 
   void InitStateTable(){
-	for (int i = 0; i < partitions_.size(); ++i) {
-		if(is_local_shard(i)){
-                    partitions_[i] = create_localT(i);
-                }
-	}
-	binit = true;
+    for (int i = 0; i < partitions_.size(); ++i) {
+        if(is_local_shard(i)){
+            VLOG(0) << "create local start " << i;
+            partitions_[i] = create_localT(i);
+            VLOG(0) << "create local finish " << i;
+        }
+    }
+    binit = true;
   }
 
   int get_shard(const K& k);
