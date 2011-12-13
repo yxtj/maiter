@@ -57,22 +57,32 @@ public:
         termchecker = NULL;
     }
  
-    class MaiterKernel1 : public DSMKernel, MaiterKernel {
+    class MaiterKernel1 : public DSMKernel {
+    private:
+        MaiterKernel* maiter;
     public:
+        MaiterKernel1(){
+            maiter = NULL;
+        }
+        
+        void set_maiter(MaiterKernel* inmaiter){
+            maiter = inmaiter;
+        }
+        
         void init_table(TypedGlobalTable<K, V, V, D>* a){
             if(!a->initialized()){
                 VLOG(0) << "init table2";
                 a->InitStateTable();
             }
             VLOG(0) << "init table3";
-            a->resize(num_nodes);
+            a->resize(maiter->num_nodes);
             VLOG(0) << "init table4";
-            initializer->initTable(a, current_shard());
+            maiter->initializer->initTable(a, current_shard());
         }
 
         void run() {
-            VLOG(0) << "init table";
-            init_table(table);
+            VLOG(0) << "init table ";
+            init_table(maiter->table);
         }
     };
 
@@ -186,6 +196,17 @@ public:
         KernelRegistrationHelper<MaiterKernel3>("MaiterKernel3");
         MethodRegistrationHelper<MaiterKernel3>("MaiterKernel3", "run", &MaiterKernel3::run);
                 
+        KernelInfo *helper = KernelRegistry::Get()->kernel("MaiterKernel1");
+    KernelId id(kreq.kernel(), kreq.table(), kreq.shard());
+    DSMKernel* d = kernels_[id];
+
+    if (!d) {
+      d = helper->create();
+      kernels_[id] = d;
+      d->initialize_internal(this, kreq.table(), kreq.shard());
+      d->InitKernel();
+    }
+        
 	if (!StartWorker(conf)) {
             Master m(conf);
             m.run_all("MaiterKernel1", "run", table);

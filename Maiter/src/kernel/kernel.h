@@ -134,6 +134,7 @@ public:
   TypedGlobalTable<K, V1, V2, V3>* get_table(int id) {
     return dynamic_cast<TypedGlobalTable<K, V1, V2, V3>*>(get_table(id));
   }
+  
 private:
   friend class Worker;
   friend class Master;

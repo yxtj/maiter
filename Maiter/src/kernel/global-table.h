@@ -189,7 +189,9 @@ public:
   }
 
   void InitStateTable(){
+      VLOG(0) << "init state table ";
     for (int i = 0; i < partitions_.size(); ++i) {
+        VLOG(0) << "init state table ? " << is_local_shard(i);
         if(is_local_shard(i)){
             VLOG(0) << "create local start " << i;
             partitions_[i] = create_localT(i);
