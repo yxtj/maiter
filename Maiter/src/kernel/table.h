@@ -8,7 +8,7 @@
 #include "worker/worker.pb.h"
 #include <boost/thread.hpp>
 
-DECLARE_double(term_threshold);
+DECLARE_double(termcheck_threshold);
 
 namespace dsm {
 
@@ -157,8 +157,12 @@ struct TermCheckers {
     double curr;
     
     DIFF(){
-        last = -1;
+        last = -std::numeric_limits<double>::max();;
         curr = 0;
+    }
+    
+    double set_curr(){
+        return curr;
     }
     
     double partia_calculate(TermCheckIterator<K, V>* statetable){
@@ -180,7 +184,8 @@ struct TermCheckers {
                 curr += *it;
         }
         
-        if(abs(curr - last) < FLAGS_term_threshold){
+        VLOG(0) << "terminate check : last progress " << last << " current progress " << curr << " difference " << abs(curr - last);
+        if(abs(curr - last) < FLAGS_termcheck_threshold){
             return true;
         }else{
             last = curr;
