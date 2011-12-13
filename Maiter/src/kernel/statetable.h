@@ -515,7 +515,7 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size) {
   std::vector<Bucket> old_b = buckets_;
   int old_entries = entries_;
 
-//  LOG(INFO) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
+  LOG(INFO) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
 
   buckets_.resize(size);
   size_ = size;
@@ -650,8 +650,10 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
   // Inserting a new entry:
   if (!found) {
     if (entries_ > size_ /** kLoadFactor*/) {     //doesn't consider loadfactor, the tablesize is pre-defined
-      resize((int)(1 + size_ * 2));
-      put(k, v1, v2, v3);
+        LOG(INFO) << (int)k << " : " << (float)v1; 
+        LOG(INFO) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2) << " entries "<< entries_;
+        resize((int)(1 + size_ * 2));
+        put(k, v1, v2, v3);
     } else {
       buckets_[b].in_use = 1;
       buckets_[b].k = k;

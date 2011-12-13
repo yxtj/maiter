@@ -5,13 +5,13 @@ TOP = $(shell pwd)
 MAKE := $(MAKE) --no-print-directory
 #OPROFILE = 1
 
-ifeq ($(shell which distcc > /dev/null; echo $$?), 0)
-	CXX := distcc $(CXX)
-	CC := distcc $(CC)
-	PARALLELISM := $(shell distcc -j)
-else
+#ifeq ($(shell which distcc > /dev/null; echo $$?), 0)
+#	CXX := distcc $(CXX)
+#	CC := distcc $(CC)
+#	PARALLELISM := $(shell distcc -j)
+#else
 	PARALLELISM = 1
-endif
+#endif
 
 export CXX CC CFLAGS CPPFLAGS OPROFILE
 

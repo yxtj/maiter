@@ -130,8 +130,10 @@ static int GenGraph(ConfigData& conf) {
 }
 REGISTER_RUNNER(GenGraph);
 
+template <class K, class V, class D>
 class gengraph_RunKernel1 : public DSMKernel {
 public:
+    
 	  template <class TableA>
 	  void gen_unweightgraph(TableA* a){  
               ofstream partition;
@@ -177,8 +179,7 @@ public:
                   hadooppartition << "\n";
 	      }
               partition.close();
-              hadooppartition.close();
-              
+              hadooppartition.close();              
 
               string delete_cmd = StringPrintf("%s dfs -rmr %s", FLAGS_hadoop_path.c_str(), patition_file.c_str());
               string put_cmd = StringPrintf("%s dfs -put %s %s", FLAGS_hadoop_path.c_str(), patition_file.c_str(), patition_file.c_str());
@@ -279,5 +280,7 @@ public:
 	  }
 };
 
-REGISTER_KERNEL(gengraph_RunKernel1);
-REGISTER_METHOD(gengraph_RunKernel1, run);
+
+//KernelRegistrationHelper<gengraph_RunKernel1<int, int, int>, int, int, int>("MaiterKernel1", 0);
+//MethodRegistrationHelper<gengraph_RunKernel1<int, int, int>, int, int, int>("MaiterKernel1", "run", &gengraph_RunKernel1<int, int, int>::run, 0);
+
