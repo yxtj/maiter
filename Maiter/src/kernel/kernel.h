@@ -238,17 +238,14 @@ public:
     
     void init_table(TypedGlobalTable<K, V, V, D>* a){
         if(!a->initialized()){
-            VLOG(0) << "init table2";
             a->InitStateTable();
         }
-        VLOG(0) << "init table3";
         a->resize(maiter->num_nodes);
-        VLOG(0) << "init table4";
         maiter->initializer->initTable(a, current_shard());
     }
 
     void run() {
-        VLOG(0) << "init table ";
+        VLOG(0) << "initializing table ";
         init_table(maiter->table);
     }
 };
@@ -307,7 +304,7 @@ public:
     }
 
     void map() {
-        VLOG(0) << "start iterative update";
+        VLOG(0) << "start performing iterative update";
         run_loop(maiter->table);
     }
 };
@@ -355,7 +352,7 @@ public:
     }
 
     void run() {
-        VLOG(0) << "dump result";
+        VLOG(0) << "dumping result";
         dump(maiter->table);
     }
 };
@@ -420,16 +417,23 @@ public:
 	VLOG(0) << "shards " << conf.num_workers();
 	table = CreateTable<K, V, V, D >(0, conf.num_workers(), schedule_portion,
                                         sharder, accum, termchecker);
-                
+            
+        //initialize table job
         KernelRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", this);
         MethodRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", "run", &MaiterKernel1<K, V, D>::run, this);
 
-        KernelRegistrationHelper<MaiterKernel2<K, V, D>, K, V, D>("MaiterKernel2", this);
-        MethodRegistrationHelper<MaiterKernel2<K, V, D>, K, V, D>("MaiterKernel2", "map", &MaiterKernel2<K, V, D>::map, this);
+        //iterative update job
+        if(accum != NULL && sender != NULL){
+            KernelRegistrationHelper<MaiterKernel2<K, V, D>, K, V, D>("MaiterKernel2", this);
+            MethodRegistrationHelper<MaiterKernel2<K, V, D>, K, V, D>("MaiterKernel2", "map", &MaiterKernel2<K, V, D>::map, this);
+        }
 
-        KernelRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", this);
-        MethodRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", "run", &MaiterKernel3<K, V, D>::run, this);
-                
+        //dumping result to disk job
+        if(termchecker != NULL){
+            KernelRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", this);
+            MethodRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", "run", &MaiterKernel3<K, V, D>::run, this);
+        }
+     
 	return 0;
     }
 };

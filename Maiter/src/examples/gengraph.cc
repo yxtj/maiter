@@ -15,7 +15,6 @@ DEFINE_string(dfs_path, "", "");
 DEFINE_string(hadoop_path, "/home/yzhang/hadoop-priter-0.1/bin/hadoop", "");
 DECLARE_string(graph_dir);
 
-static TypedGlobalTable<int, double, double, vector<int> > *graph;
 
 static boost::mt19937 gen(time(0));
 
@@ -110,177 +109,170 @@ static vector<Link> InitLinks3(int key) {
 }
 
 
-static int GenGraph(ConfigData& conf) {
-	int shards = conf.num_workers();
-	VLOG(0) << "shards " << shards;
-        if(FLAGS_weighted){
-            graph = CreateTable<int, double, double, vector<int> >(0, shards, 1, new Sharding::Mod,
-                        new Accumulators<double>::Sum, NULL);
-        }else{
-            graph = CreateTable<int, double, double, vector<int> >(0, shards, 1, new Sharding::Mod,
-                        new Accumulators<double>::Sum, NULL);
-        }
-  
-
-  if (!StartWorker(conf)) {
-    Master m(conf);
-    m.run_all("gengraph_RunKernel1", "run", graph);
-  }
-  return 0;
-}
-REGISTER_RUNNER(GenGraph);
-
-template <class K, class V, class D>
-class gengraph_RunKernel1 : public DSMKernel {
+struct GraphGenInitializer : public Initializer<int, float, vector<int> > {
 public:
-    
-	  template <class TableA>
-	  void gen_unweightgraph(TableA* a){  
-              ofstream partition;
-              string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
-              partition.open(patition_file.c_str());
+    void gen_unweightgraph(TypedGlobalTable<int, float, float, vector<int> >* a, int shard_id){  
+      ofstream partition;
+      string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), shard_id);
+      partition.open(patition_file.c_str());
 
-	      const int num_shards = graph->num_shards();
-	      for (int i = current_shard(); i < FLAGS_graph_size; i += num_shards) {
-                  partition << i << "\t";
-                  vector<int> links = InitLinks(i);
-                  vector<int>::iterator it;
-                  for(it=links.begin(); it!=links.end(); it++){
-                      int target = *it;
-                      partition << target << " ";
-		  }
-	          partition << "\n";
-  
-	      }
-              partition.close();
-	  }
+      const int num_shards = a->num_shards();
+      for (int i = shard_id; i < FLAGS_graph_size; i += num_shards) {
+          partition << i << "\t";
+          vector<int> links = InitLinks(i);
+          vector<int>::iterator it;
+          for(it=links.begin(); it!=links.end(); it++){
+              int target = *it;
+              partition << target << " ";
+          }
+          partition << "\n";
 
-          template <class TableA>
-	  void gen_hadoop_unweightgraph(TableA* a){  
-              ofstream partition;
-              ofstream hadooppartition;
-              string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
-              string patition_file_hadoop = StringPrintf("%shadoop/part%d", FLAGS_graph_dir.c_str(), current_shard());
-              partition.open(patition_file.c_str());
-              hadooppartition.open(patition_file_hadoop.c_str());
+      }
+      partition.close();
+    }
 
-	      const int num_shards = graph->num_shards();
-	      for (int i = current_shard(); i < FLAGS_graph_size; i += num_shards) {
-                  partition << i << "\t";
-                  hadooppartition << i << "\t1:";
-                  vector<int> links = InitLinks(i);
-                  vector<int>::iterator it;
-                  for(it=links.begin(); it!=links.end(); it++){
-                      int target = *it;
-                      partition << target << " ";
-                      hadooppartition << target << " ";
-		  }
-	          partition << "\n";
-                  hadooppartition << "\n";
-	      }
-              partition.close();
-              hadooppartition.close();              
+    void gen_hadoop_unweightgraph(TypedGlobalTable<int, float, float, vector<int> >* a, int shard_id){  
+      ofstream partition;
+      ofstream hadooppartition;
+      string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), shard_id);
+      string patition_file_hadoop = StringPrintf("%shadoop/part%d", FLAGS_graph_dir.c_str(), shard_id);
+      partition.open(patition_file.c_str());
+      hadooppartition.open(patition_file_hadoop.c_str());
 
-              string delete_cmd = StringPrintf("%s dfs -rmr %s", FLAGS_hadoop_path.c_str(), patition_file.c_str());
-              string put_cmd = StringPrintf("%s dfs -put %s %s", FLAGS_hadoop_path.c_str(), patition_file.c_str(), patition_file.c_str());
-              VLOG(1) << "hadoop cmd is " << endl << delete_cmd << endl << put_cmd << endl;
-              system(delete_cmd.c_str());
-              system(put_cmd.c_str());
-              
-              string delete_cmd2 = StringPrintf("%s dfs -rmr %s", FLAGS_hadoop_path.c_str(), patition_file_hadoop.c_str());
-              string put_cmd2 = StringPrintf("%s dfs -put %s %s", FLAGS_hadoop_path.c_str(), patition_file_hadoop.c_str(), patition_file_hadoop.c_str());
-              VLOG(1) << "hadoop cmd is " << endl << delete_cmd2 << endl << put_cmd2 << endl;
-              system(delete_cmd2.c_str());
-              system(put_cmd2.c_str());
-	  }
-                  
-          template <class TableA>
-	  void gen_weightgraph(TableA* a){  
-              ofstream partition;
-              string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
+      const int num_shards = a->num_shards();
+      for (int i = shard_id; i < FLAGS_graph_size; i += num_shards) {
+          partition << i << "\t";
+          hadooppartition << i << "\t1:";
+          vector<int> links = InitLinks(i);
+          vector<int>::iterator it;
+          for(it=links.begin(); it!=links.end(); it++){
+              int target = *it;
+              partition << target << " ";
+              hadooppartition << target << " ";
+          }
+          partition << "\n";
+          hadooppartition << "\n";
+      }
+      partition.close();
+      hadooppartition.close();              
 
-              partition.open(patition_file.c_str());
+      string delete_cmd = StringPrintf("%s dfs -rmr %s", FLAGS_hadoop_path.c_str(), patition_file.c_str());
+      string put_cmd = StringPrintf("%s dfs -put %s %s", FLAGS_hadoop_path.c_str(), patition_file.c_str(), patition_file.c_str());
+      VLOG(1) << "hadoop cmd is " << endl << delete_cmd << endl << put_cmd << endl;
+      system(delete_cmd.c_str());
+      system(put_cmd.c_str());
 
-	      const int num_shards = graph->num_shards();
-	      for (int i = current_shard(); i < FLAGS_graph_size; i += num_shards) {
-                  partition << i << "\t";
-                  vector<Link> links = InitLinks2(i);
-                  vector<Link>::iterator it;
-                  for(it=links.begin(); it!=links.end(); it++){
-                      Link target = *it;
-                      partition << target.end << "," << target.weight << " ";
-		  }
-	          partition << "\n";
-	      }
-              partition.close();
-	  }
-                
-          
-          template <class TableA>
-	  void gen_hadoop_weightgraph(TableA* a){  
-              ofstream partition, hadoop_partition;
-              string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
-              string hadoop_patition_file = StringPrintf("%shadoop/part%d", FLAGS_graph_dir.c_str(), current_shard());
-              partition.open(patition_file.c_str());
-              hadoop_partition.open(hadoop_patition_file.c_str());
+      string delete_cmd2 = StringPrintf("%s dfs -rmr %s", FLAGS_hadoop_path.c_str(), patition_file_hadoop.c_str());
+      string put_cmd2 = StringPrintf("%s dfs -put %s %s", FLAGS_hadoop_path.c_str(), patition_file_hadoop.c_str(), patition_file_hadoop.c_str());
+      VLOG(1) << "hadoop cmd is " << endl << delete_cmd2 << endl << put_cmd2 << endl;
+      system(delete_cmd2.c_str());
+      system(put_cmd2.c_str());
+    }
 
-	      const int num_shards = graph->num_shards();
-	      for (int i = current_shard(); i < FLAGS_graph_size; i += num_shards) {
-                  partition << i << "\t";
-                  if(i == 0){
-                      hadoop_partition << i << "\tf0:";
-                  }else{
-                      hadoop_partition << i << "\tp:";
-                  }
-                  
-                  vector<Link> links = InitLinks2(i);
-                  vector<Link>::iterator it;
-                  for(it=links.begin(); it!=links.end(); it++){
-                      Link target = *it;
-                      partition << target.end << "," << target.weight << " ";
-                      hadoop_partition << target.end << "," << target.weight << " ";
-		  }
-	          partition << "\n";
-                  hadoop_partition << "\n";
-	      }
-              partition.close();
-              hadoop_partition.close();
+    void gen_weightgraph(TypedGlobalTable<int, float, float, vector<int> >* a, int shard_id){  
+        VLOG(1) << "i am in";
+      ofstream partition;
+      string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), shard_id);
 
-              string delete_cmd = StringPrintf("%s dfs -rmr %s", FLAGS_hadoop_path.c_str(), patition_file.c_str());
-              string put_cmd = StringPrintf("%s dfs -put %s %s", FLAGS_hadoop_path.c_str(), patition_file.c_str(), patition_file.c_str());
-              VLOG(1) << "hadoop cmd is " << endl << delete_cmd << endl << put_cmd << endl;
-              system(delete_cmd.c_str());
-              system(put_cmd.c_str());
-              
-              string delete_cmd2 = StringPrintf("%s dfs -rmr %s", FLAGS_hadoop_path.c_str(), hadoop_patition_file.c_str());
-              string put_cmd2 = StringPrintf("%s dfs -put %s %s", FLAGS_hadoop_path.c_str(), hadoop_patition_file.c_str(), hadoop_patition_file.c_str());
-              VLOG(1) << "hadoop cmd is " << endl << delete_cmd2 << endl << put_cmd2 << endl;
-              system(delete_cmd2.c_str());
-              system(put_cmd2.c_str());
-	  }
-                    
-                    
-	  void run() {
-		  VLOG(1) << "generating synthetic graph";
-                  graph->InitStateTable();
-                  if(FLAGS_uploadDFS){
-                      if(FLAGS_weighted){
-                          gen_hadoop_weightgraph(graph);
-                      }else{
-                          gen_hadoop_unweightgraph(graph);
-                      }
-                  }else{
-                      if(FLAGS_weighted){
-                          gen_weightgraph(graph);
-                      }else{
-                          gen_unweightgraph(graph);
-                      }
-                  }
+      partition.open(patition_file.c_str());
 
-	  }
+      const int num_shards = a->num_shards();
+      for (int i = shard_id; i < FLAGS_graph_size; i += num_shards) {
+          partition << i << "\t";
+          vector<Link> links = InitLinks2(i);
+          vector<Link>::iterator it;
+          for(it=links.begin(); it!=links.end(); it++){
+              Link target = *it;
+              partition << target.end << "," << target.weight << " ";
+          }
+          partition << "\n";
+      }
+      partition.close();
+      VLOG(1) << "i am out";
+    }
+
+
+    void gen_hadoop_weightgraph(TypedGlobalTable<int, float, float, vector<int> >* a, int shard_id){  
+      ofstream partition, hadoop_partition;
+      string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), shard_id);
+      string hadoop_patition_file = StringPrintf("%shadoop/part%d", FLAGS_graph_dir.c_str(), shard_id);
+      partition.open(patition_file.c_str());
+      hadoop_partition.open(hadoop_patition_file.c_str());
+
+      const int num_shards = a->num_shards();
+      for (int i = shard_id; i < FLAGS_graph_size; i += num_shards) {
+          partition << i << "\t";
+          if(i == 0){
+              hadoop_partition << i << "\tf0:";
+          }else{
+              hadoop_partition << i << "\tp:";
+          }
+
+          vector<Link> links = InitLinks2(i);
+          vector<Link>::iterator it;
+          for(it=links.begin(); it!=links.end(); it++){
+              Link target = *it;
+              partition << target.end << "," << target.weight << " ";
+              hadoop_partition << target.end << "," << target.weight << " ";
+          }
+          partition << "\n";
+          hadoop_partition << "\n";
+      }
+      partition.close();
+      hadoop_partition.close();
+
+      string delete_cmd = StringPrintf("%s dfs -rmr %s", FLAGS_hadoop_path.c_str(), patition_file.c_str());
+      string put_cmd = StringPrintf("%s dfs -put %s %s", FLAGS_hadoop_path.c_str(), patition_file.c_str(), patition_file.c_str());
+      VLOG(1) << "hadoop cmd is " << endl << delete_cmd << endl << put_cmd << endl;
+      system(delete_cmd.c_str());
+      system(put_cmd.c_str());
+
+      string delete_cmd2 = StringPrintf("%s dfs -rmr %s", FLAGS_hadoop_path.c_str(), hadoop_patition_file.c_str());
+      string put_cmd2 = StringPrintf("%s dfs -put %s %s", FLAGS_hadoop_path.c_str(), hadoop_patition_file.c_str(), hadoop_patition_file.c_str());
+      VLOG(1) << "hadoop cmd is " << endl << delete_cmd2 << endl << put_cmd2 << endl;
+      system(delete_cmd2.c_str());
+      system(put_cmd2.c_str());
+    }
+
+    void initTable(TypedGlobalTable<int, float, float, vector<int> >* table, int shard_id){
+      VLOG(1) << "generating synthetic graph";
+      //table->InitStateTable();
+      if(FLAGS_uploadDFS){
+          if(FLAGS_weighted){
+              gen_hadoop_weightgraph(table, shard_id);
+          }else{
+              gen_hadoop_unweightgraph(table, shard_id);
+          }
+      }else{
+          if(FLAGS_weighted){
+              gen_weightgraph(table, shard_id);
+          }else{
+              gen_unweightgraph(table, shard_id);
+          }
+      }
+    }
 };
 
 
-//KernelRegistrationHelper<gengraph_RunKernel1<int, int, int>, int, int, int>("MaiterKernel1", 0);
-//MethodRegistrationHelper<gengraph_RunKernel1<int, int, int>, int, int, int>("MaiterKernel1", "run", &gengraph_RunKernel1<int, int, int>::run, 0);
+static int GraphGen(ConfigData& conf) {
+    MaiterKernel<int, float, vector<int> >* kernel = new MaiterKernel<int, float, vector<int> >(
+                                        conf, FLAGS_graph_size, 1, "",
+                                        new Sharding::Mod,
+                                        new GraphGenInitializer,
+                                        NULL,
+                                        NULL,
+                                        NULL);
+    
+    
+    kernel->registerMaiter();
 
+    if (!StartWorker(conf)) {
+        Master m(conf);
+        m.run_maiter(kernel);
+    }
+    
+    delete kernel;
+    return 0;
+}
+
+REGISTER_RUNNER(GraphGen);

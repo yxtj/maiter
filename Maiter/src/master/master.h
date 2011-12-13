@@ -86,6 +86,26 @@ public:
     run_all(RunDescriptor(kernel, method, locality));
   }
 
+  //maiter program
+  template<class K, class V, class D>
+  void run_maiter(MaiterKernel<K, V, D>* maiter){
+      if(maiter->sharder == NULL){
+          maiter->sharder = new Sharding::Mod;
+      }
+      
+      if(maiter->initializer != NULL){
+          run_all("MaiterKernel1", "run", maiter->table);
+      }
+        
+      if(maiter->accum != NULL && maiter->sender != NULL){
+          run_all("MaiterKernel2", "map", maiter->table);
+      }
+
+      if(maiter->termchecker != NULL){
+          run_all("MaiterKernel3", "run", maiter->table);
+      }
+  }
+  
   // Run the given kernel function on one (arbitrary) worker node.
   void run_one(const string& kernel, const string& method, GlobalTable* locality) {
     run_one(RunDescriptor(kernel, method, locality));

@@ -1,5 +1,4 @@
 #include "client/client.h"
-//#include "maiterkernel.h"
 
 
 using namespace dsm;
@@ -107,12 +106,10 @@ static int Pagerank(ConfigData& conf) {
     
     kernel->registerMaiter();
 
-    	if (!StartWorker(conf)) {
-            Master m(conf);
-            m.run_all("MaiterKernel1", "run", kernel->table);
-            m.run_all("MaiterKernel2", "map", kernel->table);
-            m.run_all("MaiterKernel3", "run", kernel->table);
-	}
+    if (!StartWorker(conf)) {
+        Master m(conf);
+        m.run_maiter(kernel);
+    }
     
     delete kernel;
     return 0;
