@@ -8,6 +8,7 @@
 #include "worker/worker.pb.h"
 #include <boost/thread.hpp>
 
+DECLARE_double(term_threshold);
 
 namespace dsm {
 
@@ -103,6 +104,7 @@ struct TermCheckIterator {
     virtual V& value2() = 0;
     virtual bool done() = 0;
     virtual void Next() = 0;
+    virtual V defaultV() = 0;
 };
 
 template <class K, class V>
@@ -113,6 +115,22 @@ struct TermChecker : public TermCheckerBase {
 };
 
 // Commonly used accumulation and sharding operators.
+
+struct Sharding {
+  struct String  : public Sharder<string> {
+    int operator()(const string& k, int shards) { return StringPiece(k).hash() % shards; }
+  };
+
+  struct Mod : public Sharder<int> {
+    int operator()(const int& key, int shards) { return key % shards; }
+  };
+
+  struct UintMod : public Sharder<uint32_t> {
+    int operator()(const uint32_t& key, int shards) { return key % shards; }
+  };
+};
+
+
 template <class V>
 struct Accumulators {
   struct Min : public Accumulator<V> {
@@ -131,20 +149,46 @@ struct Accumulators {
   };
 };
 
-struct Sharding {
-  struct String  : public Sharder<string> {
-    int operator()(const string& k, int shards) { return StringPiece(k).hash() % shards; }
-  };
 
-  struct Mod : public Sharder<int> {
-    int operator()(const int& key, int shards) { return key % shards; }
-  };
-
-  struct UintMod : public Sharder<uint32_t> {
-    int operator()(const uint32_t& key, int shards) { return key % shards; }
+template <class K, class V>
+struct TermCheckers {
+  struct DIFF : public TermChecker<K, V> {
+    double last;
+    double curr;
+    
+    DIFF(){
+        last = -1;
+        curr = 0;
+    }
+    
+    double partia_calculate(TermCheckIterator<K, V>* statetable){
+        double partial_curr = 0;
+        V defaultv = statetable->defaultV();
+        while(!statetable->done()){
+            statetable->Next();
+            if(statetable->value2() != defaultv){
+                partial_curr += static_cast<double>(statetable->value2());
+            }
+        }
+        return partial_curr;
+    }
+    
+    bool terminate(vector<double> partials){
+        curr = 0;
+        vector<double>::iterator it;
+        for(it=partials.begin(); it!=partials.end(); it++){
+                curr += *it;
+        }
+        
+        if(abs(curr - last) < FLAGS_term_threshold){
+            return true;
+        }else{
+            last = curr;
+            return false;
+        }
+    }
   };
 };
-
 #endif		//#ifdef SWIG / #else
 
 struct TableFactory {
@@ -170,6 +214,8 @@ public:
     key_marshal = value1_marshal = value2_marshal = value3_marshal = NULL;
     accum = NULL;
     sharder = NULL;
+    initializer = NULL;
+    sender = NULL;
     termchecker = NULL;
   }
 
@@ -184,8 +230,10 @@ public:
 
   vector<TriggerBase*> triggers;
 
-  AccumulatorBase *accum;
   SharderBase *sharder;
+  InitializerBase *initializer;
+  AccumulatorBase *accum;
+  SenderBase *sender;
   TermCheckerBase *termchecker;
 
   MarshalBase *key_marshal;

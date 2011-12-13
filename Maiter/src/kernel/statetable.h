@@ -210,6 +210,7 @@ public:
         EntirePassIterator(StateTable<K, V1, V2, V3>& parent) : pos(-1), parent_(parent) {
                 Next();
                 total = 0;
+                defaultv = ((Sender<K, V1, V3>*)parent.info_.sender)->reset(parent_.buckets_[0].k, parent_.buckets_[0].v1);
         }
 
         Marshal<K>* kmarshal() { return parent_.kmarshal(); }
@@ -228,6 +229,10 @@ public:
             return pos == parent_.size_;
         }
 
+        V1 defaultV(){
+            return defaultv;
+        }
+        
         const K& key() { return parent_.buckets_[pos].k; }
         V1& value1() { return parent_.buckets_[pos].v1; }
         V2& value2() { return parent_.buckets_[pos].v2; }
@@ -236,6 +241,7 @@ public:
         int pos;
         StateTable<K, V1, V2, V3> &parent_;
         int total;
+        V1 defaultv;
     };
    
   struct Factory : public TableFactory {

@@ -34,7 +34,9 @@ private:
 template<class K, class V1, class V2, class V3>
 static TypedGlobalTable<K, V1, V2, V3>* CreateTable(int id, int shards, double schedule_portion,
                                            Sharder<K>* sharding,
+                                           Initializer<K, V1, V3>* initializer,
                                            Accumulator<V1>* accum,
+                                           Sender<K, V1, V3>* sender,
                                            TermChecker<K, V2>* termchecker) {
   TableDescriptor *info = new TableDescriptor(id, shards);
   info->key_marshal = new Marshal<K>;
@@ -42,9 +44,11 @@ static TypedGlobalTable<K, V1, V2, V3>* CreateTable(int id, int shards, double s
   info->value2_marshal = new Marshal<V2>;
   info->value3_marshal = new Marshal<V3>;
   info->sharder = sharding;
+  info->initializer = initializer;
   info->partition_factory = new typename StateTable<K, V1, V2, V3>::Factory;
   info->deltaT_factory = new typename DeltaTable<K, V1>::Factory;
   info->accum = accum;
+  info->sender = sender;
   info->termchecker = termchecker;
   info->schedule_portion = schedule_portion;
 

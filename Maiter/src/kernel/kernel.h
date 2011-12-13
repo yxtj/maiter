@@ -416,7 +416,7 @@ public:
     int registerMaiter() {
 	VLOG(0) << "shards " << conf.num_workers();
 	table = CreateTable<K, V, V, D >(0, conf.num_workers(), schedule_portion,
-                                        sharder, accum, termchecker);
+                                        sharder, initializer, accum, sender, termchecker);
             
         //initialize table job
         KernelRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", this);
