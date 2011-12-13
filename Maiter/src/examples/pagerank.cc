@@ -101,7 +101,7 @@ static int Pagerank(ConfigData& conf) {
                                         new PagerankInitializer,
                                         new Accumulators<float>::Sum,
                                         new PagerankSender,
-                                        new PagerankTermChecker);
+                                        new TermCheckers<int, float>::DIFF);
     
     
     kernel->registerMaiter();
