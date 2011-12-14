@@ -666,7 +666,14 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
       buckets_[b].v1 = v1;
       buckets_[b].v2 = v2;
       buckets_[b].v3 = v3;
-      buckets_[b].has_v1 = true;
+      
+      //if not default v, it means has_v1
+      if(((Sender<K, V1, V3>*)info_.sender)->reset(k, v1) != v1){
+          buckets_[b].has_v1 = true;
+      }else{
+          buckets_[b].has_v1 = false;
+      }
+      
       buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(v1, v2);
       ++entries_;
     }

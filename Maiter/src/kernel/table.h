@@ -152,11 +152,11 @@ struct Accumulators {
 
 template <class K, class V>
 struct TermCheckers {
-  struct DIFF : public TermChecker<K, V> {
+  struct Diff : public TermChecker<K, V> {
     double last;
     double curr;
     
-    DIFF(){
+    Diff(){
         last = -std::numeric_limits<double>::max();;
         curr = 0;
     }

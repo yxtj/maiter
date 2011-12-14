@@ -7,7 +7,6 @@ DECLARE_string(graph_dir);
 DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
-DECLARE_double(termcheck_threshold);
 
 static vector<int> readUnWeightLinks(string links){
     vector<int> linkvec;
@@ -62,37 +61,6 @@ struct PagerankSender : public Sender<int, float, vector<int> > {
     }
 };
 
-struct PagerankTermChecker : public TermChecker<int, float> {
-    double curr;
-
-    double set_curr(){
-        return curr;
-    }
-
-    double partia_calculate(TermCheckIterator<int, float>* statetable){
-        float partial_curr = 0;
-        while(!statetable->done()){
-            statetable->Next();
-            partial_curr += statetable->value2();
-        }
-        return partial_curr;
-    }
-
-    bool terminate(vector<double> partials){
-        curr = 0;
-        vector<double>::iterator it;
-        for(it=partials.begin(); it!=partials.end(); it++){
-                double partial = *it;
-                curr += partial;
-        }
-
-        if(curr > FLAGS_termcheck_threshold){
-            return true;
-        }else{
-            return false;
-        }
-    }
-};
 
 static int Pagerank(ConfigData& conf) {
     MaiterKernel<int, float, vector<int> >* kernel = new MaiterKernel<int, float, vector<int> >(
@@ -101,7 +69,7 @@ static int Pagerank(ConfigData& conf) {
                                         new PagerankInitializer,
                                         new Accumulators<float>::Sum,
                                         new PagerankSender,
-                                        new TermCheckers<int, float>::DIFF);
+                                        new TermCheckers<int, float>::Diff);
     
     
     kernel->registerMaiter();

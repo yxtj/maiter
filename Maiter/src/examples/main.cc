@@ -20,8 +20,8 @@ DEFINE_double(termcheck_threshold, 1000000000, "");
 
 DEFINE_int32(adsorption_starts, 100, "");
 DEFINE_double(adsorption_damping, 0.1, "");
-DEFINE_int32(shortestpath_source, 0, "");
-DEFINE_int32(katz_source, 0, "");
+DEFINE_int64(shortestpath_source, 0, "");
+DEFINE_int64(katz_source, 0, "");
 DEFINE_double(katz_beta, 0.1, "");
 
 DECLARE_bool(log_prefix);
