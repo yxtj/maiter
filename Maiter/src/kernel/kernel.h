@@ -299,6 +299,14 @@ public:
             }
             delete it;
 
+            //send out buffer
+            typename vector<pair<K, V> >::iterator iter;
+            for(iter = output->begin(); iter != output->end(); iter++) {
+                pair<K, V> kvpair = *iter;
+                maiter->table->accumulateF1(kvpair.first, kvpair.second);
+            }
+            output->clear();
+            
             //for expr
             cout << timer.elapsed() << "\t" << current_shard() << "\t" << totalF1 << "\t" << updates << endl;
         }

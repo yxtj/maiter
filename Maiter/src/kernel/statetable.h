@@ -521,7 +521,7 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size) {
   std::vector<Bucket> old_b = buckets_;
   int old_entries = entries_;
 
-  LOG(INFO) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
+  //LOG(INFO) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
 
   buckets_.resize(size);
   size_ = size;

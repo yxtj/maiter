@@ -185,7 +185,7 @@ struct TermCheckers {
         }
         
         VLOG(0) << "terminate check : last progress " << last << " current progress " << curr << " difference " << abs(curr - last);
-        if(abs(curr - last) < FLAGS_termcheck_threshold){
+        if(abs(curr - last) <= FLAGS_termcheck_threshold){
             return true;
         }else{
             last = curr;
