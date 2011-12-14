@@ -287,7 +287,8 @@ public:
 
         //the main loop for iterative update
         while(true){
-            typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_typed_iterator(current_shard(), true);
+            //set false, no inteligient stop scheme, which can check whether there are changes in statetable
+            typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_typed_iterator(current_shard(), false);
             if(it == NULL) break;
 
             for (; !it->done(); it->Next()) {
