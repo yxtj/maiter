@@ -24,7 +24,7 @@ static vector<int> readUnWeightLinks(string links){
 }
 
 struct PagerankInitializer : public Initializer<int, float, vector<int> > {
-    void initTable(LocalStateTable<int, float, float, vector<int> >* table, int shard_id){
+    void initTable(TypedGlobalTable<int, float, float, vector<int> >* table, int shard_id){
         string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), shard_id);
         ifstream inFile;
         inFile.open(patition_file.c_str());

@@ -104,32 +104,31 @@ public:
         boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
 
         if(parent_.entries_ <= sample_size){
-                //if table size is less than the sample set size, schedule them all
-                int i;
-                for(i=0; i<parent_.size_; i++){
-                        if(parent_.buckets_[i].in_use){
-                                scheduled_pos.push_back(i);
-
-                                b_no_change = b_no_change && !parent_.buckets_[i].has_v1;
-                        }
+            //if table size is less than the sample set size, schedule them all
+            int i;
+            for(i=0; i<parent_.size_; i++){
+                if(parent_.buckets_[i].in_use){
+                    scheduled_pos.push_back(i);
+                    b_no_change = b_no_change && !parent_.buckets_[i].has_v1;
                 }
-                if(b_no_change && bfilter) return;
-                if(!bfilter) b_no_change = false;
+            }
+            if(b_no_change && bfilter) return;
+            if(!bfilter) b_no_change = false;
         }else{
                 //sample random pos, the sample reflect the whole data set more or less
                 vector<int> sampled_pos;
                 int i;
                 int trials = 0;
                 for(i=0; i<sample_size; i++){
-                        int rand_pos = rand_num();
-                        trials++;
-                        while(!parent_.buckets_[rand_pos].in_use){
-                                rand_pos = rand_num();
-                                trials++;
-                        }
-                        sampled_pos.push_back(rand_pos);
+                    int rand_pos = rand_num();
+                    trials++;
+                    while(!parent_.buckets_[rand_pos].in_use){
+                            rand_pos = rand_num();
+                            trials++;
+                    }
+                    sampled_pos.push_back(rand_pos);
 
-                        b_no_change = b_no_change && !parent_.buckets_[rand_pos].has_v1;
+                    b_no_change = b_no_change && !parent_.buckets_[rand_pos].has_v1;
                 }
 
                 if(b_no_change && bfilter) return;
@@ -505,7 +504,7 @@ template <class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f, int* updates, double* totalF2) {
   total_curr = 0;
   EntirePassIterator* entireIter = new EntirePassIterator(*this);
-  total_curr = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)->partia_calculate(entireIter));
+  total_curr = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)->local_report(entireIter));
   delete entireIter;
   *updates = total_updates;
   *totalF2 = total_curr;
@@ -588,7 +587,6 @@ void StateTable<K, V1, V2, V3>::updateF1(const K& k, const V1& v) {
     CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
 
     buckets_[b].v1 = v;
-    buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(buckets_[b].v1, buckets_[b].v2);
     buckets_[b].has_v1 = false;
     total_updates++;
 }
@@ -617,6 +615,7 @@ void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v) {
 
   CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
   ((Accumulator<V1>*)info_.accum)->accumulate(&buckets_[b].v1, v);
+  buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(buckets_[b].v1, buckets_[b].v2);
   buckets_[b].has_v1 = true;
 }
 

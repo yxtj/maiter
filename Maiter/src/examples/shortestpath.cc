@@ -35,7 +35,7 @@ static vector<Link> readWeightLinks(string links, float** weight){
 }
 
 struct ShortestpathInitializer : public Initializer<int, float, vector<Link> > {
-    void initTable(LocalStateTable<int, float, float, vector<Link> >* table, int shard_id){
+    void initTable(TypedGlobalTable<int, float, float, vector<Link> >* table, int shard_id){
         string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), shard_id);
         ifstream inFile;
         inFile.open(patition_file.c_str());

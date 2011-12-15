@@ -82,17 +82,14 @@ struct Sharder : public SharderBase {
 };
 
 template <class K, class V, class D>
-typedef TypedGlobalTable<K, V, V, D> LocalStateTable<K, V, V, D>;
-
-template <class K, class V, class D>
 struct Initializer : public InitializerBase {
-  virtual void initTable(LocalStateTable<K, V, V, D>* table, int shard_id) = 0;
+  virtual void initTable(TypedGlobalTable<K, V, V, D>* table, int shard_id) = 0;
 };
 
 template <class V>
 struct Accumulator : public AccumulatorBase {
   virtual void accumulate(V* a, const V& b) = 0;
-  virtual V priority(const V& state, const V& delta) = 0;
+  virtual V priority(const V& delta, const V& state) = 0;
 };
 
 template <class K, class V, class D>
@@ -112,8 +109,9 @@ struct LocalTableIterator {
 
 template <class K, class V>
 struct TermChecker : public TermCheckerBase {
+    virtual double set_curr() = 0;
     virtual double local_report(LocalTableIterator<K, V>* statetable) = 0;
-    virtual bool terminate(const vector<double> local_reports) = 0;
+    virtual bool terminate(vector<double> local_reports) = 0;
 };
 
 // Commonly used accumulation and sharding operators.
@@ -137,17 +135,17 @@ template <class V>
 struct Accumulators {
   struct Min : public Accumulator<V> {
     void accumulate(V* a, const V& b) { *a = std::min(*a, b); }
-    V priority(const V& state, const V& delta) {return state - std::min(state, delta);}
+    V priority(const V& delta, const V& state) {return state - std::min(state, delta);}
   };
 
   struct Max : public Accumulator<V> {
     void accumulate(V* a, const V& b) { *a = std::max(*a, b); }
-    V priority(const V& state, const V& delta) {return std::max(state, delta) - state;}
+    V priority(const V& delta, const V& state) {return std::max(state, delta) - state;}
   };
 
   struct Sum : public Accumulator<V> {
     void accumulate(V* a, const V& b) { *a = *a + b; }
-    V priority(const V& state, const V& delta) {return delta;}
+    V priority(const V& delta, const V& state) {return delta;}
   };
 };
 
@@ -163,6 +161,10 @@ struct TermCheckers {
         curr = 0;
     }
 
+    double set_curr(){
+        return curr;
+    }
+    
     double local_report(LocalTableIterator<K, V>* statetable){
         double partial_curr = 0;
         V defaultv = statetable->defaultV();
@@ -175,7 +177,7 @@ struct TermCheckers {
         return partial_curr;
     }
     
-    bool terminate(const vector<double> local_reports){
+    bool terminate(vector<double> local_reports){
         curr = 0;
         vector<double>::iterator it;
         for(it=local_reports.begin(); it!=local_reports.end(); it++){
