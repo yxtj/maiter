@@ -82,8 +82,11 @@ struct Sharder : public SharderBase {
 };
 
 template <class K, class V, class D>
+typedef TypedGlobalTable<K, V, V, D> LocalStateTable<K, V, V, D>;
+
+template <class K, class V, class D>
 struct Initializer : public InitializerBase {
-  virtual void initTable(TypedGlobalTable<K, V, V, D>* table, int shard_id) = 0;
+  virtual void initTable(LocalStateTable<K, V, V, D>* table, int shard_id) = 0;
 };
 
 template <class V>
