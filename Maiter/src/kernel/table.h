@@ -102,7 +102,7 @@ struct Sender : public SenderBase {
 };
 
 template <class K, class V>
-struct TermCheckIterator {
+struct LocalTableIterator {
     virtual const K& key() = 0;
     virtual V& value2() = 0;
     virtual bool done() = 0;
@@ -112,9 +112,8 @@ struct TermCheckIterator {
 
 template <class K, class V>
 struct TermChecker : public TermCheckerBase {
-    virtual double set_curr() = 0;
-    virtual double partia_calculate(TermCheckIterator<K, V>* statetable) = 0;
-    virtual bool terminate(vector<double> partials) = 0;
+    virtual double local_report(LocalTableIterator<K, V>* statetable) = 0;
+    virtual bool terminate(const vector<double> local_reports) = 0;
 };
 
 // Commonly used accumulation and sharding operators.
@@ -163,12 +162,8 @@ struct TermCheckers {
         last = -std::numeric_limits<double>::max();;
         curr = 0;
     }
-    
-    double set_curr(){
-        return curr;
-    }
-    
-    double partia_calculate(TermCheckIterator<K, V>* statetable){
+
+    double local_report(LocalTableIterator<K, V>* statetable){
         double partial_curr = 0;
         V defaultv = statetable->defaultV();
         while(!statetable->done()){
@@ -180,10 +175,10 @@ struct TermCheckers {
         return partial_curr;
     }
     
-    bool terminate(vector<double> partials){
+    bool terminate(const vector<double> local_reports){
         curr = 0;
         vector<double>::iterator it;
-        for(it=partials.begin(); it!=partials.end(); it++){
+        for(it=local_reports.begin(); it!=local_reports.end(); it++){
                 curr += *it;
         }
         

@@ -206,7 +206,7 @@ public:
    };
 
    //for termination check
-   struct EntirePassIterator : public TypedTableIterator<K, V1, V2, V3>, public TermCheckIterator<K, V2> {
+   struct EntirePassIterator : public TypedTableIterator<K, V1, V2, V3>, public LocalTableIterator<K, V2> {
         EntirePassIterator(StateTable<K, V1, V2, V3>& parent) : pos(-1), parent_(parent) {
                 Next();
                 total = 0;
