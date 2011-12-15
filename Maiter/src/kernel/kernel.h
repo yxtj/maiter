@@ -275,7 +275,7 @@ public:
             output->clear();
         }
 
-        maiter->table->updateF1(k, maiter->sender->reset(k, v1));
+        maiter->table->updateF1(k, maiter->sender->reset());
     }
 
     void run_loop(TypedGlobalTable<K, V, V, D>* a) {

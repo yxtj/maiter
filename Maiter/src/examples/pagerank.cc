@@ -47,6 +47,10 @@ struct PagerankInitializer : public Initializer<int, float, vector<int> > {
 };
 
 struct PagerankSender : public Sender<int, float, vector<int> > {
+    float zero;
+    
+    PagerankSender() : zero(0){}
+    
     void send(const float& delta, const vector<int>& data, vector<pair<int, float> >* output){
         int size = (int) data.size();
         float outv = delta * 0.8 / size;
@@ -56,8 +60,8 @@ struct PagerankSender : public Sender<int, float, vector<int> > {
         }
     }
 
-    float reset(const int& k, const float& delta){
-        return 0;
+    const float& reset() const {
+        return zero;
     }
 };
 

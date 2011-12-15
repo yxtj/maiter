@@ -33,7 +33,7 @@ private:
     V3 v3;
     V1 priority;
     bool in_use;
-    bool has_v1;
+    //bool has_v1;
   };
 #pragma pack(pop)
 
@@ -52,14 +52,15 @@ public:
                 boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
                 boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
 
+                defaultv = ((Sender<K, V1, V3>*)parent_.info_.sender)->reset();
                 int i;
                 for(i=0; i<sample_size && b_no_change; i++){
-                        int rand_pos = rand_num();
-                        while(!parent_.buckets_[rand_pos].in_use){
-                                rand_pos = rand_num();
-                        }
+                    int rand_pos = rand_num();
+                    while(!parent_.buckets_[rand_pos].in_use){
+                        rand_pos = rand_num();
+                    }
 
-                        b_no_change = b_no_change && !parent_.buckets_[i].has_v1;
+                    b_no_change = b_no_change && parent_.buckets_[rand_pos].v1 != defaultv;
                 }
             }else{
                 b_no_change = false;
@@ -76,7 +77,7 @@ public:
         void Next() {
           do {
             ++pos;
-          } while (pos < parent_.size_ && (!parent_.buckets_[pos].has_v1 || !parent_.buckets_[pos].in_use));
+          } while (pos < parent_.size_ && (parent_.buckets_[pos].v1 == defaultv || !parent_.buckets_[pos].in_use));
         }
 
         bool done() {
@@ -91,6 +92,7 @@ public:
         int pos;
         StateTable<K, V1, V2, V3> &parent_;
         bool b_no_change;
+        V1 defaultv;
   };
 
   struct ScheduledIterator : public TypedTableIterator<K, V1, V2, V3> {
@@ -103,13 +105,15 @@ public:
         boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
         boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
 
+        V1 defaultv = ((Sender<K, V1, V3>*)parent_.info_.sender)->reset();
+        
         if(parent_.entries_ <= sample_size){
             //if table size is less than the sample set size, schedule them all
             int i;
             for(i=0; i<parent_.size_; i++){
                 if(parent_.buckets_[i].in_use){
                     scheduled_pos.push_back(i);
-                    b_no_change = b_no_change && !parent_.buckets_[i].has_v1;
+                    b_no_change = b_no_change && parent_.buckets_[i].v1 != defaultv;
                 }
             }
             if(b_no_change && bfilter) return;
@@ -128,7 +132,7 @@ public:
                     }
                     sampled_pos.push_back(rand_pos);
 
-                    b_no_change = b_no_change && !parent_.buckets_[rand_pos].has_v1;
+                    b_no_change = b_no_change && parent_.buckets_[rand_pos].v1 != defaultv;
                 }
 
                 if(b_no_change && bfilter) return;
@@ -143,25 +147,26 @@ public:
                 VLOG(1) << "cut index " << cut_index << " theshold " << threshold << " pos " << sampled_pos[cut_index] << " max " << parent_.buckets_[sampled_pos[0]].v1;
 
                 if(cut_index==0 || parent_.buckets_[sampled_pos[0]].priority == threshold){
-                //if(cut_index==0 || ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[sampled_pos[0]].k, parent_.buckets_[sampled_pos[0]].v1) == threshold){
-                        //to avoid non eligible records
-                        int i;
-                        for(i=0; i<parent_.size_; i++){
-                                if(parent_.buckets_[i].in_use && parent_.buckets_[i].has_v1
-                                        && parent_.buckets_[i].priority >= threshold){
-                                        //&& ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[i].k, parent_.buckets_[i].v1) >= threshold){
-                                        scheduled_pos.push_back(i);
-                                }
+                    //to avoid non eligible records
+                    int i;
+                    for(i=0; i<parent_.size_; i++){
+                        if(!parent_.buckets_[i].in_use) continue;
+                        if(parent_.buckets_[i].v1 == defaultv) continue;
+                        
+                        if(parent_.buckets_[i].priority >= threshold){
+                            scheduled_pos.push_back(i); 
                         }
+                    }
                 }else{
-                        int i;
-                        for(i=0; i<parent_.size_; i++){
-                                if(parent_.buckets_[i].in_use && parent_.buckets_[i].has_v1
-                                                && parent_.buckets_[i].priority >= threshold){
-                                                //&& ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[i].k, parent_.buckets_[i].v1) > threshold){
-                                        scheduled_pos.push_back(i);
-                                }
+                    int i;
+                    for(i=0; i<parent_.size_; i++){
+                        if(!parent_.buckets_[i].in_use) continue;
+                        if(parent_.buckets_[i].v1 == defaultv) continue;
+                        
+                        if(parent_.buckets_[i].priority > threshold){
+                            scheduled_pos.push_back(i); 
                         }
+                    }
                 }
             }
 
@@ -190,11 +195,16 @@ public:
         class compare_priority {
         public:
             StateTable<K, V1, V2, V3> &parent;
-            compare_priority(StateTable<K, V1, V2, V3> &inparent): parent(inparent) {}
-          bool operator()(const int a, const int b) {
-              return ((Accumulator<V1>*)parent.info_.accum)->priority(parent.buckets_[a].v1, parent.buckets_[a].v2)
-                              > ((Accumulator<V1>*)parent.info_.accum)->priority(parent.buckets_[b].v1, parent.buckets_[b].v2);
-          }
+            Accumulator<V1>* accum;
+            
+            compare_priority(StateTable<K, V1, V2, V3> &inparent): parent(inparent) {
+                accum = (Accumulator<V1>*)parent.info_.accum;
+            }
+            
+            bool operator()(const int a, const int b) {
+              return accum->priority(parent.buckets_[a].v1, parent.buckets_[a].v2)
+                              > accum->priority(parent.buckets_[b].v1, parent.buckets_[b].v2);
+            }
         };
 
         int pos;
@@ -209,7 +219,7 @@ public:
         EntirePassIterator(StateTable<K, V1, V2, V3>& parent) : pos(-1), parent_(parent) {
                 Next();
                 total = 0;
-                defaultv = ((Sender<K, V1, V3>*)parent.info_.sender)->reset(parent_.buckets_[0].k, parent_.buckets_[0].v1);
+                defaultv = ((Sender<K, V1, V3>*)parent.info_.sender)->reset();
         }
 
         Marshal<K>* kmarshal() { return parent_.kmarshal(); }
@@ -587,7 +597,7 @@ void StateTable<K, V1, V2, V3>::updateF1(const K& k, const V1& v) {
     CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
 
     buckets_[b].v1 = v;
-    buckets_[b].has_v1 = false;
+    //buckets_[b].has_v1 = false;
     total_updates++;
 }
 
@@ -616,7 +626,7 @@ void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v) {
   CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
   ((Accumulator<V1>*)info_.accum)->accumulate(&buckets_[b].v1, v);
   buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(buckets_[b].v1, buckets_[b].v2);
-  buckets_[b].has_v1 = true;
+  //buckets_[b].has_v1 = true;
 }
 
 template <class K, class V1, class V2, class V3>
@@ -667,11 +677,11 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
       buckets_[b].v3 = v3;
       
       //if not default v, it means has_v1
-      if(((Sender<K, V1, V3>*)info_.sender)->reset(k, v1) != v1){
-          buckets_[b].has_v1 = true;
-      }else{
-          buckets_[b].has_v1 = false;
-      }
+      //if(((Sender<K, V1, V3>*)info_.sender)->reset() != v1){
+      //    buckets_[b].has_v1 = true;
+      //}else{
+      //    buckets_[b].has_v1 = false;
+      //}
       
       buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(v1, v2);
       ++entries_;
@@ -681,7 +691,7 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
     buckets_[b].v1 = v1;
     buckets_[b].v2 = v2;
     buckets_[b].v3 = v3;
-    buckets_[b].has_v1 = true;
+    //buckets_[b].has_v1 = true;
     buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(v1, v2);
   }
 }

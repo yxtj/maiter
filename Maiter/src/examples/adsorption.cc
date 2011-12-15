@@ -57,6 +57,10 @@ struct AdsorptionInitializer : public Initializer<int, float, vector<Link> > {
 };
 
 struct AdsorptionSender : public Sender<int, float, vector<Link> > {
+    float zero;
+    
+    AdsorptionSender() : zero(0) {}
+    
     void send(const float& delta, const vector<Link>& data, vector<pair<int, float> >* output){
         for(vector<Link>::const_iterator it=data.begin(); it!=data.end(); it++){
             Link target = *it;
@@ -65,8 +69,8 @@ struct AdsorptionSender : public Sender<int, float, vector<Link> > {
         }
     }
 
-    float reset(const int& k, const float& delta){
-        return 0;
+    const float& reset() const{
+        return zero;
     }
 };
 

@@ -95,7 +95,7 @@ struct Accumulator : public AccumulatorBase {
 template <class K, class V, class D>
 struct Sender : public SenderBase {
   virtual void send(const V& delta, const D& data, vector<pair<K, V> >* output) = 0;
-  virtual V reset(const K& k, const V& delta) = 0;
+  virtual const V& reset() const = 0;
 };
 
 template <class K, class V>

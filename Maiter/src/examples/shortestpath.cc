@@ -79,7 +79,7 @@ struct ShortestpathSender : public Sender<int, float, vector<Link> > {
         }
     }
 
-    float reset(const int& k, const float& delta){
+    const float& reset() const {
         return imax;
     }
 };
