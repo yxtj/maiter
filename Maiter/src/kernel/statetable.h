@@ -33,7 +33,6 @@ private:
     V3 v3;
     V1 priority;
     bool in_use;
-    //bool has_v1;
   };
 #pragma pack(pop)
 
@@ -52,7 +51,7 @@ public:
                 boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
                 boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
 
-                defaultv = ((Sender<K, V1, V3>*)parent_.info_.sender)->reset();
+                defaultv = parent.sender->reset();
                 int i;
                 for(i=0; i<sample_size && b_no_change; i++){
                     int rand_pos = rand_num();
@@ -105,7 +104,7 @@ public:
         boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
         boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
 
-        V1 defaultv = ((Sender<K, V1, V3>*)parent_.info_.sender)->reset();
+        V1 defaultv = parent_.sender->reset();
         
         if(parent_.entries_ <= sample_size){
             //if table size is less than the sample set size, schedule them all
@@ -132,12 +131,18 @@ public:
                     }
                     sampled_pos.push_back(rand_pos);
 
-                    b_no_change = b_no_change && parent_.buckets_[rand_pos].v1 != defaultv;
+                    b_no_change = b_no_change && parent_.buckets_[rand_pos].v1 == defaultv;
                 }
 
                 if(b_no_change && bfilter) return;
                 if(!bfilter) b_no_change = false;
 
+                //determine priority
+                for(i=0; i<parent_.size_; i++){
+                    if(parent_.buckets_[i].v1 == defaultv) continue;
+                    parent_.buckets_[i].priority = parent_.accum->priority(parent_.buckets_[i].v1, parent_.buckets_[i].v2);
+                }
+                
                 //get the cut index, everything larger than the cut will be scheduled
                 sort(sampled_pos.begin(), sampled_pos.end(), compare_priority(parent_));
                 int cut_index = sample_size*parent_.info_.schedule_portion;
@@ -195,15 +200,12 @@ public:
         class compare_priority {
         public:
             StateTable<K, V1, V2, V3> &parent;
-            Accumulator<V1>* accum;
             
-            compare_priority(StateTable<K, V1, V2, V3> &inparent): parent(inparent) {
-                accum = (Accumulator<V1>*)parent.info_.accum;
-            }
+            compare_priority(StateTable<K, V1, V2, V3> &inparent): parent(inparent) {}
             
             bool operator()(const int a, const int b) {
-              return accum->priority(parent.buckets_[a].v1, parent.buckets_[a].v2)
-                              > accum->priority(parent.buckets_[b].v1, parent.buckets_[b].v2);
+              return parent.accum->priority(parent.buckets_[a].v1, parent.buckets_[a].v2)
+                              > parent.accum->priority(parent.buckets_[b].v1, parent.buckets_[b].v2);
             }
         };
 
@@ -217,9 +219,9 @@ public:
    //for termination check
    struct EntirePassIterator : public TypedTableIterator<K, V1, V2, V3>, public LocalTableIterator<K, V2> {
         EntirePassIterator(StateTable<K, V1, V2, V3>& parent) : pos(-1), parent_(parent) {
-                Next();
-                total = 0;
-                defaultv = ((Sender<K, V1, V3>*)parent.info_.sender)->reset();
+            Next();
+            total = 0;
+            defaultv = parent.sender->reset();
         }
 
         Marshal<K>* kmarshal() { return parent_.kmarshal(); }
@@ -429,6 +431,9 @@ private:
   int64_t total_updates;
 
   std::tr1::hash<K> hashobj_;
+  
+  Accumulator<V1>* accum;
+  Sender<K, V1, V3>* sender;
 };
 
 template <class K, class V1, class V2, class V3>
@@ -597,7 +602,6 @@ void StateTable<K, V1, V2, V3>::updateF1(const K& k, const V1& v) {
     CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
 
     buckets_[b].v1 = v;
-    //buckets_[b].has_v1 = false;
     total_updates++;
 }
 
@@ -624,9 +628,7 @@ void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v) {
   int b = bucket_for_key(k);
 
   CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
-  ((Accumulator<V1>*)info_.accum)->accumulate(&buckets_[b].v1, v);
-  buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(buckets_[b].v1, buckets_[b].v2);
-  //buckets_[b].has_v1 = true;
+  accum->accumulate(&buckets_[b].v1, v);
 }
 
 template <class K, class V1, class V2, class V3>
@@ -634,7 +636,7 @@ void StateTable<K, V1, V2, V3>::accumulateF2(const K& k, const V2& v) {
   int b = bucket_for_key(k);
 
   CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
-  ((Accumulator<V2>*)info_.accum)->accumulate(&buckets_[b].v2, v);
+  accum->accumulate(&buckets_[b].v2, v);
 }
 
 template <class K, class V1, class V2, class V3>
@@ -662,10 +664,15 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
     b = (b + 1) % size_;
   } while(b != start);
 
+    
+  if(accum == NULL){
+      accum = ((Accumulator<V1>*)info_.accum);
+      sender = ((Sender<K, V1, V3>*)info_.sender);
+  }
+  
   // Inserting a new entry:
   if (!found) {
-    if (entries_ > size_ /** kLoadFactor*/) {     //doesn't consider loadfactor, the tablesize is pre-defined
-        LOG(INFO) << (int)k << " : " << (float)v1; 
+    if (entries_ > size_ /** kLoadFactor*/) {     //doesn't consider loadfactor, the tablesize is pre-defined 
         LOG(INFO) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2) << " entries "<< entries_;
         resize((int)(1 + size_ * 2));
         put(k, v1, v2, v3);
@@ -676,14 +683,7 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
       buckets_[b].v2 = v2;
       buckets_[b].v3 = v3;
       
-      //if not default v, it means has_v1
-      //if(((Sender<K, V1, V3>*)info_.sender)->reset() != v1){
-      //    buckets_[b].has_v1 = true;
-      //}else{
-      //    buckets_[b].has_v1 = false;
-      //}
-      
-      buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(v1, v2);
+      buckets_[b].priority = accum->priority(v1, v2);
       ++entries_;
     }
   } else {
@@ -691,9 +691,9 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
     buckets_[b].v1 = v1;
     buckets_[b].v2 = v2;
     buckets_[b].v3 = v3;
-    //buckets_[b].has_v1 = true;
-    buckets_[b].priority = ((Accumulator<V1>*)info_.accum)->priority(v1, v2);
+    buckets_[b].priority = accum->priority(v1, v2);
   }
 }
+
 }
 #endif /* SPARSE_MAP_H_ */
