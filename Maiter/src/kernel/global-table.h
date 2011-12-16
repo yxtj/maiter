@@ -214,8 +214,6 @@ public:
 	void accumulateF2(const K &k, const V2 &v);
 	void accumulateF3(const K &k, const V3 &v);
 
-	void incrRecvDelta(const int source, const K &k, const V1 &v);
-
 	// Return the value associated with 'k', possibly blocking for a remote fetch.
 	ClutterRecord<K, V1, V2, V3> get(const K &k);
 	V1 getF1(const K &k);
@@ -260,8 +258,7 @@ public:
 
     for(;!it.done(); it.Next()) {
     	VLOG(2) << this->owner(req.shard()) << ":" << req.shard() << "read from remote " << it.key() << ";" << it.value1();
-      accumulateF1(it.key(),it.value1());
-      incrRecvDelta(req.source(), it.key(),it.value1());
+        accumulateF1(it.key(),it.value1());
     }
     
     TermCheck();
@@ -278,7 +275,6 @@ protected:
   virtual LocalTable* create_deltaT(int shard);
   deque<KVPair> update_queue;
   bool binit;
-  map<int, V1> recv_delta;
 };
 
 static const int kWriteFlushCount = 1000000;
@@ -371,7 +367,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF1(const K &k, const V1 &v) {
       PERIODIC(0.1, {this->HandlePutRequests();});
     //VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
   } else {
-	  deltaT(shard)->update(k, v);
+      deltaT(shard)->update(k, v);
   }
 /*
   //Deal with updates enqueued inside triggers
@@ -417,11 +413,6 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF3(const K &k, const V3 &v) {
   } else {
 	  VLOG(2) << "update F3 shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
   }
-}
-
-template<class K, class V1, class V2, class V3>
-void TypedGlobalTable<K, V1, V2, V3>::incrRecvDelta(const int source, const K &k, const V1 &v) {
-  ((Accumulator<V1>*)info_.accum)->accumulate(&recv_delta[source], v);
 }
 
 template<class K, class V1, class V2, class V3>
