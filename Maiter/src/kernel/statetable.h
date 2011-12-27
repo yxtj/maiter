@@ -51,7 +51,7 @@ public:
                 boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
                 boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
 
-                defaultv = (Sender<K, V1, V3>*)parent_.sender)->reset();
+                defaultv = ((Sender<K, V1, V3>*)parent_.info_.sender)->reset();
                 int i;
                 for(i=0; i<sample_size && b_no_change; i++){
                     int rand_pos = rand_num();
@@ -104,7 +104,7 @@ public:
         boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
         boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
 
-        V1 defaultv = (Sender<K, V1, V3>*)parent_.sender)->reset();
+        V1 defaultv = ((Sender<K, V1, V3>*)parent_.info_.sender)->reset();
         
         if(parent_.entries_ <= sample_size){
             //if table size is less than the sample set size, schedule them all
@@ -140,7 +140,7 @@ public:
                 //determine priority
                 for(i=0; i<parent_.size_; i++){
                     if(parent_.buckets_[i].v1 == defaultv) continue;
-                    parent_.buckets_[i].priority = ((Accumulator<V1>*)parent.accum)->priority(parent_.buckets_[i].v1, parent_.buckets_[i].v2);
+                    parent_.buckets_[i].priority = ((Accumulator<V1>*)parent.info_.accum)->priority(parent_.buckets_[i].v1, parent_.buckets_[i].v2);
                 }
                 
                 //get the cut index, everything larger than the cut will be scheduled
@@ -204,8 +204,8 @@ public:
             compare_priority(StateTable<K, V1, V2, V3> &inparent): parent(inparent) {}
             
             bool operator()(const int a, const int b) {
-              return ((Accumulator<V1>*)parent.accum)->priority(parent.buckets_[a].v1, parent.buckets_[a].v2)
-                              > ((Accumulator<V1>*)parent.accum)->priority(parent.buckets_[b].v1, parent.buckets_[b].v2);
+              return ((Accumulator<V1>*)parent.info_.accum)->priority(parent.buckets_[a].v1, parent.buckets_[a].v2)
+                              > ((Accumulator<V1>*)parent.info_.accum)->priority(parent.buckets_[b].v1, parent.buckets_[b].v2);
             }
         };
 
@@ -221,7 +221,7 @@ public:
         EntirePassIterator(StateTable<K, V1, V2, V3>& parent) : pos(-1), parent_(parent) {
             Next();
             total = 0;
-            defaultv = ((Sender<K, V1, V3>*)parent_.sender)->reset();
+            defaultv = ((Sender<K, V1, V3>*)parent_.info_.sender)->reset();
         }
 
         Marshal<K>* kmarshal() { return parent_.kmarshal(); }
