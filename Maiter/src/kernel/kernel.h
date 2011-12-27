@@ -255,6 +255,7 @@ class MaiterKernel2 : public DSMKernel {
 private:
     MaiterKernel<K, V, D>* maiter;
     vector<pair<K, V> >* output;
+    mutable boost::recursive_mutex state_lock_;
     int threshold;
 
 public:
@@ -263,16 +264,20 @@ public:
     }
         
     void run_iter(const K& k, V &v1, V &v2, D &v3) {
-        maiter->table->accumulateF2(k, v1);
+        {
+            boost::recursive_mutex::scoped_lock sl(state_lock_);
 
-        maiter->sender->send(v1, v3, output);
-        if(output->size() > threshold){
-            typename vector<pair<K, V> >::iterator iter;
-            for(iter = output->begin(); iter != output->end(); iter++) {
-                pair<K, V> kvpair = *iter;
-                maiter->table->accumulateF1(kvpair.first, kvpair.second);
+            maiter->table->accumulateF2(k, v1);
+
+            maiter->sender->send(v1, v3, output);
+            if(output->size() > threshold){
+                typename vector<pair<K, V> >::iterator iter;
+                for(iter = output->begin(); iter != output->end(); iter++) {
+                    pair<K, V> kvpair = *iter;
+                    maiter->table->accumulateF1(kvpair.first, kvpair.second);
+                }
+                output->clear();
             }
-            output->clear();
         }
 
         maiter->table->updateF1(k, maiter->sender->reset());
