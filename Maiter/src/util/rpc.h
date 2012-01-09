@@ -37,7 +37,7 @@ public:
 
   // Enqueue the given request for transmission.
   void Send(RPCRequest *req);
-  void Send(int dst, int method, const Message &msg);
+  int Send(int dst, int method, const Message &msg);
   void ObjectCreate(int dst, int method);
   void DSend(int dst, int method, const Message &msg);
 

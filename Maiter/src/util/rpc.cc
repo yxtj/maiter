@@ -290,14 +290,16 @@ void NetworkThread::Call(int dst, int method, const Message &msg, Message *reply
 void NetworkThread::Send(RPCRequest *req) {
   boost::recursive_mutex::scoped_lock sl(send_lock);
 //    LOG(INFO) << "Sending... " << MP(req->target, req->rpc_type);
+  //LOG(INFO) << "Sending... from " << id() << " to " << req->target << " type: " << req->rpc_type << " size: " << req->payload.size();
   stats["bytes_sent"] += req->payload.size();
   stats[StringPrintf("sends.%s", MessageTypes_Name((MessageTypes)(req->rpc_type)).c_str())] += 1;
   pending_sends_.push_back(req);
 }
 
-void NetworkThread::Send(int dst, int method, const Message &msg) {
+int NetworkThread::Send(int dst, int method, const Message &msg) {
   RPCRequest *r = new RPCRequest(dst, method, msg);
   Send(r);
+  return r->payload.size();
 }
 
 void NetworkThread::ObjectCreate(int dst, int method) {
