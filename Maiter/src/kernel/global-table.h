@@ -157,6 +157,7 @@ protected:
   int snapshot_index;
   void local_swap(GlobalTable *b);
   void termcheck();
+  int64_t sent_bytes_;
 
 	//double send_overhead;
 	//double objectcreate_overhead;

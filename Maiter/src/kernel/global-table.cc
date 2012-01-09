@@ -217,13 +217,15 @@ void MutableGlobalTableBase::SendUpdates() {
 
         VLOG(3) << "Sending update for " << MP(t->id(), t->shard()) << " to " << owner(i) << " size " << put.kv_data_size();
 
-        NetworkThread::Get()->Send(owner(i) + 1, MTYPE_PUT_REQUEST, put);
+        sent_bytes_ += NetworkThread::Get()->Send(owner(i) + 1, MTYPE_PUT_REQUEST, put);
       } while(!t->empty());
 
       VLOG(3) << "Done with update for " << MP(t->id(), t->shard());
       t->clear();
     }
   }
+  
+  LOG(INFO) << "Sending... from " << helper_id() << " size: " << sent_bytes_;
 /*
   sendtime++;
   if(sendtime == 750)
