@@ -225,7 +225,7 @@ void MutableGlobalTableBase::SendUpdates() {
     }
   }
   
-  LOG(INFO) << "Sending... from " << helper_id() << " size: " << sent_bytes_;
+  cout << "Sending... from " << helper_id() << " size: " << sent_bytes_ << endl;
 /*
   sendtime++;
   if(sendtime == 750)
