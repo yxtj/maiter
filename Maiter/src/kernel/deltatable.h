@@ -35,7 +35,7 @@ public:
   typedef NetDecodeIterator<K, V1> NetUpdateDecoder;
 
   struct Iterator : public PTypedTableIterator<K, V1> {
-    Iterator(DeltaTable<K, V1>& parent) : pos(-1), parent_(parent) {
+    Iterator(DeltaTable<K, V1, D>& parent) : pos(-1), parent_(parent) {
       Next();
     }
 
@@ -56,7 +56,7 @@ public:
     V1& value1() { return parent_.buckets_[pos].v1; }
 
     int pos;
-    DeltaTable<K, V1> &parent_;
+    DeltaTable<K, V1, D> &parent_;
   };
 
   struct Factory : public TableFactory {

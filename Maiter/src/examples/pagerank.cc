@@ -13,7 +13,7 @@ struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
 
     PagerankIterateKernel() : zero(0){}
 
-	void read_data(string& line, K* k, D* data){
+	void read_data(string& line, int* k, vector<int>* data){
         string linestr(line);
         int pos = linestr.find("\t");
         int source = boost::lexical_cast<int>(linestr.substr(0, pos));
@@ -34,20 +34,20 @@ struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
 	    *data = linkvec;
 	}
 
-	void init_c(const K& k, V* delta){
+	void init_c(const int& k, float* delta){
 		float init_delta = 0.2;
 		*delta = init_delta;
 	}
 
-	void accumulate(V* a, const V& b){
+	void accumulate(float* a, const float& b){
 		*a = *a + b;
 	}
 
-	void priority(V* pri, const V& value, const V& delta){
+	void priority(float* pri, const float& value, const float& delta){
 		*pri = delta;
 	}
 
-	void g_func(const V& delta, const D& data, vector<pair<K, V> >* output){
+	void g_func(const float& delta, const vector<int>& data, vector<pair<int, float> >* output){
 		int size = (int) data.size();
 		float outv = delta * 0.8 / size;
 		for(vector<int>::const_iterator it=data.begin(); it!=data.end(); it++){
@@ -56,7 +56,7 @@ struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
 		}
 	}
 
-	const V& default_v() const {
+	const float& default_v() const {
 		return zero;
 	}
 };

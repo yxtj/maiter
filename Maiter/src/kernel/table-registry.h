@@ -42,7 +42,7 @@ static TypedGlobalTable<K, V1, V2, V3>* CreateTable(int id, int shards, double s
   info->value2_marshal = new Marshal<V2>;
   info->value3_marshal = new Marshal<V3>;
   info->sharder = sharding;
-  info->iterkernel = initializer;
+  info->iterkernel = iterkernel;
   info->termchecker = termchecker;
   info->partition_factory = new typename StateTable<K, V1, V2, V3>::Factory;
   info->deltaT_factory = new typename DeltaTable<K, V1, V3>::Factory;

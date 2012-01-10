@@ -51,7 +51,7 @@ public:
                 boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
                 boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
 
-                defaultv = ((IterateKernel<K, V1, V3>*)parent_.info_.iterkernel)->reset();
+                defaultv = ((IterateKernel<K, V1, V3>*)parent_.info_.iterkernel)->default_v();
                 int i;
                 for(i=0; i<sample_size && b_no_change; i++){
                     int rand_pos = rand_num();
@@ -104,7 +104,7 @@ public:
         boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
         boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
 
-        V1 defaultv = ((IterateKernel<K, V1, V3>*)parent_.info_.iterkernel)->reset();
+        V1 defaultv = ((IterateKernel<K, V1, V3>*)parent_.info_.iterkernel)->default_v();
         
         if(parent_.entries_ <= sample_size){
             //if table size is less than the sample set size, schedule them all
@@ -207,7 +207,7 @@ public:
             compare_priority(StateTable<K, V1, V2, V3> &inparent): parent(inparent) {}
             
             bool operator()(const int a, const int b) {
-            	parent.buckets_[a].priority > parent.buckets_[b].priority;
+            	return parent.buckets_[a].priority > parent.buckets_[b].priority;
               //return ((Accumulator<V1>*)parent.info_.accum)->priority(parent.buckets_[a].v1, parent.buckets_[a].v2)
                               //> ((Accumulator<V1>*)parent.info_.accum)->priority(parent.buckets_[b].v1, parent.buckets_[b].v2);
             }
@@ -225,7 +225,7 @@ public:
         EntirePassIterator(StateTable<K, V1, V2, V3>& parent) : pos(-1), parent_(parent) {
             Next();
             total = 0;
-            defaultv = ((Sender<K, V1, V3>*)parent_.info_.sender)->reset();
+            defaultv = ((IterateKernel<K, V1, V3>*)parent_.info_.iterkernel)->default_v();
         }
 
         Marshal<K>* kmarshal() { return parent_.kmarshal(); }
@@ -521,7 +521,7 @@ template <class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f, int* updates, double* totalF2) {
   total_curr = 0;
   EntirePassIterator* entireIter = new EntirePassIterator(*this);
-  total_curr = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)->local_report(entireIter));
+  total_curr = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)->estimate_prog(entireIter));
   delete entireIter;
   *updates = total_updates;
   *totalF2 = total_curr;

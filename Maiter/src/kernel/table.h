@@ -157,7 +157,7 @@ struct TermCheckers {
         return curr;
     }
     
-    double local_report(LocalTableIterator<K, V>* statetable){
+    double estimate_prog(LocalTableIterator<K, V>* statetable){
         double partial_curr = 0;
         V defaultv = statetable->defaultV();
         while(!statetable->done()){

@@ -247,15 +247,16 @@ public:
             exit(1); // terminate with error
         }
 
-        char line[1024000];
-        while (inFile.getline(line, 1024000)) {
-        	K key;
-        	V delta;
-        	D data;
+        char linechr[1024000];
+        while (inFile.getline(linechr, 1024000)) {
+            K key;
+            V delta;
+            D data;
 
-        	maiter->iterkernel->read_data(line, &key, &data);
-        	V value = maiter->iterkernel->default_v();
-        	maiter->iterkernel->init_c(k, &delta);
+            string line(linechr);
+            maiter->iterkernel->read_data(line, &key, &data);
+            V value = maiter->iterkernel->default_v();
+            maiter->iterkernel->init_c(key, &delta);
             table->put(key, delta, value, data);
         }
     }
@@ -305,7 +306,7 @@ public:
             }
         }
 
-        maiter->table->updateF1(k, maiter->sender->reset());
+        maiter->table->updateF1(k, maiter->iterkernel->default_v());
     }
 
     void run_loop(TypedGlobalTable<K, V, V, D>* a) {
@@ -454,7 +455,7 @@ public:
         MethodRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", "run", &MaiterKernel1<K, V, D>::run, this);
 
         //iterative update job
-        if(accum != NULL && sender != NULL){
+        if(iterkernel != NULL){
             KernelRegistrationHelper<MaiterKernel2<K, V, D>, K, V, D>("MaiterKernel2", this);
             MethodRegistrationHelper<MaiterKernel2<K, V, D>, K, V, D>("MaiterKernel2", "map", &MaiterKernel2<K, V, D>::map, this);
         }
