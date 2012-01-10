@@ -85,6 +85,7 @@ struct IterateKernel : public IterateKernelBase {
   virtual void init_c(const K& k, V* delta) = 0;
   virtual const V& default_v() const = 0;
   virtual void accumulate(V* a, const V& b) = 0;
+  virtual void priority(V* pri, const V& value, const V& delta) = 0;
   virtual void g_func(const V& delta, const D& data, vector<pair<K, V> >* output) = 0;
 };
 
