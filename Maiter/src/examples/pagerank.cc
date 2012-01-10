@@ -13,52 +13,52 @@ struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
 
     PagerankIterateKernel() : zero(0){}
 
-	void read_data(string& line, int* k, vector<int>* data){
+    void read_data(string& line, int* k, vector<int>* data){
         string linestr(line);
         int pos = linestr.find("\t");
         int source = boost::lexical_cast<int>(linestr.substr(0, pos));
 
-	    vector<int> linkvec;
+            vector<int> linkvec;
         string links = linestr.substr(pos+1);
-	    int spacepos = 0;
-	    while((spacepos = links.find_first_of(" ")) != links.npos){
-	        int to;
-	        if(spacepos > 0){
-	            to = boost::lexical_cast<int>(links.substr(0, spacepos));
-	        }
-	        links = links.substr(spacepos+1);
-	        linkvec.push_back(to);
-	    }
+        int spacepos = 0;
+        while((spacepos = links.find_first_of(" ")) != links.npos){
+            int to;
+            if(spacepos > 0){
+                to = boost::lexical_cast<int>(links.substr(0, spacepos));
+            }
+            links = links.substr(spacepos+1);
+            linkvec.push_back(to);
+        }
 
-	    *k = source;
-	    *data = linkvec;
-	}
+        *k = source;
+        *data = linkvec;
+    }
 
-	void init_c(const int& k, float* delta){
-		float init_delta = 0.2;
-		*delta = init_delta;
-	}
+    void init_c(const int& k, float* delta){
+            float init_delta = 0.2;
+            *delta = init_delta;
+    }
 
-	void accumulate(float* a, const float& b){
-		*a = *a + b;
-	}
+    void accumulate(float* a, const float& b){
+            *a = *a + b;
+    }
 
-	void priority(float* pri, const float& value, const float& delta){
-		*pri = delta;
-	}
+    void priority(float* pri, const float& value, const float& delta){
+            *pri = delta;
+    }
 
-	void g_func(const float& delta, const vector<int>& data, vector<pair<int, float> >* output){
-		int size = (int) data.size();
-		float outv = delta * 0.8 / size;
-		for(vector<int>::const_iterator it=data.begin(); it!=data.end(); it++){
-			int target = *it;
-			output->push_back(make_pair(target, outv));
-		}
-	}
+    void g_func(const float& delta, const vector<int>& data, vector<pair<int, float> >* output){
+            int size = (int) data.size();
+            float outv = delta * 0.8 / size;
+            for(vector<int>::const_iterator it=data.begin(); it!=data.end(); it++){
+                    int target = *it;
+                    output->push_back(make_pair(target, outv));
+            }
+    }
 
-	const float& default_v() const {
-		return zero;
-	}
+    const float& default_v() const {
+            return zero;
+    }
 };
 
 

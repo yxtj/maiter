@@ -230,6 +230,19 @@ struct MethodRegistrationHelper {
 };
 
 template <class K, class V, class D>
+class MaiterKernel0 : public DSMKernel {
+private:
+    MaiterKernel<K, V, D>* maiter;
+public:
+
+
+    void run() {
+        VLOG(0) << "initializing table ";
+        init_table(maiter->table);
+    }
+};
+
+template <class K, class V, class D>
 class MaiterKernel1 : public DSMKernel {
 private:
     MaiterKernel<K, V, D>* maiter;
