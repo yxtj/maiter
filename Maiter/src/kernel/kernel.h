@@ -10,6 +10,8 @@
 #include <boost/function.hpp>
 #include <boost/lexical_cast.hpp>
 
+DECLARE_string(graph_dir);
+
 namespace dsm {
 
 template <class K, class V1, class V2, class V3>
@@ -236,12 +238,35 @@ public:
         maiter = inmaiter;
     }
     
+    void read_file(TypedGlobalTable<K, V, V, D>* table){
+        string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
+        ifstream inFile;
+        inFile.open(patition_file.c_str());
+        if (!inFile) {
+            cerr << "Unable to open file" << patition_file;
+            exit(1); // terminate with error
+        }
+
+        char line[1024000];
+        while (inFile.getline(line, 1024000)) {
+        	K key;
+        	V delta;
+        	D data;
+
+        	maiter->iterkernel->read_data(line, &key, &data);
+        	V value = maiter->iterkernel->default_v();
+        	maiter->iterkernel->init_c(k, &delta);
+            table->put(key, delta, value, data);
+        }
+    }
+
     void init_table(TypedGlobalTable<K, V, V, D>* a){
         if(!a->initialized()){
             a->InitStateTable();
         }
         a->resize(maiter->num_nodes);
-        maiter->initializer->initTable(a, current_shard());
+
+        read_file(a);
     }
 
     void run() {
@@ -269,7 +294,7 @@ public:
 
             maiter->table->accumulateF2(k, v1);
 
-            maiter->sender->send(v1, v3, output);
+            maiter->iterkernel->g_func(v1, v3, output);
             if(output->size() > threshold){
                 typename vector<pair<K, V> >::iterator iter;
                 for(iter = output->begin(); iter != output->end(); iter++) {
@@ -382,9 +407,9 @@ public:
     ConfigData conf;
     string output;
     Sharder<K> *sharder;
-    Initializer<K, V, D> *initializer;
-    Accumulator<V> *accum;
-    Sender<K, V, D> *sender;
+    IterateKernel<K, V, D> *iterkernel;
+    //Accumulator<V> *accum;
+    //Sender<K, V, D> *sender;
     TermChecker<K, V> *termchecker;
 
     TypedGlobalTable<K, V, V, D> *table;
@@ -394,9 +419,7 @@ public:
 
     MaiterKernel(ConfigData& inconf, int64_t nodes, double portion, string outdir,
                     Sharder<K>* insharder,
-                    Initializer<K, V, D>* ininitializer,
-                    Accumulator<V>* inaccumulator,
-                    Sender<K, V, D>* insender,
+                    IterateKernel<K, V, D>* initerkernel,
                     TermChecker<K, V>* intermchecker) {
         Reset();
         
@@ -405,9 +428,7 @@ public:
         schedule_portion = portion;
         output = outdir;
         sharder = insharder;
-        initializer = ininitializer;
-        accum = inaccumulator;
-        sender = insender;
+        iterkernel = initerkernel;
         termchecker = intermchecker;
     }
     
@@ -419,9 +440,7 @@ public:
         schedule_portion = 1;
         output = "result";
         sharder = NULL;
-        initializer = NULL;
-        accum = NULL;
-        sender = NULL;
+        iterkernel = NULL;
         termchecker = NULL;
     }
 

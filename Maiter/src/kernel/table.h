@@ -33,9 +33,7 @@ struct TableHelper {
 };
 
 struct SharderBase {};
-struct InitializerBase {};
-struct AccumulatorBase {};
-struct SenderBase {};
+struct IterateKernelBase {};
 struct TermCheckerBase {};
 
 struct BlockInfoBase {};
@@ -82,21 +80,14 @@ struct Sharder : public SharderBase {
 };
 
 template <class K, class V, class D>
-struct Initializer : public InitializerBase {
-  virtual void initTable(TypedGlobalTable<K, V, V, D>* table, int shard_id) = 0;
-};
-
-template <class V>
-struct Accumulator : public AccumulatorBase {
+struct IterateKernel : public IterateKernelBase {
+  virtual void read_data(string& line, K* k, D* data) = 0;
+  virtual void init_c(const K& k, V* delta) = 0;
+  virtual const V& default_v() const = 0;
   virtual void accumulate(V* a, const V& b) = 0;
-  virtual V priority(const V& delta, const V& state) = 0;
+  virtual void g_func(const V& delta, const D& data, vector<pair<K, V> >* output) = 0;
 };
 
-template <class K, class V, class D>
-struct Sender : public SenderBase {
-  virtual void send(const V& delta, const D& data, vector<pair<K, V> >* output) = 0;
-  virtual const V& reset() const = 0;
-};
 
 template <class K, class V>
 struct LocalTableIterator {
@@ -110,7 +101,7 @@ struct LocalTableIterator {
 template <class K, class V>
 struct TermChecker : public TermCheckerBase {
     virtual double set_curr() = 0;
-    virtual double local_report(LocalTableIterator<K, V>* statetable) = 0;
+    virtual double estimate_prog(LocalTableIterator<K, V>* statetable_itr) = 0;
     virtual bool terminate(vector<double> local_reports) = 0;
 };
 
@@ -130,7 +121,7 @@ struct Sharding {
   };
 };
 
-
+/*
 template <class V>
 struct Accumulators {
   struct Min : public Accumulator<V> {
@@ -148,7 +139,7 @@ struct Accumulators {
     V priority(const V& delta, const V& state) {return delta;}
   };
 };
-
+*/
 
 template <class K, class V>
 struct TermCheckers {
