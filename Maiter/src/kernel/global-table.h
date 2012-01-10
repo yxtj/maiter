@@ -364,14 +364,13 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF1(const K &k, const V1 &v) {
   if (is_local_shard(shard)) {
       partition(shard)->updateF1(k, v);
 
-      ++pending_writes_;
-      BufSend();
-
-      PERIODIC(0.1, {this->HandlePutRequests();});
     //VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
   } else {
       deltaT(shard)->update(k, v);
+
   }
+    
+  PERIODIC(0.1, {this->HandlePutRequests();});
 /*
   //Deal with updates enqueued inside triggers
   while(!update_queue.empty()) {
@@ -433,12 +432,9 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &k, const V1 &v) {
   } else {
         //VLOG(1) << this->owner(shard) << ":" << shard << " accumulate " << v << " on remote " << k;
         deltaT(shard)->accumulate(k, v);
-        //++pending_writes_;
 
-        //if (pending_writes_ > kWriteFlushCount) {
-          //SendUpdates();
-        //}
-        //BufSend();
+        ++pending_writes_;
+        BufSend();
 
         //PERIODIC(0.1, {this->HandlePutRequests();});
   }
