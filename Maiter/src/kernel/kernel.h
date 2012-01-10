@@ -408,8 +408,6 @@ public:
     string output;
     Sharder<K> *sharder;
     IterateKernel<K, V, D> *iterkernel;
-    //Accumulator<V> *accum;
-    //Sender<K, V, D> *sender;
     TermChecker<K, V> *termchecker;
 
     TypedGlobalTable<K, V, V, D> *table;
@@ -449,7 +447,7 @@ public:
     int registerMaiter() {
 	VLOG(0) << "shards " << conf.num_workers();
 	table = CreateTable<K, V, V, D >(0, conf.num_workers(), schedule_portion,
-                                        sharder, initializer, accum, sender, termchecker);
+                                        sharder, iterkernel, termchecker);
             
         //initialize table job
         KernelRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", this);

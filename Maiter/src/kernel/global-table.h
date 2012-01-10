@@ -229,8 +229,8 @@ public:
     return dynamic_cast<TypedTable<K, V1, V2, V3>* >(partitions_[idx]);
   }
 
-  PTypedTable<K, V1>* deltaT(int idx) {
-    return dynamic_cast<PTypedTable<K, V1>* >(partitions_[idx]);
+  PTypedTable<K, V1, D>* deltaT(int idx) {
+    return dynamic_cast<PTypedTable<K, V1, D>* >(partitions_[idx]);
   }
 
   virtual TypedTableIterator<K, V1, V2, V3>* get_typed_iterator(int shard, bool bfilter, unsigned int fetch_num = FETCH_NUM) {

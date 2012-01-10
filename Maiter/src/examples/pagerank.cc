@@ -8,21 +8,6 @@ DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
 
-static vector<int> readUnWeightLinks(string links){
-    vector<int> linkvec;
-    int spacepos = 0;
-    while((spacepos = links.find_first_of(" ")) != links.npos){
-        int to;
-        if(spacepos > 0){
-            to = boost::lexical_cast<int>(links.substr(0, spacepos));
-        }
-        links = links.substr(spacepos+1);
-        linkvec.push_back(to);
-    }
-
-    return linkvec;
-}
-
 struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
     float zero;
 
@@ -45,17 +30,21 @@ struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
 	        linkvec.push_back(to);
 	    }
 
-	    k = &source;
-	    data = &linkvec;
+	    *k = source;
+	    *data = linkvec;
 	}
 
 	void init_c(const K& k, V* delta){
 		float init_delta = 0.2;
-		delta = &init_delta;
+		*delta = init_delta;
 	}
 
 	void accumulate(V* a, const V& b){
 		*a = *a + b;
+	}
+
+	void priority(V* pri, const V& value, const V& delta){
+		*pri = delta;
 	}
 
 	void g_func(const V& delta, const D& data, vector<pair<K, V> >* output){

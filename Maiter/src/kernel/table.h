@@ -102,7 +102,7 @@ struct LocalTableIterator {
 template <class K, class V>
 struct TermChecker : public TermCheckerBase {
     virtual double set_curr() = 0;
-    virtual double estimate_prog(LocalTableIterator<K, V>* statetable_itr) = 0;
+    virtual double estimate_prog(LocalTableIterator<K, V>* table_itr) = 0;
     virtual bool terminate(vector<double> local_reports) = 0;
 };
 
@@ -209,10 +209,8 @@ public:
     helper = NULL;
     partition_factory = NULL;
     key_marshal = value1_marshal = value2_marshal = value3_marshal = NULL;
-    accum = NULL;
     sharder = NULL;
-    initializer = NULL;
-    sender = NULL;
+    iterkernel = NULL;
     termchecker = NULL;
   }
 
@@ -228,9 +226,7 @@ public:
   vector<TriggerBase*> triggers;
 
   SharderBase *sharder;
-  InitializerBase *initializer;
-  AccumulatorBase *accum;
-  SenderBase *sender;
+  IterateKernelBase *iterkernel;
   TermCheckerBase *termchecker;
 
   MarshalBase *key_marshal;
@@ -280,7 +276,7 @@ public:
   typedef TableIterator Iterator;
     virtual void Init(const TableDescriptor* info) {
 	info_ = *info;
-        terminated_ = false;
+    terminated_ = false;
     CHECK(info_.key_marshal != NULL);
     CHECK(info_.value1_marshal != NULL);
     CHECK(info_.value2_marshal != NULL);
@@ -442,7 +438,7 @@ protected:
 template <class K, class V1, class V2, class V3> struct TypedTableIterator;
 
 // Key/value typed interface.
-template <class K, class V1>
+template <class K, class V1, class D>
 class PTypedTable : virtual public UntypedTable {
 public:
   virtual bool contains(const K &k) = 0;

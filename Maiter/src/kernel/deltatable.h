@@ -16,10 +16,10 @@
 
 namespace dsm {
 
-template <class K, class V1>
+template <class K, class V1, class D>
 class DeltaTable :
 	public LocalTable,
-	public PTypedTable<K, V1>,
+	public PTypedTable<K, V1, D>,
   private boost::noncopyable {
 private:
 #pragma pack(push, 1)
@@ -60,7 +60,7 @@ public:
   };
 
   struct Factory : public TableFactory {
-    TableBase* New() { return new DeltaTable<K, V1>(); }
+    TableBase* New() { return new DeltaTable<K, V1, D>(); }
   };
 
   // Construct a DeltaTable with the given initial size; it will be expanded as necessary.
@@ -151,16 +151,16 @@ private:
   std::tr1::hash<K> hashobj_;
 };
 
-template <class K, class V1>
-DeltaTable<K, V1>::DeltaTable(int size)
+template <class K, class V1, class D>
+DeltaTable<K, V1, D>::DeltaTable(int size)
   : buckets_(0), entries_(0), size_(0) {
   clear();
 
   resize(size);
 }
 
-template <class K, class V1>
-void DeltaTable<K, V1>::serializeToFile(TableCoder *out) {
+template <class K, class V1, class D>
+void DeltaTable<K, V1, D>::serializeToFile(TableCoder *out) {
   Iterator *i = (Iterator*)get_iterator(NULL, false);
   string k, v1;
   while (!i->done()) {
@@ -173,8 +173,8 @@ void DeltaTable<K, V1>::serializeToFile(TableCoder *out) {
   delete i;
 }
 
-template <class K, class V1>
-void DeltaTable<K, V1>::serializeToNet(KVPairCoder *out) {
+template <class K, class V1, class D>
+void DeltaTable<K, V1, D>::serializeToNet(KVPairCoder *out) {
   Iterator *i = (Iterator*)get_iterator(NULL, false);
   string k, v1;
   while (!i->done()) {
@@ -187,8 +187,8 @@ void DeltaTable<K, V1>::serializeToNet(KVPairCoder *out) {
   delete i;
 }
 
-template <class K, class V1>
-void DeltaTable<K, V1>::deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase) {
+template <class K, class V1, class D>
+void DeltaTable<K, V1, D>::deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase) {
   FileUpdateDecoder* it = static_cast<FileUpdateDecoder*>(itbase);
   K k;
   V1 v1;
@@ -204,8 +204,8 @@ void DeltaTable<K, V1>::deserializeFromFile(TableCoder *in, DecodeIteratorBase *
   return;
 }
 
-template <class K, class V1>
-void DeltaTable<K, V1>::deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase) {
+template <class K, class V1, class D>
+void DeltaTable<K, V1, D>::deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase) {
   NetUpdateDecoder* it = static_cast<NetUpdateDecoder*>(itbase);
   K k;
   V1 v1;
@@ -221,8 +221,8 @@ void DeltaTable<K, V1>::deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *
   return;
 }
 
-template <class K, class V1>
-void DeltaTable<K, V1>::resize(int64_t size) {
+template <class K, class V1, class D>
+void DeltaTable<K, V1, D>::resize(int64_t size) {
   CHECK_GT(size, 0);
   if (size_ == size)
     return;
@@ -245,13 +245,13 @@ void DeltaTable<K, V1>::resize(int64_t size) {
   CHECK_EQ(old_entries, entries_);
 }
 
-template <class K, class V1>
-bool DeltaTable<K, V1>::contains(const K& k) {
+template <class K, class V1, class D>
+bool DeltaTable<K, V1, D>::contains(const K& k) {
   return bucket_for_key(k) != -1;
 }
 
-template <class K, class V1>
-V1 DeltaTable<K, V1>::get(const K& k) {
+template <class K, class V1, class D>
+V1 DeltaTable<K, V1, D>::get(const K& k) {
   int b = bucket_for_key(k);
   //The following key display is a hack hack hack and only yields valid
   //results for ints.  It will display nonsense for other types.
@@ -260,8 +260,8 @@ V1 DeltaTable<K, V1>::get(const K& k) {
   return buckets_[b].v1;
 }
 
-template <class K, class V1>
-void DeltaTable<K, V1>::update(const K& k, const V1& v) {
+template <class K, class V1, class D>
+void DeltaTable<K, V1, D>::update(const K& k, const V1& v) {
 	int b = bucket_for_key(k);
 
 	CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
@@ -269,19 +269,19 @@ void DeltaTable<K, V1>::update(const K& k, const V1& v) {
 	buckets_[b].v1 = v;
 }
 
-template <class K, class V1>
-void DeltaTable<K, V1>::accumulate(const K& k, const V1& v) {
+template <class K, class V1, class D>
+void DeltaTable<K, V1, D>::accumulate(const K& k, const V1& v) {
   int b = bucket_for_key(k);
 
   if(b == -1){
 	  put(k, v);
   }else{
-	  ((Accumulator<V1>*)info_.accum)->accumulate(&buckets_[b].v1, v);
+	  ((IterateKernel<K, V1, D>*)info_.iterkernel)->accumulate(&buckets_[b].v1, v);
   }
 }
 
-template <class K, class V1>
-void DeltaTable<K, V1>::put(const K& k, const V1& v1) {
+template <class K, class V1, class D>
+void DeltaTable<K, V1, D>::put(const K& k, const V1& v1) {
   int start = bucket_idx(k);
   int b = start;
   bool found = false;
