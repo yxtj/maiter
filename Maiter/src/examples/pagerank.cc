@@ -18,7 +18,7 @@ struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
         int pos = linestr.find("\t");
         int source = boost::lexical_cast<int>(linestr.substr(0, pos));
 
-            vector<int> linkvec;
+        vector<int> linkvec;
         string links = linestr.substr(pos+1);
         int spacepos = 0;
         while((spacepos = links.find_first_of(" ")) != links.npos){

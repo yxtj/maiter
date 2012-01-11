@@ -132,7 +132,7 @@ class MutableGlobalTableBase :
   virtual public MutableGlobalTable,
   virtual public Checkpointable {
 public:
-  MutableGlobalTableBase() : pending_writes_(0), snapshot_index(0) {}
+  MutableGlobalTableBase() : pending_writes_(0), snapshot_index(0), sent_bytes_(0) {}
 
   void BufSend();
   void SendUpdates();
