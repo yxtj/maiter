@@ -132,7 +132,11 @@ class MutableGlobalTableBase :
   virtual public MutableGlobalTable,
   virtual public Checkpointable {
 public:
-  MutableGlobalTableBase() : pending_writes_(0), snapshot_index(0), sent_bytes_(0) {}
+  MutableGlobalTableBase() {
+        pending_writes_ = 0;
+        snapshot_index = 0;
+        sent_bytes_ = 0;
+  }
 
   void BufSend();
   void SendUpdates();
@@ -152,14 +156,16 @@ public:
 
   void swap(GlobalTable *b);
 
+  int64_t sent_bytes_;
+  Timer timer;
+  int timerindex;
+  
 protected:
   int64_t pending_writes_;
   int snapshot_index;
   void local_swap(GlobalTable *b);
   void termcheck();
-  int64_t sent_bytes_;
-  Timer timer;
-  int timerindex;
+
 
 	//double send_overhead;
 	//double objectcreate_overhead;

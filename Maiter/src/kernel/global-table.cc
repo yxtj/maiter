@@ -225,7 +225,7 @@ void MutableGlobalTableBase::SendUpdates() {
     }
   }
   
-  cout << "Sending... index " << timerindex++ << " timer " << timer.elapsed() << " from " << helper_id() << " size: " << sent_bytes_ << endl;
+  //cout << "Sending... index " << timerindex++ << " timer " << timer.elapsed() << " from " << helper_id() << " size: " << sent_bytes_ << endl;
 /*
   sendtime++;
   if(sendtime == 750)

@@ -324,7 +324,7 @@ public:
 
     void run_loop(TypedGlobalTable<K, V, V, D>* a) {
         Timer timer;
-        double totalF1 = 0;
+        double totalF2 = 0;
         int updates = 0;
         output = new vector<pair<K, V> >;
         threshold = 1000;
@@ -336,7 +336,7 @@ public:
             if(it == NULL) break;
 
             for (; !it->done(); it->Next()) {
-                totalF1+=it->value1();
+                totalF2+=it->value1();
                 updates++;
 
                 run_iter(it->key(), it->value1(), it->value2(), it->value3());
@@ -352,7 +352,9 @@ public:
             output->clear();
             
             //for expr
-            cout << timer.elapsed() << "\t" << current_shard() << "\t" << totalF1 << "\t" << updates << endl;
+            cout << "time " << timer.elapsed() << " worker " << current_shard() << 
+                    " progress " << totalF2 << " updates " << updates << 
+                    " totalsent " << a->sent_bytes_ << endl;
         }
     }
 

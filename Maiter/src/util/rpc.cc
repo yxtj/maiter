@@ -298,8 +298,9 @@ void NetworkThread::Send(RPCRequest *req) {
 
 int NetworkThread::Send(int dst, int method, const Message &msg) {
   RPCRequest *r = new RPCRequest(dst, method, msg);
+  int size = r->payload.size();
   Send(r);
-  return r->payload.size();
+  return size;
 }
 
 void NetworkThread::ObjectCreate(int dst, int method) {
