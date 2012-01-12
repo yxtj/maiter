@@ -42,6 +42,11 @@ public:
 
   struct Iterator : public TypedTableIterator<K, V1, V2, V3> {
         Iterator(StateTable<K, V1, V2, V3>& parent, bool bfilter) : pos(-1), parent_(parent) {
+            /*
+             this filter is very important in large-scale experiment, if there is no such control,
+             * many useless parsing will occur.,degrading the performance a lot
+             
+             */
             if(bfilter){
                 //check if there is a change
                 b_no_change = true;
@@ -309,10 +314,10 @@ public:
   TableIterator *get_iterator(TableHelper* helper, bool bfilter) {
       if(terminated_) return NULL;              //if get term signal, return null to tell program terminate
       helper->FlushUpdates();
-      //boost::this_thread::sleep( boost::posix_time::seconds(0.1) );
+      boost::this_thread::sleep( boost::posix_time::seconds(0.1) );
       helper->HandlePutRequest();
       
-      Iterator* iter = new Iterator(*this, bfilter);
+      Iterator* iter = new Iterator(*this, true);
       int trial = 0;
       while(iter->b_no_change){
           VLOG(1) << "wait for put";
@@ -350,7 +355,7 @@ public:
   TableIterator *schedule_iterator(TableHelper* helper, bool bfilter) {
       if(terminated_) return NULL;
       helper->FlushUpdates();
-      //boost::this_thread::sleep( boost::posix_time::seconds(0.1) );
+      boost::this_thread::sleep( boost::posix_time::seconds(0.1) );
       helper->HandlePutRequest();
       
       ScheduledIterator* iter = new ScheduledIterator(*this, bfilter);
