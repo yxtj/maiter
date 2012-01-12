@@ -11,6 +11,8 @@
 
 //#define GLOBAL_TABLE_USE_SCOPEDLOCK
 
+DECLARE_int32(bufmsg);
+
 namespace dsm {
 
 class Worker;
@@ -353,7 +355,7 @@ void TypedGlobalTable<K, V1, V2, V3>::put(const K &k, const V1 &v1, const V2 &v2
   //if (pending_writes_ > kWriteFlushCount) {
     //SendUpdates();
   //}
-  BufSend();
+  //BufSend();
 
   PERIODIC(0.1, {this->HandlePutRequests();});
 }
@@ -440,7 +442,10 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &k, const V1 &v) {
         deltaT(shard)->accumulate(k, v);
 
         ++pending_writes_;
-        BufSend();
+        if (pending_writes_ > FLAGS_bufmsg) {
+            SendUpdates();
+        }
+        //BufSend();
 
         //PERIODIC(0.1, {this->HandlePutRequests();});
   }

@@ -11,6 +11,8 @@ DEFINE_int32(edge_size, 1000, "");
 DEFINE_bool(build_graph, false, "");
 DEFINE_bool(dump_results, false, "");
 
+DEFINE_int32(bufmsg, 1000000, "");
+
 DEFINE_string(graph_dir, "subgraphs", "");
 DEFINE_string(result_dir, "result", "");
 DEFINE_int32(max_iterations, 100, "");
