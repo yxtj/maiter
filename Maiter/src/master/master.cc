@@ -89,7 +89,7 @@ struct WorkerState : private boost::noncopyable {
   bool checkpointing;
   bool termchecking;
   double current;
-  int updates;
+  long updates;
 
   // Order by number of pending tasks and last update time.
   static bool PendingCompare(WorkerState *a, WorkerState* b) {
@@ -410,7 +410,7 @@ bool Master::termcheck() {
   }
 
   int received_num = 0;
-  int total_updates = 0;
+  long total_updates = 0;
   for (int i = 0; i < workers_.size(); ++i) {
       if(workers_[i]->termchecking) received_num++;
       total_updates += workers_[i]->updates;

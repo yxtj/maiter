@@ -309,7 +309,7 @@ public:
   TableIterator *get_iterator(TableHelper* helper, bool bfilter) {
       if(terminated_) return NULL;              //if get term signal, return null to tell program terminate
       helper->FlushUpdates();
-      boost::this_thread::sleep( boost::posix_time::seconds(0.1) );
+      //boost::this_thread::sleep( boost::posix_time::seconds(0.1) );
       helper->HandlePutRequest();
       
       Iterator* iter = new Iterator(*this, bfilter);
@@ -350,7 +350,7 @@ public:
   TableIterator *schedule_iterator(TableHelper* helper, bool bfilter) {
       if(terminated_) return NULL;
       helper->FlushUpdates();
-      boost::this_thread::sleep( boost::posix_time::seconds(0.1) );
+      //boost::this_thread::sleep( boost::posix_time::seconds(0.1) );
       helper->HandlePutRequest();
       
       ScheduledIterator* iter = new ScheduledIterator(*this, bfilter);
@@ -396,7 +396,7 @@ public:
   void serializeToNet(KVPairCoder *out);
   void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
   void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase);
-  void serializeToSnapshot(const string& f, int *updates, double *totalF2);
+  void serializeToSnapshot(const string& f, long *updates, double *totalF2);
 
   Marshal<K>* kmarshal() { return ((Marshal<K>*)info_.key_marshal); }
   Marshal<V1>* v1marshal() { return ((Marshal<V1>*)info_.value1_marshal); }
@@ -518,7 +518,7 @@ void StateTable<K, V1, V2, V3>::deserializeFromNet(KVPairCoder *in, DecodeIterat
 //it can also be used to generate snapshot, but currently in order to measure the performance we skip this step, 
 //but focus on termination check
 template <class K, class V1, class V2, class V3>
-void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f, int* updates, double* totalF2) {
+void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f, long* updates, double* totalF2) {
   total_curr = 0;
   EntirePassIterator* entireIter = new EntirePassIterator(*this);
   total_curr = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)->estimate_prog(entireIter));

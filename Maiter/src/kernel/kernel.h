@@ -325,7 +325,7 @@ public:
     void run_loop(TypedGlobalTable<K, V, V, D>* a) {
         Timer timer;
         double totalF2 = 0;
-        int updates = 0;
+        long updates = 0;
         output = new vector<pair<K, V> >;
         threshold = 1000;
 

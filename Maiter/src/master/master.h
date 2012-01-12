@@ -75,7 +75,7 @@ public:
   }
   void HandlePutRequest() { return; }
   void FlushUpdates() {return;}
-  void SendTermcheck(int index, int updates, double current) {return;}
+  void SendTermcheck(int index, long updates, double current) {return;}
 
   void run_all(RunDescriptor r);
   void run_one(RunDescriptor r);
@@ -93,11 +93,9 @@ public:
           maiter->sharder = new Sharding::Mod;
       }
       
-      if(maiter->initializer != NULL){
-          run_all("MaiterKernel1", "run", maiter->table);
-      }
+      run_all("MaiterKernel1", "run", maiter->table);
         
-      if(maiter->accum != NULL && maiter->sender != NULL){
+      if(maiter->iterkernel != NULL){
           run_all("MaiterKernel2", "map", maiter->table);
       }
 

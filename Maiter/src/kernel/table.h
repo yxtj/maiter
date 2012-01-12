@@ -29,7 +29,7 @@ struct TableHelper {
   virtual int peer_for_shard(int table, int shard) const = 0;
   virtual void HandlePutRequest() = 0;
   virtual void FlushUpdates() = 0;
-  virtual void SendTermcheck(int index, int updates, double current) = 0;
+  virtual void SendTermcheck(int index, long updates, double current) = 0;
 };
 
 struct SharderBase {};
@@ -656,7 +656,7 @@ public:
 
 class Snapshottable {
 public:
-  virtual void serializeToSnapshot(const string& f, int* updates, double* totalF2) = 0;
+  virtual void serializeToSnapshot(const string& f, long* updates, double* totalF2) = 0;
 };
 
 }

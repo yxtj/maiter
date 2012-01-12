@@ -26,7 +26,7 @@ public:
   void restore(const string& f);
   void write_delta(const KVPairData& put);
   
-  void termcheck(const string& f, int *updates, double *totalF2);
+  void termcheck(const string& f, long *updates, double *totalF2);
 
   virtual int64_t size() = 0;
   virtual void clear() = 0;

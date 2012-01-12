@@ -122,12 +122,12 @@ void MutableGlobalTableBase::TermCheck() {
 
 void MutableGlobalTableBase::termcheck() {
     double total_current = 0;
-    int total_updates = 0;
+    long total_updates = 0;
     for (int i = 0; i < partitions_.size(); ++i) {   
       if (is_local_shard(i)) {
         LocalTable *t = partitions_[i];
         double partF2;
-        int partUpdates;
+        long partUpdates;
         t->termcheck(StringPrintf("snapshot/iter%d-part%d", snapshot_index, i), &partUpdates, &partF2);
         total_current += partF2;
         total_updates += partUpdates;

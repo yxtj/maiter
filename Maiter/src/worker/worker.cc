@@ -304,7 +304,7 @@ void Worker::FinishCheckpoint() {
   network_->Send(config_.master_id(), MTYPE_CHECKPOINT_DONE, req);
 }
 
-void Worker::SendTermcheck(int snapshot, int updates, double current) {
+void Worker::SendTermcheck(int snapshot, long updates, double current) {
   boost::recursive_mutex::scoped_lock sl(state_lock_);
 
   TermcheckDelta req;

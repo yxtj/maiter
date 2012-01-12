@@ -69,7 +69,7 @@ public:
 private:
   void StartCheckpoint(int epoch, CheckpointType type);
   void FinishCheckpoint();
-  void SendTermcheck(int index, int updates, double current);
+  void SendTermcheck(int index, long updates, double current);
   void Restore(int epoch);
   void UpdateEpoch(int peer, int peer_epoch);
 

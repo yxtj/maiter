@@ -114,7 +114,7 @@ public:
   void serializeToNet(KVPairCoder *out);
   void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
   void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase);
-  void serializeToSnapshot(const string& f, int* updates, double* totalF2) {return;}
+  void serializeToSnapshot(const string& f, long* updates, double* totalF2) {return;}
 
   Marshal<K>* kmarshal() { return ((Marshal<K>*)info_.key_marshal); }
   Marshal<V1>* v1marshal() { return ((Marshal<V1>*)info_.value1_marshal); }

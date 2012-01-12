@@ -67,7 +67,7 @@ void LocalTable::write_delta(const KVPairData& put) {
 }
 
 //snapshot
-void LocalTable::termcheck(const string& f, int* updates, double* currF2) {
+void LocalTable::termcheck(const string& f, long* updates, double* currF2) {
   VLOG(1) << "Start snapshot " << f;
   Timer t;
 
