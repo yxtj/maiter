@@ -26,7 +26,11 @@ DEFINE_int64(shortestpath_source, 0, "");
 DEFINE_int64(katz_source, 0, "");
 DEFINE_double(katz_beta, 0.1, "");
 
+
+
 DECLARE_bool(log_prefix);
+
+
 
 int main(int argc, char** argv) {
   FLAGS_log_prefix = false;
