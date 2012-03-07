@@ -162,6 +162,7 @@ struct TermCheckers {
         V defaultv = statetable->defaultV();
         while(!statetable->done()){
             statetable->Next();
+            //cout << statetable->key() << "\t" << statetable->value2() << endl;
             if(statetable->value2() != defaultv){
                 partial_curr += static_cast<double>(statetable->value2());
             }

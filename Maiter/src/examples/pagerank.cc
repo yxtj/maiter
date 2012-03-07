@@ -50,6 +50,7 @@ struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
     void g_func(const float& delta, const vector<int>& data, vector<pair<int, float> >* output){
             int size = (int) data.size();
             float outv = delta * 0.8 / size;
+            
             for(vector<int>::const_iterator it=data.begin(); it!=data.end(); it++){
                     int target = *it;
                     output->push_back(make_pair(target, outv));

@@ -335,10 +335,13 @@ public:
             typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_typed_iterator(current_shard(), false);
             if(it == NULL) break;
 
-            for (; !it->done(); it->Next()) {
-                totalF2+=it->value1();
+            //should not use for(;!it->done();it->Next()), that will skip some entry
+            while(!it->done()) {
+                it->Next();
+                totalF2+=it->value2();
                 updates++;
 
+                cout << "processing " << it->key() << "\t" << it->value1() << "\t" << it->value2() << endl;
                 run_iter(it->key(), it->value1(), it->value2(), it->value3());
             }
             delete it;

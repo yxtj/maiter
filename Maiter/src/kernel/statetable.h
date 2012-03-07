@@ -42,6 +42,7 @@ public:
 
   struct Iterator : public TypedTableIterator<K, V1, V2, V3> {
         Iterator(StateTable<K, V1, V2, V3>& parent, bool bfilter) : pos(-1), parent_(parent) {
+            pos = -1;           //pos(-1) doesn't work
             /*
              this filter is very important in large-scale experiment, if there is no such control,
              * many useless parsing will occur.,degrading the performance a lot
@@ -70,7 +71,7 @@ public:
                 b_no_change = false;
             }
 
-            Next();
+            //Next();
         }
 
         Marshal<K>* kmarshal() { return parent_.kmarshal(); }
@@ -81,11 +82,13 @@ public:
         void Next() {
           do {
             ++pos;
+            //cout << "pos now is " << pos << " v1 " << parent_.buckets_[pos].v1 << endl;
           } while (pos < parent_.size_ && (parent_.buckets_[pos].v1 == defaultv || !parent_.buckets_[pos].in_use));
         }
 
         bool done() {
-          return pos == parent_.size_;
+            //cout<< "pos " << pos << "\tsize" << parent_.size_ << endl;
+          return pos+1 == parent_.size_;
         }
 
         const K& key() { return parent_.buckets_[pos].k; }
@@ -102,6 +105,7 @@ public:
   struct ScheduledIterator : public TypedTableIterator<K, V1, V2, V3> {
 	ScheduledIterator(StateTable<K, V1, V2, V3>& parent, bool bfilter) : pos(-1), parent_(parent) {
 
+        pos = -1;
 	b_no_change = true;
 
     	//random number generator
@@ -184,7 +188,7 @@ public:
             }
 
             VLOG(1) << "table size " << parent_.buckets_.size() << " workerid " << parent_.id() << " scheduled " << scheduled_pos.size();
-            Next();
+            //Next();
          }
   
         Marshal<K>* kmarshal() { return parent_.kmarshal(); }
@@ -197,7 +201,7 @@ public:
         }
 
         bool done() {
-          return pos == scheduled_pos.size();
+          return pos+1 == scheduled_pos.size();
         }
 
         const K& key() { return parent_.buckets_[scheduled_pos[pos]].k; }
@@ -230,6 +234,7 @@ public:
         EntirePassIterator(StateTable<K, V1, V2, V3>& parent) : pos(-1), parent_(parent) {
             Next();
             total = 0;
+            pos = -1;
             defaultv = ((IterateKernel<K, V1, V3>*)parent_.info_.iterkernel)->default_v();
         }
 
@@ -246,7 +251,8 @@ public:
         }
 
         bool done() {
-            return pos == parent_.size_;
+            //cout<< "entire pos " << pos << "\tsize" << parent_.size_ << endl;
+            return pos+1 == parent_.size_;
         }
 
         V1 defaultV(){
@@ -635,6 +641,7 @@ template <class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v) {
   int b = bucket_for_key(k);
 
+  //cout << "accumulate " << k << "\t" << v << endl;
   CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
   ((IterateKernel<K, V1, V3>*)info_.iterkernel)->accumulate(&buckets_[b].v1, v);
   ((IterateKernel<K, V1, V3>*)info_.iterkernel)->priority(&buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
