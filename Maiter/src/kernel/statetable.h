@@ -232,7 +232,7 @@ public:
    //for termination check
    struct EntirePassIterator : public TypedTableIterator<K, V1, V2, V3>, public LocalTableIterator<K, V2> {
         EntirePassIterator(StateTable<K, V1, V2, V3>& parent) : pos(-1), parent_(parent) {
-            Next();
+            //Next();
             total = 0;
             pos = -1;
             defaultv = ((IterateKernel<K, V1, V3>*)parent_.info_.iterkernel)->default_v();
