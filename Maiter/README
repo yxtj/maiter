@@ -1,0 +1,66 @@
+-- OVERVIEW
+
+-- PREREQUISITES
+
+To build and use Piccolo, you will need a minimum of the following:
+
+* CMake (> 2.6)
+* OpenMPI
+* Python (2.*)
+* gcc/g++ (> 4)
+* protocol buffers
+
+If available, the following libraries will be used:
+
+* Python development headers; SWIG
+* TCMalloc
+* google-perftools
+
+In addition to these, Piccolo comes with several support libraries which are 
+compiled as part of the build process; these are:
+
+* google-flags
+* google-logging
+
+
+On debian/ubuntu, the required libraries can be acquired by running:
+
+sudo apt-get install build-essential cmake g++ libboost-dev libboost-python-dev libboost-thread-dev liblzo2-dev libnuma-dev libopenmpi-dev libprotobuf-dev libcr-dev libibverbs-dev openmpi-bin protobuf-compiler liblapack-dev
+ 
+the optional libraries can be install via:
+
+sudo apt-get install libgoogle-perftools-dev python-dev swig
+
+-- BUILDING
+
+To build, simply run 'make' from the toplevel piccolo directory.  After building
+output should be available in the bin/ directory.  Specifically, a successful
+build should generate a bin/{debug,release}/examples/example-dsm binary.
+
+-- RUNNING
+
+To execute a Piccolo program, you will need to modify conf/mpi-cluster
+to point to the set of machines Piccolo will be executed on - for example, a file
+might look like:
+
+localhost slots=1
+a slots=4
+b slots=4
+c slots=4
+
+Which would allow for running up to 12 workers (+ 1 master process).
+
+The following is the script to run pagerank
+---------------------------------------------
+ALGORITHM=Pagerank
+WORKERS=3
+GRAPH=input/pr_graph
+RESULT=result/pr
+NODES=10000
+SNAPSHOT=1
+TERMTHRESH=0.0001
+BUFMSG=10000
+PORTION=1
+
+
+./maiter --runner=$ALGORITHM --workers=$WORKERS --graph_dir=$GRAPH --result_dir=$RESULT --num_nodes=$NODES --snapshot_interval=$SNAPSHOT --portion=$PORTION --termcheck_threshold=$TERMTHRESH --bufmsg=$BUFMSG --v=0
