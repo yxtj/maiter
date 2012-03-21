@@ -79,15 +79,21 @@ public:
         Marshal<V2>* v2marshal() { return parent_.v2marshal(); }
         Marshal<V3>* v3marshal() { return parent_.v3marshal(); }
 
-        void Next() {
+        bool Next() {
           do {
             ++pos;
-            //cout << "pos now is " << pos << " v1 " << parent_.buckets_[pos].v1 << endl;
+            cout << "pos now is " << pos << " v1 " << parent_.buckets_[pos].v1 << endl;
           } while (pos < parent_.size_ && (parent_.buckets_[pos].v1 == defaultv || !parent_.buckets_[pos].in_use));
+          
+          if(pos >= parent_.size_){
+              return false;
+          }else{
+              return true;
+          }
         }
 
         bool done() {
-            //cout<< "pos " << pos << "\tsize" << parent_.size_ << endl;
+            cout<< "pos " << pos << "\tsize" << parent_.size_ << endl;
           return pos+1 == parent_.size_;
         }
 
@@ -196,8 +202,9 @@ public:
         Marshal<V2>* v2marshal() { return parent_.v2marshal(); }
         Marshal<V3>* v3marshal() { return parent_.v3marshal(); }
 
-        void Next() {
+        bool Next() {
             ++pos;
+            return true;
         }
 
         bool done() {
@@ -243,11 +250,17 @@ public:
         Marshal<V2>* v2marshal() { return parent_.v2marshal(); }
         Marshal<V3>* v3marshal() { return parent_.v3marshal(); }
 
-        void Next() {
+        bool Next() {
           do {
             ++pos;
           } while (pos < parent_.size_ && !parent_.buckets_[pos].in_use);
           total++;
+          
+          if(pos >= parent_.size_){
+              return false;
+          }else{
+              return true;
+          }
         }
 
         bool done() {
@@ -343,7 +356,9 @@ public:
               
               total_curr = 0;
               while (!entireIter->done()) {
-                entireIter->Next();
+                bool cont = entireIter->Next();
+                if(!cont) break;
+                
                 total_curr += entireIter->value2();
               }
 

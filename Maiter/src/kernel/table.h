@@ -95,7 +95,7 @@ struct LocalTableIterator {
     virtual const K& key() = 0;
     virtual V& value2() = 0;
     virtual bool done() = 0;
-    virtual void Next() = 0;
+    virtual bool Next() = 0;
     virtual V defaultV() = 0;
 };
 
@@ -268,7 +268,7 @@ struct TableIterator {
   virtual void value2_str(string *out) = 0;
   virtual void value3_str(string *out) = 0;
   virtual bool done() = 0;
-  virtual void Next() = 0;
+  virtual bool Next() = 0;
 };
 
 // Methods common to both global and local table views.
@@ -532,8 +532,9 @@ struct FileDecodeIterator : public TypedTableIterator<K, V1, V2, V3>, public Dec
   bool done() {
     return intit == decodedeque.end();
   }
-  void Next() {
+  bool Next() {
     intit++;
+    return true;
   }
   const K& key() {
     static K k2;
@@ -595,8 +596,9 @@ struct NetDecodeIterator : public PTypedTableIterator<K, V1>, public DecodeItera
   bool done() {
     return intit == decodedeque.end();
   }
-  void Next() {
+  bool Next() {
     intit++;
+    return true;
   }
   const K& key() {
     static K k2;

@@ -337,7 +337,9 @@ public:
 
             //should not use for(;!it->done();it->Next()), that will skip some entry
             while(!it->done()) {
-                it->Next();
+                bool cont = it->Next();
+                if(!cont) break;
+                
                 totalF2+=it->value2();
                 updates++;
 
@@ -384,24 +386,27 @@ public:
         string file = StringPrintf("%s/part-%d", maiter->output.c_str(), current_shard());
         File.open(file.c_str(), ios::out);
 
-        /*
-        typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_typed_iterator(current_shard(), true);
+        
+        typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_entirepass_iterator(current_shard());
 
-        for (; !it->done(); it->Next()) {
+        while(!it->done()) {
+                bool cont = it->Next();
+                if(!cont) break;
+                
                 totalF1 += it->value1();
                 totalF2 += it->value2();
                 File << it->key() << "\t" << it->value1() << "|" << it->value2() << "\n";
         }
         delete it;
-        */       
-
+              
+        /*
         for (int i = current_shard(); i < maiter->num_nodes; i += maiter->conf.num_workers()) {
                 totalF1 += maiter->table->getF1(i);
                 totalF2 += maiter->table->getF2(i);
 
                 File << i << "\t" << maiter->table->getF1(i) << "|" << maiter->table->getF2(i) << "\n";
         };
-
+        */
 
         File.close();
 

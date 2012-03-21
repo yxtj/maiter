@@ -42,10 +42,17 @@ public:
     Marshal<K>* kmarshal() { return parent_.kmarshal(); }
     Marshal<V1>* v1marshal() { return parent_.v1marshal(); }
 
-    void Next() {
+    bool Next() {
       do {
         ++pos;
       } while (pos < parent_.size_ && !parent_.buckets_[pos].in_use);
+      
+      if(pos >= parent_.size_){
+        return false;
+      }else{
+        return true;
+      }
+
     }
 
     bool done() {
