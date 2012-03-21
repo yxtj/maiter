@@ -83,7 +83,7 @@ public:
           do {
             ++pos;
             //cout << "pos now is " << pos << " v1 " << parent_.buckets_[pos].v1 << endl;
-          } while (pos < parent_.size_ && (parent_.buckets_[pos].v1 == defaultv || !parent_.buckets_[pos].in_use));
+          } while (pos+1 < parent_.size_ && (parent_.buckets_[pos].v1 == defaultv || !parent_.buckets_[pos].in_use));
         }
 
         bool done() {
