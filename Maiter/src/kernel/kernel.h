@@ -317,6 +317,7 @@ public:
                 maiter->table->accumulateF1(kvpair.first, kvpair.second);
         }
         output->clear();
+        
     }
 
     void run_loop(TypedGlobalTable<K, V, V, D>* a) {
@@ -355,7 +356,7 @@ public:
                 run_iter(it2->key(), it2->value1(), it2->value2(), it2->value3());
             }
             delete it;
-       
+
             //for expr
             cout << "time " << timer.elapsed() << " worker " << current_shard() << " delta " << totalF1 <<
                     " progress " << totalF2 << " updates " << updates << 
