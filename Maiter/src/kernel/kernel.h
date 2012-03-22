@@ -303,25 +303,24 @@ public:
     }
         
     void run_iter(const K& k, V &v1, V &v2, D &v3) {
-        {
-            //boost::recursive_mutex::scoped_lock sl(state_lock_);
 
-            maiter->table->accumulateF2(k, v1);
+		//boost::recursive_mutex::scoped_lock sl(state_lock_);
 
-            maiter->iterkernel->g_func(v1, v3, output);
-            //cout << " key " << k << endl;
-            
-            if(output->size() > threshold){
-                typename vector<pair<K, V> >::iterator iter;
-                for(iter = output->begin(); iter != output->end(); iter++) {
-                    pair<K, V> kvpair = *iter;
-                    maiter->table->accumulateF1(kvpair.first, kvpair.second);
-                }
-                output->clear();
-            }
-        }
+		maiter->table->accumulateF2(k, v1);
 
-        maiter->table->updateF1(k, maiter->iterkernel->default_v());
+		maiter->iterkernel->g_func(v1, v3, output);
+		//cout << " key " << k << endl;
+		maiter->table->updateF1(k, maiter->iterkernel->default_v());
+
+		if(output->size() > threshold){
+			typename vector<pair<K, V> >::iterator iter;
+			for(iter = output->begin(); iter != output->end(); iter++) {
+				pair<K, V> kvpair = *iter;
+				//cout << "accumulating " << kvpair.first << " with " <<kvpair.second << endl;
+				maiter->table->accumulateF1(kvpair.first, kvpair.second);
+			}
+			output->clear();
+		}
     }
 
     void run_loop(TypedGlobalTable<K, V, V, D>* a) {
@@ -330,7 +329,7 @@ public:
         double totalF2 = 0;
         long updates = 0;
         output = new vector<pair<K, V> >;
-        threshold = 100000;
+        threshold = 1000;
 
         //the main loop for iterative update
         while(true){
@@ -357,7 +356,7 @@ public:
                 
                 updates++;
 
-                //cout << "processing " << it->key() << "\t" << it->value1() << "\t" << it->value2() << endl;
+                //cout << "processing " << it->key() << " " << it->value1() << " " << it->value2() << endl;
                 run_iter(it2->key(), it2->value1(), it2->value2(), it2->value3());
             }
             delete it;
@@ -366,6 +365,7 @@ public:
             typename vector<pair<K, V> >::iterator iter;
             for(iter = output->begin(); iter != output->end(); iter++) {
                 pair<K, V> kvpair = *iter;
+                //cout << "accumulating " << kvpair.first << " with " <<kvpair.second << endl;
                 maiter->table->accumulateF1(kvpair.first, kvpair.second);
             }
             output->clear();
