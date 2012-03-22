@@ -81,6 +81,7 @@ struct Sharder : public SharderBase {
 
 template <class K, class V, class D>
 struct IterateKernel : public IterateKernelBase {
+
   virtual void read_data(string& line, K* k, D* data) = 0;
   virtual void init_c(const K& k, V* delta) = 0;
   virtual const V& default_v() const = 0;

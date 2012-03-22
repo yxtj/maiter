@@ -260,8 +260,8 @@ public:
             exit(1); // terminate with error
         }
 
-        char linechr[1024000];
-        while (inFile.getline(linechr, 1024000)) {
+        char linechr[2024000];
+        while (inFile.getline(linechr, 2024000)) {
             K key;
             V delta;
             D data;
@@ -304,11 +304,13 @@ public:
         
     void run_iter(const K& k, V &v1, V &v2, D &v3) {
         {
-            boost::recursive_mutex::scoped_lock sl(state_lock_);
+            //boost::recursive_mutex::scoped_lock sl(state_lock_);
 
             maiter->table->accumulateF2(k, v1);
 
             maiter->iterkernel->g_func(v1, v3, output);
+            //cout << " key " << k << endl;
+            
             if(output->size() > threshold){
                 typename vector<pair<K, V> >::iterator iter;
                 for(iter = output->begin(); iter != output->end(); iter++) {
@@ -324,10 +326,11 @@ public:
 
     void run_loop(TypedGlobalTable<K, V, V, D>* a) {
         Timer timer;
+        double totalF1 = 0;
         double totalF2 = 0;
         long updates = 0;
         output = new vector<pair<K, V> >;
-        threshold = 1000;
+        threshold = 100000;
 
         //the main loop for iterative update
         while(true){
@@ -335,16 +338,27 @@ public:
             typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_typed_iterator(current_shard(), false);
             if(it == NULL) break;
 
-            //should not use for(;!it->done();it->Next()), that will skip some entry
+            totalF1 = 0;
+            totalF2 = 0;
+            
             while(!it->done()) {
                 bool cont = it->Next();
                 if(!cont) break;
-                
+                totalF1 += it->value1();
                 totalF2+=it->value2();
+            }
+            delete it;
+            
+            typename TypedGlobalTable<K, V, V, D>::Iterator *it2 = a->get_typed_iterator(current_shard(), false);
+            //should not use for(;!it->done();it->Next()), that will skip some entry
+            while(!it2->done()) {
+                bool cont = it2->Next();
+                if(!cont) break;
+                
                 updates++;
 
-                cout << "processing " << it->key() << "\t" << it->value1() << "\t" << it->value2() << endl;
-                run_iter(it->key(), it->value1(), it->value2(), it->value3());
+                //cout << "processing " << it->key() << "\t" << it->value1() << "\t" << it->value2() << endl;
+                run_iter(it2->key(), it2->value1(), it2->value2(), it2->value3());
             }
             delete it;
 
@@ -357,9 +371,9 @@ public:
             output->clear();
             
             //for expr
-            cout << "time " << timer.elapsed() << " worker " << current_shard() << 
+            cout << "time " << timer.elapsed() << " worker " << current_shard() << " delta " << totalF1 <<
                     " progress " << totalF2 << " updates " << updates << 
-                    " totalsent " << a->sent_bytes_ << endl;
+                    " totalsent " << a->sent_bytes_ << " total " << endl;
         }
     }
 

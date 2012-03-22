@@ -82,8 +82,8 @@ public:
         bool Next() {
           do {
             ++pos;
-            cout << "pos now is " << pos << " v1 " << parent_.buckets_[pos].v1 << endl;
-          } while (pos < parent_.size_ && (parent_.buckets_[pos].v1 == defaultv || !parent_.buckets_[pos].in_use));
+            //cout << "pos now is " << pos << " v1 " << parent_.buckets_[pos].v1 << endl;
+          } while (pos < parent_.size_ && (/*parent_.buckets_[pos].v1 == defaultv || */!parent_.buckets_[pos].in_use));
           
           if(pos >= parent_.size_){
               return false;
@@ -93,7 +93,7 @@ public:
         }
 
         bool done() {
-            cout<< "pos " << pos << "\tsize" << parent_.size_ << endl;
+            //cout<< "pos " << pos << "\tsize" << parent_.size_ << endl;
           return pos+1 == parent_.size_;
         }
 

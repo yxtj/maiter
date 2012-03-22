@@ -11,6 +11,7 @@ DECLARE_double(portion);
 struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
     float zero;
 
+
     PagerankIterateKernel() : zero(0){}
 
     void read_data(string& line, int* k, vector<int>* data){
@@ -51,6 +52,7 @@ struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
             int size = (int) data.size();
             float outv = delta * 0.8 / size;
             
+            //cout << "size " << size << endl;
             for(vector<int>::const_iterator it=data.begin(); it!=data.end(); it++){
                     int target = *it;
                     output->push_back(make_pair(target, outv));
