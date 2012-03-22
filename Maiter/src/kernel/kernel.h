@@ -330,32 +330,19 @@ public:
         //the main loop for iterative update
         while(true){
             //set false, no inteligient stop scheme, which can check whether there are changes in statetable
-            typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_typed_iterator(current_shard(), false);
-            if(it == NULL) break;
 
-            totalF1 = 0;
-            totalF2 = 0;
-            
-            while(!it->done()) {
-                bool cont = it->Next();
-                if(!cont) break;
-                totalF1 += it->value1();
-                totalF2+=it->value2();
-            }
-            delete it;
-            
             typename TypedGlobalTable<K, V, V, D>::Iterator *it2 = a->get_typed_iterator(current_shard(), false);
             //should not use for(;!it->done();it->Next()), that will skip some entry
             while(!it2->done()) {
                 bool cont = it2->Next();
                 if(!cont) break;
-                
+                totalF2+=it2->value2();
                 updates++;
 
                 //cout << "processing " << it->key() << " " << it->value1() << " " << it->value2() << endl;
                 run_iter(it2->key(), it2->value1(), it2->value2(), it2->value3());
             }
-            delete it;
+            delete it2;
 
             //for expr
             cout << "time " << timer.elapsed() << " worker " << current_shard() << " delta " << totalF1 <<
