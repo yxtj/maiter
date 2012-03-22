@@ -304,23 +304,19 @@ public:
         
     void run_iter(const K& k, V &v1, V &v2, D &v3) {
 
-		//boost::recursive_mutex::scoped_lock sl(state_lock_);
+        maiter->table->accumulateF2(k, v1);
 
-		maiter->table->accumulateF2(k, v1);
+        maiter->iterkernel->g_func(v1, v3, output);
+        //cout << " key " << k << endl;
+        maiter->table->updateF1(k, maiter->iterkernel->default_v());
 
-		maiter->iterkernel->g_func(v1, v3, output);
-		//cout << " key " << k << endl;
-		maiter->table->updateF1(k, maiter->iterkernel->default_v());
-
-		if(output->size() > threshold){
-			typename vector<pair<K, V> >::iterator iter;
-			for(iter = output->begin(); iter != output->end(); iter++) {
-				pair<K, V> kvpair = *iter;
-				//cout << "accumulating " << kvpair.first << " with " <<kvpair.second << endl;
-				maiter->table->accumulateF1(kvpair.first, kvpair.second);
-			}
-			output->clear();
-		}
+        typename vector<pair<K, V> >::iterator iter;
+        for(iter = output->begin(); iter != output->end(); iter++) {
+                pair<K, V> kvpair = *iter;
+                //cout << "accumulating " << kvpair.first << " with " <<kvpair.second << endl;
+                maiter->table->accumulateF1(kvpair.first, kvpair.second);
+        }
+        output->clear();
     }
 
     void run_loop(TypedGlobalTable<K, V, V, D>* a) {
@@ -329,7 +325,6 @@ public:
         double totalF2 = 0;
         long updates = 0;
         output = new vector<pair<K, V> >;
-        threshold = 1000;
 
         //the main loop for iterative update
         while(true){
@@ -360,16 +355,7 @@ public:
                 run_iter(it2->key(), it2->value1(), it2->value2(), it2->value3());
             }
             delete it;
-
-            //send out buffer
-            typename vector<pair<K, V> >::iterator iter;
-            for(iter = output->begin(); iter != output->end(); iter++) {
-                pair<K, V> kvpair = *iter;
-                //cout << "accumulating " << kvpair.first << " with " <<kvpair.second << endl;
-                maiter->table->accumulateF1(kvpair.first, kvpair.second);
-            }
-            output->clear();
-            
+       
             //for expr
             cout << "time " << timer.elapsed() << " worker " << current_shard() << " delta " << totalF1 <<
                     " progress " << totalF2 << " updates " << updates << 
