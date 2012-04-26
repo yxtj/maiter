@@ -332,6 +332,8 @@ public:
             //set false, no inteligient stop scheme, which can check whether there are changes in statetable
 
             typename TypedGlobalTable<K, V, V, D>::Iterator *it2 = a->get_typed_iterator(current_shard(), false);
+            if(it2 != NULL) break;
+
             //should not use for(;!it->done();it->Next()), that will skip some entry
             while(!it2->done()) {
                 bool cont = it2->Next();
