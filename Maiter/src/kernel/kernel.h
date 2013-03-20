@@ -385,7 +385,7 @@ public:
                 
                 totalF1 += it->value1();
                 totalF2 += it->value2();
-                File << it->key() << "\t" << it->value1() << "|" << it->value2() << "\n";
+                File << it->key() << "\t" << it->value1() << ":" << it->value2() << "\n";
         }
         delete it;
               

@@ -17,6 +17,8 @@ struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
     void read_data(string& line, int* k, vector<int>* data){
         string linestr(line);
         int pos = linestr.find("\t");
+        if(pos == -1) return;
+        
         int source = boost::lexical_cast<int>(linestr.substr(0, pos));
 
         vector<int> linkvec;
