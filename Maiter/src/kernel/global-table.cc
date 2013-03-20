@@ -50,7 +50,7 @@ int64_t GlobalTableBase::shard_size(int shard) {
 void MutableGlobalTableBase::resize(int64_t new_size) {
   for (int i = 0; i < partitions_.size(); ++i) {
     if (is_local_shard(i)) {
-      partitions_[i]->resize(new_size / partitions_.size());
+      partitions_[i]->resize(new_size / partitions_.size() + 1);
     }
   }
 }
