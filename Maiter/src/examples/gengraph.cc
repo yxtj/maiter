@@ -17,7 +17,17 @@ DECLARE_string(graph_dir);
 
 static TypedGlobalTable<int, double, double, vector<int> > *graph;
 
-static boost::mt19937 gen(time(0));
+static int getSeed()
+{
+    ifstream rand("/dev/urandom");
+    char tmp[sizeof(int)];
+    rand.read(tmp,sizeof(int));
+    rand.close();
+    int* number = reinterpret_cast<int*>(tmp);
+    return (*number);
+}
+
+static boost::mt19937 gen(time(0)+getSeed());
 
 static double _mean_degree=FLAGS_logn_degree_m;
 static double _sigma_degree=FLAGS_logn_degree_s;
