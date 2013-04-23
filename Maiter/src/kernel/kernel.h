@@ -243,9 +243,9 @@ public:
 };
 
 template <class K, class V, class D>
-class MaiterKernel1 : public DSMKernel {
+class MaiterKernel1 : public DSMKernel {                    //the first phase: initialize the local state table
 private:
-    MaiterKernel<K, V, D>* maiter;
+    MaiterKernel<K, V, D>* maiter;                          //user-defined iteratekernel
 public:
     void set_maiter(MaiterKernel<K, V, D>* inmaiter) {
         maiter = inmaiter;
@@ -261,26 +261,26 @@ public:
         }
 
         char linechr[2024000];
-        while (inFile.getline(linechr, 2024000)) {
+        while (inFile.getline(linechr, 2024000)) {              //read a line of the input file, ensure the buffer is large enough
             K key;
             V delta;
             D data;
 
             string line(linechr);
-            maiter->iterkernel->read_data(line, &key, &data);
-            V value = maiter->iterkernel->default_v();
-            maiter->iterkernel->init_c(key, &delta);
-            table->put(key, delta, value, data);
+            maiter->iterkernel->read_data(line, &key, &data);   //invoke api, get the value of key field and data field
+            V value = maiter->iterkernel->default_v();          //invoke api, get the initial v field value
+            maiter->iterkernel->init_c(key, &delta);            //invoke api, get the initial delta v field value
+            table->put(key, delta, value, data);                //initialize a row of the state table (a node)
         }
     }
 
     void init_table(TypedGlobalTable<K, V, V, D>* a){
         if(!a->initialized()){
-            a->InitStateTable();
+            a->InitStateTable();        //initialize the local state table
         }
-        a->resize(maiter->num_nodes);
+        a->resize(maiter->num_nodes);   //create local state table based on the input size
 
-        read_file(a);
+        read_file(a);                   //initialize the state table fields based on the input data file
     }
 
     void run() {
@@ -290,12 +290,10 @@ public:
 };
 
 template <class K, class V, class D>
-class MaiterKernel2 : public DSMKernel {
+class MaiterKernel2 : public DSMKernel {                //the second phase: iterative processing of the local state table
 private:
-    MaiterKernel<K, V, D>* maiter;
-    vector<pair<K, V> >* output;
-    mutable boost::recursive_mutex state_lock_;
-    int threshold;
+    MaiterKernel<K, V, D>* maiter;                  //user-defined iteratekernel
+    vector<pair<K, V> >* output;                    //the output buffer          
 
 public:
     void set_maiter(MaiterKernel<K, V, D>* inmaiter) {
@@ -304,49 +302,50 @@ public:
         
     void run_iter(const K& k, V &v1, V &v2, D &v3) {
 
-        maiter->table->accumulateF2(k, v1);
+        maiter->table->accumulateF2(k, v1);                                 //perform v=v+delta_v
 
-        maiter->iterkernel->g_func(v1, v3, output);
+        maiter->iterkernel->g_func(v1, v3, output);                         //invoke api, perform g(delta_v) and send messages to out-neighbors
         //cout << " key " << k << endl;
-        maiter->table->updateF1(k, maiter->iterkernel->default_v());
+        maiter->table->updateF1(k, maiter->iterkernel->default_v());        //perform delta_v=0, reset delta_v after delta_v has been spread out
 
         typename vector<pair<K, V> >::iterator iter;
-        for(iter = output->begin(); iter != output->end(); iter++) {
+        for(iter = output->begin(); iter != output->end(); iter++) {        //send the buffered messages to remote state table
                 pair<K, V> kvpair = *iter;
                 //cout << "accumulating " << kvpair.first << " with " <<kvpair.second << endl;
-                maiter->table->accumulateF1(kvpair.first, kvpair.second);
+                maiter->table->accumulateF1(kvpair.first, kvpair.second);   //apply the output messages to remote state table
         }
-        output->clear();
+        output->clear();                                                    //clear the output buffer
         
     }
 
     void run_loop(TypedGlobalTable<K, V, V, D>* a) {
-        Timer timer;
-        double totalF1 = 0;
-        double totalF2 = 0;
-        long updates = 0;
+        Timer timer;                        //for experiment, time recording
+        double totalF1 = 0;                 //the sum of delta_v, it should be smaller and smaller as iterations go on
+        double totalF2 = 0;                 //the sum of v, it should be larger and larger as iterations go on
+        long updates = 0;                   //for experiment, recording number of update operations
         output = new vector<pair<K, V> >;
 
         //the main loop for iterative update
         while(true){
             //set false, no inteligient stop scheme, which can check whether there are changes in statetable
 
+            //get the iterator of the local state table
             typename TypedGlobalTable<K, V, V, D>::Iterator *it2 = a->get_typed_iterator(current_shard(), false);
             if(it2 == NULL) break;
 
             //should not use for(;!it->done();it->Next()), that will skip some entry
             while(!it2->done()) {
-                bool cont = it2->Next();
+                bool cont = it2->Next();        //if we have more in the state table, we continue
                 if(!cont) break;
-                totalF2+=it2->value2();
-                updates++;
+                totalF2+=it2->value2();         //for experiment, recording the sum of v
+                updates++;                      //for experiment, recording the number of updates
 
                 //cout << "processing " << it->key() << " " << it->value1() << " " << it->value2() << endl;
                 run_iter(it2->key(), it2->value1(), it2->value2(), it2->value3());
             }
-            delete it2;
+            delete it2;                         //delete the table iterator
 
-            //for expr
+            //for experiment
             cout << "time " << timer.elapsed() << " worker " << current_shard() << " delta " << totalF1 <<
                     " progress " << totalF2 << " updates " << updates << 
                     " totalsent " << a->sent_bytes_ << " total " << endl;
@@ -360,23 +359,23 @@ public:
 };
 
 template <class K, class V, class D>
-class MaiterKernel3 : public DSMKernel {
+class MaiterKernel3 : public DSMKernel {        //the third phase: dumping the result, write the in-memory table to disk
 private:
-    MaiterKernel<K, V, D>* maiter;
+    MaiterKernel<K, V, D>* maiter;              //user-defined iteratekernel
 public:
     void set_maiter(MaiterKernel<K, V, D>* inmaiter) {
         maiter = inmaiter;
     }
         
     void dump(TypedGlobalTable<K, V, V, D>* a){
-        double totalF1 = 0;
-        double totalF2 = 0;
-        fstream File;
+        double totalF1 = 0;             //the sum of delta_v, it should be smaller enough when iteration converges  
+        double totalF2 = 0;             //the sum of v, it should be larger enough when iteration converges
+        fstream File;                   //the output file containing the local state table infomation
 
-        string file = StringPrintf("%s/part-%d", maiter->output.c_str(), current_shard());
+        string file = StringPrintf("%s/part-%d", maiter->output.c_str(), current_shard());  //the output path
         File.open(file.c_str(), ios::out);
 
-        
+        //get the iterator of the local state table
         typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_entirepass_iterator(current_shard());
 
         while(!it->done()) {
@@ -388,15 +387,6 @@ public:
                 File << it->key() << "\t" << it->value1() << ":" << it->value2() << "\n";
         }
         delete it;
-              
-        /*
-        for (int i = current_shard(); i < maiter->num_nodes; i += maiter->conf.num_workers()) {
-                totalF1 += maiter->table->getF1(i);
-                totalF2 += maiter->table->getF2(i);
-
-                File << i << "\t" << maiter->table->getF1(i) << "|" << maiter->table->getF2(i) << "\n";
-        };
-        */
 
         File.close();
 
@@ -430,18 +420,18 @@ public:
     MaiterKernel() { Reset(); }
 
     MaiterKernel(ConfigData& inconf, int64_t nodes, double portion, string outdir,
-                    Sharder<K>* insharder,
-                    IterateKernel<K, V, D>* initerkernel,
-                    TermChecker<K, V>* intermchecker) {
+                    Sharder<K>* insharder,                  //the user-defined partitioner
+                    IterateKernel<K, V, D>* initerkernel,   //the user-defined iterate kernel
+                    TermChecker<K, V>* intermchecker) {     //the user-defined terminate checker
         Reset();
         
-        conf = inconf;
-        num_nodes = nodes;
-        schedule_portion = portion;
-        output = outdir;
-        sharder = insharder;
-        iterkernel = initerkernel;
-        termchecker = intermchecker;
+        conf = inconf;                  //configuration
+        num_nodes = nodes;              //local state table size
+        schedule_portion = portion;     //priority scheduling, scheduled portion
+        output = outdir;                //output dir
+        sharder = insharder;            //the user-defined partitioner
+        iterkernel = initerkernel;      //the user-defined iterate kernel
+        termchecker = intermchecker;    //the user-defined terminate checker
     }
     
     ~MaiterKernel(){}
