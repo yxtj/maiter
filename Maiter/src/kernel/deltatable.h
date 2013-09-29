@@ -283,7 +283,8 @@ void DeltaTable<K, V1, D>::accumulate(const K& k, const V1& v) {
   if(b == -1){
 	  put(k, v);
   }else{
-	  ((IterateKernel<K, V1, D>*)info_.iterkernel)->accumulate(&buckets_[b].v1, v);
+          //((IterateKernel<K, V1, D>*)info_.iterkernel)->accumulate(&buckets_[b].v1, v);
+	  ((IterateKernel<K, V1, D>*)info_.iterkernel)->accumulate(buckets_[b].v1, v);
   }
 }
 

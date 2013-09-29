@@ -561,21 +561,22 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size) {
     return;
 
   std::vector<Bucket> old_b = buckets_;
-  int old_entries = entries_;
+  //int old_entries = entries_;
 
-  //LOG(INFO) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
+ // LOG(INFO) << "Rehashing.vd.. " << entries_ << " : " << size_ << " -> " << size;
 
   buckets_.resize(size);
   size_ = size;
   clear();
-
+  //LOG(INFO) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
   for (int i = 0; i < old_b.size(); ++i) {
-    if (old_b[i].in_use) {
+    if (old_b[i].in_use) {    
       put(old_b[i].k, old_b[i].v1, old_b[i].v2, old_b[i].v3);
+      LOG(INFO) << "copy: " << old_b[i].k;
     }
   }
 
-  CHECK_EQ(old_entries, entries_);
+  //CHECK_EQ(old_entries, entries_); 
 }
 
 template <class K, class V1, class V2, class V3>
@@ -657,9 +658,9 @@ void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v) {
   int b = bucket_for_key(k);
 
   //cout << "accumulate " << k << "\t" << v << endl;
-  CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
-  ((IterateKernel<K, V1, V3>*)info_.iterkernel)->accumulate(&buckets_[b].v1, v);
-  ((IterateKernel<K, V1, V3>*)info_.iterkernel)->priority(&buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
+  CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) <<">"<< "key: "<<k;
+  ((IterateKernel<K, V1, V3>*)info_.iterkernel)->accumulate(buckets_[b].v1, v);
+  ((IterateKernel<K, V1, V3>*)info_.iterkernel)->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
 
 }
 
@@ -668,7 +669,7 @@ void StateTable<K, V1, V2, V3>::accumulateF2(const K& k, const V2& v) {
   int b = bucket_for_key(k);
 
   CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
-  ((IterateKernel<K, V1, V3>*)info_.iterkernel)->accumulate(&buckets_[b].v2, v);
+  ((IterateKernel<K, V1, V3>*)info_.iterkernel)->accumulate(buckets_[b].v2, v);
 }
 
 template <class K, class V1, class V2, class V3>
@@ -699,24 +700,28 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
   // Inserting a new entry:
   if (!found) {
     if (entries_ > size_ /** kLoadFactor*/) {     //doesn't consider loadfactor, the tablesize is pre-defined 
-        LOG(INFO) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2) << " entries "<< entries_;
+        VLOG(0) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2) << " entries "<< entries_;
+        //entries_-=1;
         resize((int)(1 + size_ * 2));
         put(k, v1, v2, v3);
+        ++entries_;
+        VLOG(0) << "if entries_: " << entries_<<"  key: "<<k;
     } else {
       buckets_[b].in_use = 1;
       buckets_[b].k = k;
       buckets_[b].v1 = v1;
       buckets_[b].v2 = v2;
       buckets_[b].v3 = v3;
-      ((IterateKernel<K, V1, V3>*)info_.iterkernel)->priority(&buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
+      ((IterateKernel<K, V1, V3>*)info_.iterkernel)->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
       ++entries_;
+      VLOG(0) << "else entries_: " << entries_<<"  key: "<<k;
     }
   } else {
     // Replacing an existing entry
     buckets_[b].v1 = v1;
     buckets_[b].v2 = v2;
     buckets_[b].v3 = v3;
-    ((IterateKernel<K, V1, V3>*)info_.iterkernel)->priority(&buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
+    ((IterateKernel<K, V1, V3>*)info_.iterkernel)->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
   }
 }
 

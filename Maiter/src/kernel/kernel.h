@@ -253,10 +253,13 @@ public:
     
     void read_file(TypedGlobalTable<K, V, V, D>* table){
         string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
+        //cout<<"Unable to open file: " << patition_file<<endl;
         ifstream inFile;
         inFile.open(patition_file.c_str());
         if (!inFile) {
+            //cout<<"Unable to open file: " << patition_file;
             cerr << "Unable to open file" << patition_file;
+            cerr << system("ifconfig -a | grep 192.168.*")<<endl;
             exit(1); // terminate with error
         }
 
@@ -265,12 +268,15 @@ public:
             K key;
             V delta;
             D data;
-
+            V value;
             string line(linechr);
-            maiter->iterkernel->read_data(line, &key, &data);   //invoke api, get the value of key field and data field
-            V value = maiter->iterkernel->default_v();          //invoke api, get the initial v field value
-            maiter->iterkernel->init_c(key, &delta);            //invoke api, get the initial delta v field value
+            maiter->iterkernel->read_data(line, key, data);   //invoke api, get the value of key field and data field
+            maiter->iterkernel->init_v(key,value,data);          //invoke api, get the initial v field value
+            maiter->iterkernel->init_c(key, delta,data); //invoke api, get the initial delta v field value
+            //cout<<"key: "<<key<<"delta: "<<delta<<"value: "<<value<<"   "<<data[0][0]<<"  "<<data[1][0]<<"   "<<data[2][0]<<endl;
             table->put(key, delta, value, data);                //initialize a row of the state table (a node)
+            
+            
         }
     }
 
@@ -301,12 +307,15 @@ public:
     }
         
     void run_iter(const K& k, V &v1, V &v2, D &v3) {
+        //cout<<"delta:"<<v1<<endl;
+        
+        maiter->iterkernel->process_delta_v(k,v1,v2,v3);
 
-        maiter->table->accumulateF2(k, v1);                                 //perform v=v+delta_v
-
-        maiter->iterkernel->g_func(v1, v3, output);                         //invoke api, perform g(delta_v) and send messages to out-neighbors
+        maiter->table->accumulateF2(k, v1);                                  //perform v=v+delta_v     
+                                                                             // process delta_v before accumulate
+        maiter->iterkernel->g_func(k,v1,v2 ,v3, output);                        //invoke api, perform g(delta_v) and send messages to out-neighbors
         //cout << " key " << k << endl;
-        maiter->table->updateF1(k, maiter->iterkernel->default_v());        //perform delta_v=0, reset delta_v after delta_v has been spread out
+        maiter->table->updateF1(k,maiter->iterkernel->default_v());        //perform delta_v=0, reset delta_v after delta_v has been spread out
 
         typename vector<pair<K, V> >::iterator iter;
         for(iter = output->begin(); iter != output->end(); iter++) {        //send the buffered messages to remote state table
@@ -320,7 +329,7 @@ public:
 
     void run_loop(TypedGlobalTable<K, V, V, D>* a) {
         Timer timer;                        //for experiment, time recording
-        double totalF1 = 0;                 //the sum of delta_v, it should be smaller and smaller as iterations go on
+        //double totalF1 = 0;                 //the sum of delta_v, it should be smaller and smaller as iterations go on
         double totalF2 = 0;                 //the sum of v, it should be larger and larger as iterations go on
         long updates = 0;                   //for experiment, recording number of update operations
         output = new vector<pair<K, V> >;
@@ -340,15 +349,15 @@ public:
                 totalF2+=it2->value2();         //for experiment, recording the sum of v
                 updates++;                      //for experiment, recording the number of updates
 
-                //cout << "processing " << it->key() << " " << it->value1() << " " << it->value2() << endl;
+                cout << "processing " << it2->key() << " " << it2->value1() << " " << it2->value2() << endl;
                 run_iter(it2->key(), it2->value1(), it2->value2(), it2->value3());
             }
             delete it2;                         //delete the table iterator
 
             //for experiment
-            cout << "time " << timer.elapsed() << " worker " << current_shard() << " delta " << totalF1 <<
-                    " progress " << totalF2 << " updates " << updates << 
-                    " totalsent " << a->sent_bytes_ << " total " << endl;
+            //cout << "time " << timer.elapsed() << " worker " << current_shard() << " delta " << totalF1 <<
+                   // " progress " << totalF2 << " updates " << updates << 
+                   // " totalsent " << a->sent_bytes_ << " total " << endl;
         }
     }
 

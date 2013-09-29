@@ -40,14 +40,13 @@ struct PagerankIterateKernel : public IterateKernel<int, float, vector<int> > {
     }
 
     void init_c(const int& k, float& delta,vector<int>& data){
-            float init_delta = 0.2;
-            delta = init_delta;
+        delta = 0.2;
     }
 
     void init_v(const int& k,float& v,vector<int>& data){
-        v=0;
-        
+        v=0;  
     }
+    
     void accumulate(float& a, const float& b){
             a = a + b;
     }

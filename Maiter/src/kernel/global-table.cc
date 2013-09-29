@@ -215,8 +215,8 @@ void MutableGlobalTableBase::SendUpdates() {
         t->reset();
         put.set_done(true);
 
-        VLOG(3) << "Sending update for " << MP(t->id(), t->shard()) << " to " << owner(i) << " size " << put.kv_data_size();
-
+        //VLOG(3) << "Sending update for " << MP(t->id(), t->shard()) << " to " << owner(i) << " size " << put.kv_data_size();
+        cout<< "Sending update for " << MP(t->id(), t->shard()) << " to " << owner(i) << " size " << put.kv_data_size();
         sent_bytes_ += NetworkThread::Get()->Send(owner(i) + 1, MTYPE_PUT_REQUEST, put);
       } while(!t->empty());
 

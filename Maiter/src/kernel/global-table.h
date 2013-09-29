@@ -221,7 +221,7 @@ public:
 	void updateF2(const K &k, const V2 &v);
 	void updateF3(const K &k, const V3 &v);
 	void enqueue_updateF1(K k, V1 v);
-	void accumulateF1(const K &k, const V1 &v);
+	void accumulateF1(const K &k, const V1 &v); // 2 TypeGloobleTable :TypeTable
 	void accumulateF2(const K &k, const V2 &v);
 	void accumulateF3(const K &k, const V3 &v);
 
@@ -426,7 +426,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF3(const K &k, const V3 &v) {
 }
 
 template<class K, class V1, class V2, class V3>
-void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &k, const V1 &v) {
+void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &k, const V1 &v) { //3
   int shard = this->get_shard(k);
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
@@ -436,7 +436,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &k, const V1 &v) {
 
   if (is_local_shard(shard)) {
        //VLOG(1) << this->owner(shard) << ":" << shard << " accumulate " << v << " on local " << k;
-      partition(shard)->accumulateF1(k, v);
+      partition(shard)->accumulateF1(k, v);  //TypeTable
   } else {
         //VLOG(1) << this->owner(shard) << ":" << shard << " accumulate " << v << " on remote " << k;
         deltaT(shard)->accumulate(k, v);
@@ -452,7 +452,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &k, const V1 &v) {
 }
 
 template<class K, class V1, class V2, class V3>
-void TypedGlobalTable<K, V1, V2, V3>::accumulateF2(const K &k, const V2 &v) {
+void TypedGlobalTable<K, V1, V2, V3>::accumulateF2(const K &k, const V2 &v) { // 1
   int shard = this->get_shard(k);
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
@@ -461,7 +461,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF2(const K &k, const V2 &v) {
 #endif
 
   if (is_local_shard(shard)) {
-      partition(shard)->accumulateF2(k, v);
+      partition(shard)->accumulateF2(k, v); // Typetable
 
     //VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
   } else {

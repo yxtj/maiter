@@ -49,6 +49,10 @@ struct ShortestpathIterateKernel : public IterateKernel<int, float, vector<Link>
         }
     }
 
+    void init_v(const int& k,float& v,vector<int>& data){
+        v = imax;  
+    }
+        
     void accumulate(float* a, const float& b){
         *a = std::min(*a, b); 
     }

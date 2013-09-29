@@ -7,6 +7,7 @@
 #include "util/file.h"
 #include "worker/worker.pb.h"
 #include <boost/thread.hpp>
+#include <boost/lexical_cast.hpp>
 
 DECLARE_double(termcheck_threshold);
 
@@ -82,12 +83,14 @@ struct Sharder : public SharderBase {
 template <class K, class V, class D>
 struct IterateKernel : public IterateKernelBase {
 
-  virtual void read_data(string& line, K* k, D* data) = 0;
-  virtual void init_c(const K& k, V* delta) = 0;
+  virtual void read_data(string& line, K& k, D& data) = 0;
+  virtual void init_c(const K& k, V& delta,D& data) = 0;
   virtual const V& default_v() const = 0;
-  virtual void accumulate(V* a, const V& b) = 0;
-  virtual void priority(V* pri, const V& value, const V& delta) = 0;
-  virtual void g_func(const V& delta, const D& data, vector<pair<K, V> >* output) = 0;
+  virtual void init_v(const K& k,V& v,D& data) = 0;
+  virtual void accumulate(V& a, const V& b) = 0;
+  virtual void process_delta_v(const K& k, V& dalta,V& value, D& data){} 
+  virtual void priority(V& pri, const V& value, const V& delta) = 0;
+  virtual void g_func(const K& k,const V& delta,const V& value, const D& data, vector<pair<K, V> >* output) = 0;
 };
 
 
@@ -113,7 +116,15 @@ struct Sharding {
   struct String  : public Sharder<string> {
     int operator()(const string& k, int shards) { return StringPiece(k).hash() % shards; }
   };
-
+struct Mod_str :public Sharder<string>{   //only for simrank
+    int operator()(const string& k, int shards){
+        string key=k;
+        int pos=key.find("_");
+        key=key.substr(0,pos);
+        pos= boost::lexical_cast<int>(key);
+        return (pos % shards);
+    } 
+  };
   struct Mod : public Sharder<int> {
     int operator()(const int& key, int shards) { return key % shards; }
   };
@@ -366,7 +377,7 @@ public:
   virtual void updateF1(const K &k, const V1 &v) = 0;
   virtual void updateF2(const K &k, const V2 &v) = 0;
   virtual void updateF3(const K &k, const V3 &v) = 0;
-  virtual void accumulateF1(const K &k, const V1 &v) = 0;
+  virtual void accumulateF1(const K &k, const V1 &v) = 0; //4 TypeTable
   virtual void accumulateF2(const K &k, const V2 &v) = 0;
   virtual void accumulateF3(const K &k, const V3 &v) = 0;
   virtual bool remove(const K &k) = 0;
