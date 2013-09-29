@@ -23,7 +23,7 @@ void RunTests() {
   int c = 1;
   TestMap& m = Registry<TestHelper>::get_map();
   for (TestMap::iterator i = m.begin(); i != m.end(); ++i) {
-    fprintf(stderr, "Running test %5d/%5d: %s\n", c, m.size(), i->first.c_str());
+    //fprintf(stderr, "Running test %5d/%5d: %s\n", c, m.size(), i->first.c_str());
     i->second->Run();
     ++c;
   }
