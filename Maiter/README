@@ -1,8 +1,10 @@
 -- OVERVIEW
 
+Maiter is modified based on Piccolo.
+
 -- PREREQUISITES
 
-To build and use Piccolo, you will need a minimum of the following:
+To build and use Maiter, you will need a minimum of the following:
 
 * CMake (> 2.6)
 * OpenMPI
