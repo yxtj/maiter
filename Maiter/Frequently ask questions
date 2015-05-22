@@ -1,0 +1,15 @@
+1. When running "make" command, it returns a fatal error "Required lzo header file not found." 
+
+* lzo is a compression tool. The error occurs when the program cannot find the lzo*.h file in the default path "/usr/local/include/lzo". If the lzo is indeed installed. Try modify src/CMakeLists.txt, change the line 
+
+check_include_file("lzo/lzo1x.h" HAVE_LZO1X_H) --> check_include_file("/usr/include/lzo/lzo1x.h" HAVE_LZO1X_H)
+
+2. When running "make" command, it returns a fatal error "/usr/bin/ld: cannot find -lboost_thread-mt"
+
+*  Try modify src/examples/CMakeLists.txt, change
+
+boost_thread-mt --> boost_thread
+
+3. When running "make" command, it returns "/usr/lib/x86_64-linux-gnu/libboost_system.so.1.55.0: error adding symbols: DSO missing from command line"
+
+* 
