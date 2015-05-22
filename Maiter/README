@@ -18,7 +18,7 @@ If available, the following libraries will be used:
 * TCMalloc
 * google-perftools
 
-In addition to these, Piccolo comes with several support libraries which are 
+In addition to these, Maiter comes with several support libraries which are 
 compiled as part of the build process; these are:
 
 * google-flags
@@ -35,14 +35,14 @@ sudo apt-get install libgoogle-perftools-dev python-dev swig
 
 -- BUILDING
 
-To build, simply run 'make' from the toplevel piccolo directory.  After building
+To build, simply run 'make' from the toplevel Maiter directory.  After building
 output should be available in the bin/ directory.  Specifically, a successful
 build should generate a bin/{debug,release}/examples/example-dsm binary.
 
 -- RUNNING
 
-To execute a Piccolo program, you will need to modify conf/mpi-cluster
-to point to the set of machines Piccolo will be executed on - for example, a file
+To execute a Maiter program, you will need to modify conf/mpi-cluster
+to point to the set of machines Maiter will be executed on - for example, a file
 might look like:
 
 localhost slots=1
