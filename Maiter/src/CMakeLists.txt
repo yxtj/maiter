@@ -21,7 +21,7 @@ find_package(Boost REQUIRED)
 
 check_include_file_cxx("google/protobuf/descriptor.h" HAVE_PROTOBUF)
 
-check_include_file("lzo/lzo1x.h" HAVE_LZO1X_H)
+check_include_file("/usr/include/lzo/lzo1x.h" HAVE_LZO1X_H)
 check_include_file("/usr/include/libunwind.h"  HAVE_LIBUNWIND_H)
 
 find_program(HAVE_PROTOC "protoc")

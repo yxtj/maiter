@@ -3,7 +3,7 @@ set(EXAMPLE_LIBS
 	${MPI_LIBS}
 	${BLAS_LIBS}
   	${PROTOBUF_LIBS})  	  	
-set(EXAMPLE_LIBS ${EXAMPLE_LIBS} boost_thread-mt util z lzo2 pthread rt)
+set(EXAMPLE_LIBS ${EXAMPLE_LIBS} boost_thread boost_system util z lzo2 pthread rt)
 
 add_custom_target(example_proto DEPENDS ${EXAMPLE_PB_HDR})
 
