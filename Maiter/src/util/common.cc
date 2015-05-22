@@ -34,7 +34,7 @@ DEFINE_bool(dump_stacktrace, true, "");
 DEFINE_bool(localtest, false, "");
 DEFINE_bool(run_tests, false, "");
 
-DEFINE_string(hostfile, "conf/mpi-cluster", "");
+DEFINE_string(hostfile, "conf/maiter-cluster", "");
 DEFINE_int32(workers, 2, "");
 
 
