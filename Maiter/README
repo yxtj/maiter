@@ -41,6 +41,9 @@ build should generate a bin/{debug,release}/examples/example-dsm binary.
 
 -- RUNNING
 
+
+--- Configure your cluster
+
 To execute a Maiter program, you will need to modify conf/mpi-cluster
 to point to the set of machines Maiter will be executed on - for example, a file
 might look like:
@@ -59,10 +62,9 @@ WORKERS=3
 GRAPH=input/pr_graph
 RESULT=result/pr
 NODES=10000
-SNAPSHOT=1
+SNAPSHOT=10
 TERMTHRESH=0.0001
 BUFMSG=10000
 PORTION=1
 
-
-./maiter --runner=$ALGORITHM --workers=$WORKERS --graph_dir=$GRAPH --result_dir=$RESULT --num_nodes=$NODES --snapshot_interval=$SNAPSHOT --portion=$PORTION --termcheck_threshold=$TERMTHRESH --bufmsg=$BUFMSG --v=0
+bin/release/examples/maiter --runner=Pagerank --workers=2 --graph_dir=input/pr_graph --result_dir=result/pr --num_nodes=10000 --snapshot_interval=10 --portion=1 --termcheck_threshold=0.0001 --bufmsg=10000 --v=0
