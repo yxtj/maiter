@@ -1,0 +1,14 @@
+
+#eclipse project files:
+
+.cproject
+.project
+
+#compiled binary files
+bin/*
+*.exe
+*.o
+*.a
+*.so
+
+
