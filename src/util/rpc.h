@@ -16,112 +16,120 @@ typedef google::protobuf::Message Message;
 
 struct RPCRequest;
 
-struct RPCInfo {
-  int source;
-  int dest;
-  int tag;
+struct RPCInfo{
+	int source;
+	int dest;
+	int tag;
 };
-
 
 // Hackery to get around mpi's unhappiness with threads.  This thread
 // simply polls MPI continuously for any kind of update and adds it to
 // a local queue.
-class NetworkThread {
+class NetworkThread{
 public:
-  bool active() const;
-  int64_t pending_bytes() const;
-  
-  // Blocking read for the given source and message type.
-  void Read(int desired_src, int type, Message* data, int *source=NULL);
-  bool TryRead(int desired_src, int type, Message* data, int *source=NULL);
+	bool active() const;
+	int64_t pending_bytes() const;
 
-  // Enqueue the given request for transmission.
-  void Send(RPCRequest *req);
-  int Send(int dst, int method, const Message &msg);
-  void ObjectCreate(int dst, int method);
-  void DSend(int dst, int method, const Message &msg);
+	// Blocking read for the given source and message type.
+	void Read(int desired_src, int type, Message* data, int *source = NULL);
+	bool TryRead(int desired_src, int type, Message* data, int *source = NULL);
 
-  void Broadcast(int method, const Message& msg);
-  void SyncBroadcast(int method, const Message& msg);
-  void WaitForSync(int method, int count);
+	// Enqueue the given request to pending buffer for transmission.
+//  void Send(RPCRequest *req);
+	int Send(int dst, int tag, const Message &msg);
+	// Directly send the request bypassing the pending buffer.
+	int DSend(int dst, int method, const Message &msg);
+//  void ObjectCreate(int dst, int method);
 
-  // Invoke 'method' on the destination, and wait for a reply.
-  void Call(int dst, int method, const Message &msg, Message *reply);
+	void Broadcast(int method, const Message& msg);
+	void SyncBroadcast(int method, const Message& msg);
+	void WaitForSync(int method, int count);
 
-  void Flush();
-  void Shutdown();
+	// Invoke 'method' on the destination, and wait for a reply.
+	void Call(int dst, int method, const Message &msg, Message *reply);
 
-  int id() { return id_; }
-  int size() const;
+	void Flush();
+	void Shutdown();
 
-  static NetworkThread *Get();
-  static void Init();
+	int id(){
+		return id_;
+	}
+	int size() const;
 
-  Stats stats;
+	static NetworkThread *Get();
+	static void Init();
+
+	Stats stats;
 
 #ifndef SWIG
-  // Register the given function with the RPC thread.  The function will be invoked
-  // from within the network thread whenever a message of the given type is received.
-  typedef boost::function<void (const RPCInfo& rpc)> Callback;
+	// Register the given function with the RPC thread.  The function will be invoked
+	// from within the network thread whenever a message of the given type is received.
+	typedef boost::function<void(const RPCInfo& rpc)> Callback;
 
-  // Use RegisterCallback(...) instead.
-  void _RegisterCallback(int req_type, Message *req, Message *resp, Callback cb);
+	// Use RegisterCallback(...) instead.
+	void _RegisterCallback(int req_type, Message *req, Message *resp, Callback cb);
 
-  // After registering a callback, indicate that it should be invoked in a
-  // separate thread from the RPC server.
-  void SpawnThreadFor(int req_type);
+	// After registering a callback, indicate that it should be invoked in a
+	// separate thread from the RPC server.
+	void SpawnThreadFor(int req_type);
 #endif
 
-  struct CallbackInfo {
-    Message *req;
-    Message *resp;
+	struct CallbackInfo{
+		Message *req;
+		Message *resp;
 
-    Callback call;
+		Callback call;
 
-    bool spawn_thread;
-  };
+		bool spawn_thread;
+	};
 
 private:
-  static const int kMaxHosts = 512;
-  static const int kMaxMethods = 64;
+	static const int kMaxHosts = 512;
+	static const int kMaxMethods = 64;
 
-  typedef deque<string> Queue;
+	typedef deque<string> Queue;
 
-  bool running;
+	bool running;
 
-  CallbackInfo* callbacks_[kMaxMethods];
+	CallbackInfo* callbacks_[kMaxMethods];
 
-  vector<RPCRequest*> pending_sends_;
-  unordered_set<RPCRequest*> active_sends_;
+	vector<RPCRequest*> pending_sends_;	//buffer for request to be sent
+	unordered_set<RPCRequest*> performed_sends_;//buffer for request have been send but not confirmed yet
 
-  Queue requests[kMaxMethods][kMaxHosts];
-  Queue replies[kMaxMethods][kMaxHosts];
+	Queue requests[kMaxMethods][kMaxHosts];
+	Queue replies[kMaxMethods][kMaxHosts];
 
-  MPI::Comm *world_;
-  mutable boost::recursive_mutex send_lock;
-  mutable boost::recursive_mutex q_lock[kMaxHosts];
-  mutable boost::thread *t_;
-  int id_;
+	MPI::Comm *world_;
+	mutable boost::recursive_mutex send_lock;
+	mutable boost::recursive_mutex q_lock[kMaxHosts];
+	mutable boost::thread *t_;
+	int id_;
 
-  bool check_reply_queue(int src, int type, Message *data);
-  bool check_request_queue(int src, int type, Message* data);
+	// Enqueue the given request to pending buffer for transmission.
+	int Send(RPCRequest *req);
+	// Directly (Physically) send the request.
+	int DSend(RPCRequest *req);
 
-  void InvokeCallback(CallbackInfo *ci, RPCInfo rpc);
-  void CollectActive();
-  void Run();
+	bool check_reply_queue(int src, int type, Message *data);
+	bool check_request_queue(int src, int type, Message* data);
 
-  NetworkThread();
+	void ProcessReceivedMsg(int source, int tag, std::string& data);
+	void InvokeCallback(CallbackInfo *ci, RPCInfo rpc);
+	void CollectFinishedSends();
+	void Run();
+
+	NetworkThread();
 };
 
 #ifndef SWIG
 
-template <class Request, class Response, class Function, class Klass>
-void RegisterCallback(int req_type, Request *req, Response *resp, Function function, Klass klass) {
-  NetworkThread::Get()->_RegisterCallback(req_type, req, resp, boost::bind(function, klass, boost::cref(*req), resp, _1));
+template<class Request, class Response, class Function, class Klass>
+void RegisterCallback(int req_type, Request *req, Response *resp, Function function, Klass klass){
+	NetworkThread::Get()->_RegisterCallback(req_type, req, resp,
+			boost::bind(function, klass, boost::cref(*req), resp, _1));
 }
 
 #endif
-
 
 }
 
