@@ -41,7 +41,7 @@
 #endif
 #include <fcntl.h>                 // for open()
 #include <time.h>
-#include "glog-config.h"
+#include "config.h"
 #include "glog/logging.h"          // To pick up flag settings etc.
 #include "glog/raw_logging.h"
 #include "base/commandlineflags.h"
@@ -151,7 +151,7 @@ void RawLog__(LogSeverity severity, const char* file, int line,
   // libc (to side-step any libc interception).
   // We write just once to avoid races with other invocations of RawLog__.
   safe_write(STDERR_FILENO, buffer, strlen(buffer));
-  if (severity == FATAL)  {
+  if (severity == GLOG_FATAL)  {
     if (!sync_val_compare_and_swap(&crashed, false, true)) {
       crash_reason.filename = file;
       crash_reason.line_number = line;

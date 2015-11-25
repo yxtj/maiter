@@ -70,7 +70,7 @@
 #ifndef BASE_DEMANGLE_H_
 #define BASE_DEMANGLE_H_
 
-#include "glog-config.h"
+#include "config.h"
 
 _START_GOOGLE_NAMESPACE_
 

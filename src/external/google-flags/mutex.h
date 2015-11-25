@@ -28,15 +28,9 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 // ---
-// Author: Craig Silverstein.
 //
 // A simple mutex wrapper, supporting locks and read-write locks.
 // You should assume the locks are *not* re-entrant.
-//
-// To use: you should define the following macros in your configure.ac:
-//   ACX_PTHREAD
-//   AC_RWLOCK
-// The latter is defined in ../autoconf.
 //
 // This class is meant to be internal-only and should be wrapped by an
 // internal namespace.  Before you use this module, please give the
@@ -109,15 +103,20 @@
 // weird to a Mutex's memory after it is destroyed, but for a
 // static global variable, that's pretty safe.
 
-#ifndef GOOGLE_MUTEX_H_
-#define GOOGLE_MUTEX_H_
+#ifndef GFLAGS_MUTEX_H_
+#define GFLAGS_MUTEX_H_
 
-#include "gflags-config.h"           // to figure out pthreads support
+#include "gflags_declare.h"     // to figure out pthreads support
 
 #if defined(NO_THREADS)
-  typedef int MutexType;      // to keep a lock-count
-#elif defined(_WIN32) || defined(__CYGWIN32__) || defined(__CYGWIN64__)
-# define WIN32_LEAN_AND_MEAN  // We only need minimal includes
+  typedef int MutexType;        // to keep a lock-count
+#elif defined(OS_WINDOWS)
+# ifndef WIN32_LEAN_AND_MEAN
+#   define WIN32_LEAN_AND_MEAN  // We only need minimal includes
+# endif
+# ifndef NOMINMAX
+#   define NOMINMAX             // Don't want windows to override min()/max()
+# endif
 # ifdef GMUTEX_TRYLOCK
   // We need Windows NT or later for TryEnterCriticalSection().  If you
   // don't need that functionality, you can remove these _WIN32_WINNT
@@ -134,7 +133,10 @@
   // *does* cause problems for FreeBSD, or MacOSX, but isn't needed
   // for locking there.)
 # ifdef __linux__
-#   define _XOPEN_SOURCE 500  // may be needed to get the rwlock calls
+#   if _XOPEN_SOURCE < 500      // including not being defined at all
+#     undef _XOPEN_SOURCE
+#     define _XOPEN_SOURCE 500  // may be needed to get the rwlock calls
+#   endif
 # endif
 # include <pthread.h>
   typedef pthread_rwlock_t MutexType;
@@ -225,7 +227,7 @@ bool Mutex::TryLock()      { if (mutex_) return false; Lock(); return true; }
 void Mutex::ReaderLock()   { assert(++mutex_ > 0); }
 void Mutex::ReaderUnlock() { assert(mutex_-- > 0); }
 
-#elif defined(_WIN32) || defined(__CYGWIN32__) || defined(__CYGWIN64__)
+#elif defined(OS_WINDOWS)
 
 Mutex::Mutex() : destroy_(true) {
   InitializeCriticalSection(&mutex_);
@@ -346,4 +348,4 @@ using namespace MUTEX_NAMESPACE;
 
 #undef MUTEX_NAMESPACE
 
-#endif  /* #define GOOGLE_MUTEX_H__ */
+#endif  /* #define GFLAGS_MUTEX_H__ */

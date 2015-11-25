@@ -41,9 +41,15 @@
 #ifdef HAVE_UCONTEXT_H
 # include <ucontext.h>
 #endif
+#ifdef HAVE_SYS_UCONTEXT_H
+# include <sys/ucontext.h>
+#endif
 #include <algorithm>
 
 _START_GOOGLE_NAMESPACE_
+
+// TOOD(hamaji): Use signal instead of sigaction?
+#ifdef HAVE_SIGACTION
 
 namespace {
 
@@ -66,7 +72,7 @@ const struct {
 
 // Returns the program counter from signal context, NULL if unknown.
 void* GetPC(void* ucontext_in_void) {
-#if defined(HAVE_UCONTEXT_H) && defined(PC_FROM_UCONTEXT)
+#if (defined(HAVE_UCONTEXT_H) || defined(HAVE_SYS_UCONTEXT_H)) && defined(PC_FROM_UCONTEXT)
   if (ucontext_in_void != NULL) {
     ucontext_t *context = reinterpret_cast<ucontext_t *>(ucontext_in_void);
     return (void*)context->PC_FROM_UCONTEXT;
@@ -139,7 +145,9 @@ class MinimalFormatter {
 
 // Writes the given data with the size to the standard error.
 void WriteToStderr(const char* data, int size) {
-  write(STDERR_FILENO, data, size);
+  if (write(STDERR_FILENO, data, size) < 0) {
+    // Ignore errors.
+  }
 }
 
 // The writer function can be changed by InstallFailureWriter().
@@ -164,7 +172,7 @@ void DumpTimeInfo() {
 void DumpSignalInfo(int signal_number, siginfo_t *siginfo) {
   // Get the signal name.
   const char* signal_name = NULL;
-  for (int i = 0; i < ARRAYSIZE(kFailureSignals); ++i) {
+  for (size_t i = 0; i < ARRAYSIZE(kFailureSignals); ++i) {
     if (signal_number == kFailureSignals[i].number) {
       signal_name = kFailureSignals[i].name;
     }
@@ -325,7 +333,10 @@ void FailureSignalHandler(int signal_number,
 
 }  // namespace
 
+#endif  // HAVE_SIGACTION
+
 void InstallFailureSignalHandler() {
+#ifdef HAVE_SIGACTION
   // Build the sigaction struct.
   struct sigaction sig_action;
   memset(&sig_action, 0, sizeof(sig_action));
@@ -333,13 +344,16 @@ void InstallFailureSignalHandler() {
   sig_action.sa_flags |= SA_SIGINFO;
   sig_action.sa_sigaction = &FailureSignalHandler;
 
-  for (int i = 0; i < ARRAYSIZE(kFailureSignals); ++i) {
+  for (size_t i = 0; i < ARRAYSIZE(kFailureSignals); ++i) {
     CHECK_ERR(sigaction(kFailureSignals[i].number, &sig_action, NULL));
   }
+#endif  // HAVE_SIGACTION
 }
 
 void InstallFailureWriter(void (*writer)(const char* data, int size)) {
+#ifdef HAVE_SIGACTION
   g_failure_writer = writer;
+#endif  // HAVE_SIGACTION
 }
 
 _END_GOOGLE_NAMESPACE_
