@@ -11,7 +11,7 @@
 #include <string.h>
 
 #include "glog/logging.h"
-#include "google/gflags.h"
+#include "gflags/gflags.h"
 #include <google/protobuf/message.h>
 
 #include "util/hash.h"
@@ -19,8 +19,10 @@
 #include "util/stringpiece.h"
 #include "util/timer.h"
 
-#include <tr1/unordered_map>
-#include <tr1/unordered_set>
+//#include <tr1/unordered_map>
+//#include <tr1/unordered_set>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <boost/type_traits.hpp>
 #include <boost/utility/enable_if.hpp>
@@ -30,8 +32,10 @@ using std::vector;
 using std::string;
 using std::pair;
 using std::make_pair;
-using std::tr1::unordered_map;
-using std::tr1::unordered_set;
+//using std::tr1::unordered_map;
+//using std::tr1::unordered_set;
+using std::unordered_map;
+using std::unordered_set;
 
 namespace dsm {
 

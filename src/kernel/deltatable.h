@@ -155,7 +155,7 @@ private:
   int64_t entries_;
   int64_t size_;
 
-  std::tr1::hash<K> hashobj_;
+  std::hash<K> hashobj_;
 };
 
 template <class K, class V1, class D>

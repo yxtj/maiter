@@ -82,7 +82,7 @@ string(REPLACE " " ";" MPI_LINK_FLAGS "${MPI_LINK_FLAGS}")
 string(REPLACE " " ";" MPI_LIBDIRS "${MPI_LIBDIRS}")
 string(REPLACE " " ";" MPI_LIBS "${MPI_LIBS}")
 
-set(CMAKE_CXX_FLAGS "${CXX_DEFAULT} -fPIC -fno-omit-frame-pointer -g0 ${CXX_WARN} ${CXX_DEFINE}")
+set(CMAKE_CXX_FLAGS "${CXX_DEFAULT} -fPIC -fno-omit-frame-pointer -g0 ${CXX_DEFINE}")
 		    		     
 add_subdirectory (external/google-flags)
 add_subdirectory (external/google-logging)
@@ -103,7 +103,7 @@ include_directories( ${CMAKE_CURRENT_SOURCE_DIR}
 link_directories(${MPI_LIBDIRS})
 include_directories(${MPI_INCDIRS})
 
-set(CMAKE_CXX_FLAGS "${CXX_DEFAULT} -fPIC -fno-omit-frame-pointer -ggdb1 ${CXX_WARN} ${CXX_DEFINE}")
+set(CMAKE_CXX_FLAGS "${CXX_DEFAULT} -fPIC -fno-omit-frame-pointer -std=c++0x -ggdb1 ${CXX_WARN} ${CXX_DEFINE}")
 add_subdirectory (util)
 add_subdirectory (worker)
 add_subdirectory (kernel)

@@ -66,7 +66,8 @@ inline vector<A> MakeVector(const A&x, const A&y, const A &z) {
 }
 }
 
-namespace std { namespace tr1 {
+namespace std {
+//namespace tr1 {
 template <class A, class B>
 struct hash<pair<A, B> > : public unary_function<pair<A, B> , size_t> {
   hash<A> ha;
@@ -100,7 +101,8 @@ struct hash<dsm::tuple3<A, B, C> > : public unary_function<dsm::tuple3<A, B, C> 
   }
 };
 
-} }
+//}
+}
 
 namespace std {
 template <class A, class B>

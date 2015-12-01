@@ -6,10 +6,11 @@
 #include "kernel/table.h"
 #include "kernel/local-table.h"
 #include <boost/noncopyable.hpp>
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/lognormal_distribution.hpp>
-#include <boost/random/variate_generator.hpp>
+//#include <boost/random/mersenne_twister.hpp>
+//#include <boost/random/uniform_int.hpp>
+//#include <boost/random/lognormal_distribution.hpp>
+//#include <boost/random/variate_generator.hpp>
+#include <random>
 #include <algorithm>
 
 namespace dsm {
@@ -53,9 +54,12 @@ public:
                 b_no_change = true;
 
                 //random number generator
-                boost::mt19937 gen(time(0));
-                boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
-                boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
+//                boost::mt19937 gen(time(0));
+//                boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
+//                boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
+                std::mt19937 gen(time(0));
+                std::uniform_int_distribution<int> dist(0, parent_.buckets_.size()-1);
+                auto rand_num=[&](){return dist(gen);};
 
                 defaultv = ((IterateKernel<K, V1, V3>*)parent_.info_.iterkernel)->default_v();
                 int i;
@@ -115,9 +119,12 @@ public:
 	b_no_change = true;
 
     	//random number generator
-        boost::mt19937 gen(time(0));
-        boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
-        boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
+//        boost::mt19937 gen(time(0));
+//        boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
+//        boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
+		std::mt19937 gen(time(0));
+		std::uniform_int_distribution<int> dist(0, parent_.buckets_.size()-1);
+		auto rand_num=[&](){return dist(gen);};
 
         V1 defaultv = ((IterateKernel<K, V1, V3>*)parent_.info_.iterkernel)->default_v();
         
@@ -193,7 +200,7 @@ public:
                 }
             }
 
-            VLOG(1) << "table size " << parent_.buckets_.size() << " workerid " << parent_.id() << " scheduled " << scheduled_pos.size();
+            VLOG(2) << "table size " << parent_.buckets_.size() << " workerid " << parent_.id() << " scheduled " << scheduled_pos.size();
             //Next();
          }
   
@@ -460,7 +467,7 @@ private:
   double total_curr;
   int64_t total_updates;
 
-  std::tr1::hash<K> hashobj_;
+  std::hash<K> hashobj_;
   
 };
 

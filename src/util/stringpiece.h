@@ -72,17 +72,24 @@ string ToString(StringPiece);
 
 }
 
-#include <tr1/functional_hash.h>
-
-namespace std { namespace tr1 {
+//
+namespace std { //namespace tr1 {
 template <>
-struct hash<dsm::StringPiece> : public unary_function<dsm::StringPiece, size_t> {
+struct hash<dsm::StringPiece> {//: public unary_function<dsm::StringPiece, size_t> {
   size_t operator()(const dsm::StringPiece& k) const {
     return k.hash();
   }
 };
-}}
-
+}//}
+//#include <tr1/functional_hash.h>
+//namespace std { namespace tr1 {
+//template <>
+//struct hash<dsm::StringPiece> : public unary_function<dsm::StringPiece, size_t> {
+//  size_t operator()(const dsm::StringPiece& k) const {
+//    return k.hash();
+//  }
+//};
+//}}
 
 
 #endif /* STRING_H_ */
