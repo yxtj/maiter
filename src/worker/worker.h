@@ -2,7 +2,8 @@
 #define WORKER_H_
 
 #include "util/common.h"
-#include "util/rpc.h"
+//#include "net/rpc.h"
+#include "net/NetworkThread.h"
 #include "kernel/kernel.h"
 #include "kernel/table.h"
 #include "kernel/global-table.h"

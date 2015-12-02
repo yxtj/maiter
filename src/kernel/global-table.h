@@ -5,7 +5,7 @@
 #include "local-table.h"
 
 #include "util/file.h"
-#include "util/rpc.h"
+//#include "util/rpc.h"
 
 #include <queue>
 

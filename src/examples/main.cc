@@ -1,4 +1,5 @@
 #include "client/client.h"
+#include <mpi.h>
 
 using namespace dsm;
 

@@ -1,20 +1,22 @@
-#ifndef UTIL_RPC_H
-#define UTIL_RPC_H
+#ifndef NET_NETWORKTHREAD_H_
+#define NET_NETWORKTHREAD_H_
 
+#include <thread>
+#include <mutex>
+#include <functional>
+#include <string>
+#include <deque>
+#include <vector>
 #include "util/common.h"
-#include "util/file.h"
-#include "util/common.pb.h"
-
-#include <boost/thread.hpp>
-#include <boost/function.hpp>
 #include <google/protobuf/message.h>
-#include <mpi.h>
+//#include "NetworkImplMPI.h"
+#include "Task.h"
 
 namespace dsm {
 
 typedef google::protobuf::Message Message;
 
-struct RPCRequest;
+class NetworkImplMPI;
 
 struct RPCInfo{
 	int source;
@@ -31,8 +33,8 @@ public:
 	int64_t pending_bytes() const;
 
 	// Blocking read for the given source and message type.
-	void Read(int desired_src, int type, Message* data, int *source = NULL);
-	bool TryRead(int desired_src, int type, Message* data, int *source = NULL);
+	void Read(int desired_src, int type, Message* data, int *source = nullptr);
+	bool TryRead(int desired_src, int type, Message* data, int *source = nullptr);
 
 	// Enqueue the given request to pending buffer for transmission.
 //  void Send(RPCRequest *req);
@@ -51,20 +53,16 @@ public:
 	void Flush();
 	void Shutdown();
 
-	int id(){
-		return id_;
-	}
+	int id() const;
 	int size() const;
 
 	static NetworkThread *Get();
 	static void Init();
 
 	Stats stats;
-
-#ifndef SWIG
 	// Register the given function with the RPC thread.  The function will be invoked
 	// from within the network thread whenever a message of the given type is received.
-	typedef boost::function<void(const RPCInfo& rpc)> Callback;
+	typedef std::function<void(const RPCInfo& rpc)> Callback;
 
 	// Use RegisterCallback(...) instead.
 	void _RegisterCallback(int req_type, Message *req, Message *resp, Callback cb);
@@ -72,46 +70,45 @@ public:
 	// After registering a callback, indicate that it should be invoked in a
 	// separate thread from the RPC server.
 	void SpawnThreadFor(int req_type);
-#endif
 
 	struct CallbackInfo{
 		Message *req;
 		Message *resp;
-
 		Callback call;
-
 		bool spawn_thread;
 	};
+
+//	static constexpr int ANY_SRC = TaskBase::ANY_SRC;
+//	static constexpr int ANY_TAG = TaskBase::ANY_TYPE;
 
 private:
 	static const int kMaxHosts = 512;
 	static const int kMaxMethods = 64;
 
-	typedef deque<string> Queue;
 
 	bool running;
+	NetworkImplMPI* net;
+	mutable std::thread t_;
 
 	CallbackInfo* callbacks_[kMaxMethods];
 
-	vector<RPCRequest*> pending_sends_;	//buffer for request to be sent
-	unordered_set<RPCRequest*> performed_sends_;//buffer for request have been send but not confirmed yet
+	std::vector<Task*> pending_sends_;	//buffer for request to be sent
+	mutable std::mutex ps_lock;
 
-	Queue requests[kMaxMethods][kMaxHosts];
-	Queue replies[kMaxMethods][kMaxHosts];
-
-	MPI::Comm *world_;
-	mutable boost::recursive_mutex send_lock;
-	mutable boost::recursive_mutex q_lock[kMaxHosts];
-	mutable boost::thread *t_;
-	int id_;
+	typedef std::deque<std::string> Queue;
+	Queue receive_buffer[kMaxMethods][kMaxHosts];
+	mutable std::mutex rec_lock[kMaxHosts];
+	Queue reply_buffer[kMaxMethods][kMaxHosts];
+	mutable std::mutex rep_lock[kMaxHosts];
 
 	// Enqueue the given request to pending buffer for transmission.
-	int Send(RPCRequest *req);
+	int Send(Task *req);
 	// Directly (Physically) send the request.
-	int DSend(RPCRequest *req);
+	int DSend(Task *req);
 
-	bool check_reply_queue(int src, int type, Message *data);
-	bool check_request_queue(int src, int type, Message* data);
+	bool checkReplyQueue(int src, int type, Message *data);
+	bool checkReceiveQueue(int src, int type, Message* data);
+	static bool CheckQueue(Queue& q, std::mutex& m, Message* data);
 
 	void ProcessReceivedMsg(int source, int tag, std::string& data);
 	void InvokeCallback(CallbackInfo *ci, RPCInfo rpc);
@@ -121,16 +118,13 @@ private:
 	NetworkThread();
 };
 
-#ifndef SWIG
-
 template<class Request, class Response, class Function, class Klass>
 void RegisterCallback(int req_type, Request *req, Response *resp, Function function, Klass klass){
 	NetworkThread::Get()->_RegisterCallback(req_type, req, resp,
-			boost::bind(function, klass, boost::cref(*req), resp, _1));
+			std::bind(function, klass, std::cref(*req), resp, std::placeholders::_1));
 }
 
-#endif
 
 }
 
-#endif // UTIL_RPC_H
+#endif // NET_NETWORKTHREAD_H_

@@ -1,7 +1,8 @@
 #include "util/common.h"
 #include "util/file.h"
 #include "util/static-initializers.h"
-#include "util/rpc.h"
+//#include "net/rpc.h"
+#include "net/NetworkThread.h"
 
 #include <stdio.h>
 #include <string.h>

@@ -313,7 +313,7 @@ void Worker::SendTermcheck(int snapshot, long updates, double current) {
   req.set_updates(updates);
   network_->Send(config_.master_id(), MTYPE_TERMCHECK_DONE, req);
 
-  VLOG(1) << "termination condition of subpass " << snapshot << " worker " << network_->id() << " sent to master... with total current " << StringPrintf("%.05f", current);;
+  VLOG(1) << "termination condition of subpass " << snapshot << " worker " << network_->id() << " sent to master... with total current " << StringPrintf("%.05f", current);
 }
 
 
