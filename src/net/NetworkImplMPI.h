@@ -29,8 +29,8 @@ public:
 	std::string receive(int dst, int type, const int nBytes);
 	// Try send out a message with given hdr and content.
 	void send(const Task* t);
-	void send(const int dst, const int type, const std::string& data);
-	void send(const int dst, const int type, std::string&& data);
+//	void send(const int dst, const int type, const std::string& data);
+//	void send(const int dst, const int type, std::string&& data);
 
 	static NetworkImplMPI* GetInstance();
 	static int TransformSrc(int s_d){
@@ -63,7 +63,7 @@ private:
 	};
 
 	std::deque<TaskSendMPI> unconfirmed_send_buffer;
-	mutable std::mutex us_lock;
+	mutable std::recursive_mutex us_lock;
 };
 
 inline int NetworkImplMPI::id() const{

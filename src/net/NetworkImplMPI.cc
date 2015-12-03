@@ -65,7 +65,7 @@ bool NetworkImplMPI::probe(TaskHeader* hdr){
 	return true;
 }
 std::string NetworkImplMPI::receive(const TaskHeader* hdr){
-	DLOG_IF(INFO,hdr->type!=4)<<"Receive(m) from "<<hdr->src_dst<<" to "<<id()<<", type "<<hdr->type;
+//	DLOG_IF(INFO,hdr->type!=4)<<"Receive(m) from "<<hdr->src_dst<<" to "<<id()<<", type "<<hdr->type;
 	string data(hdr->nBytes,'\0');
 	world.Recv(const_cast<char*>(data.data()), hdr->nBytes, MPI::BYTE, hdr->src_dst, hdr->type);
 	return data;
@@ -80,31 +80,35 @@ std::string NetworkImplMPI::receive(int dst, int type, const int nBytes){
 }
 
 void NetworkImplMPI::send(const Task* t){
-	DLOG_IF(INFO,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
-	lock_guard<mutex> sl(us_lock);
+//	DLOG_IF(INFO,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
+	lock_guard<recursive_mutex> sl(us_lock);
 	TaskSendMPI tm{t,
 		world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type)};
 	unconfirmed_send_buffer.push_back(tm);
 }
-void NetworkImplMPI::send(const int dst, const int type, const std::string& data){
-	send(new Task(dst,type,data));
-}
-void NetworkImplMPI::send(const int dst, const int type, std::string&& data){
-	send(new Task(dst,type,move(data)));
-}
+//void NetworkImplMPI::send(const int dst, const int type, const std::string& data){
+//	send(new Task(dst,type,data));
+//}
+//void NetworkImplMPI::send(const int dst, const int type, std::string&& data){
+//	send(new Task(dst,type,move(data)));
+//}
 
 ////
 // State checking
 ////
-
+double t=Now();
 size_t NetworkImplMPI::collectFinishedSend(){
-	lock_guard<mutex> sl(us_lock);
-	VLOG(3) << "Unconfirmed sends #: " << unconfirmed_send_buffer.size();
+	if(unconfirmed_send_buffer.empty())
+		return 0;
+	//XXX: this lock may lower down performance significantly
+	lock_guard<recursive_mutex> sl(us_lock);
+//	VLOG(3) << "Unconfirmed sends #: " << unconfirmed_send_buffer.size();
 	deque<TaskSendMPI>::iterator it=unconfirmed_send_buffer.begin();
+//	DLOG_IF(INFO,Now()-t>12.)<<id()<<" Unconfirmed sends #: " << unconfirmed_send_buffer.size()<<". Top one: to "<<it->tsk->src_dst<<",type "<<it->tsk->type;
 	while(it!=unconfirmed_send_buffer.end()){
-		VLOG(3) << "Unconfirmed at " << id()<<": "<<it->tsk->src_dst<<" , "<<it->tsk->type;
+//		VLOG(3) << "Unconfirmed at " << id()<<": "<<it->tsk->src_dst<<" , "<<it->tsk->type;
 		if(it->req.Test()){
-			VLOG(3) << "Finished send from "<<id()<<" to " << it->tsk->src_dst<< " of size " << it->tsk->payload.size();
+//			VLOG(3) << "Finished send from "<<id()<<" to " << it->tsk->src_dst<< " of size " << it->tsk->payload.size();
 			delete it->tsk;
 			it=unconfirmed_send_buffer.erase(it);
 		}else
@@ -116,7 +120,7 @@ size_t NetworkImplMPI::unconfirmedTaskNum() const{
 	return unconfirmed_send_buffer.size();
 }
 std::vector<const Task*> NetworkImplMPI::unconfirmedTask() const{
-	lock_guard<mutex> sl(us_lock);
+	lock_guard<recursive_mutex> sl(us_lock);
 	std::vector<const Task*> res;
 	res.reserve(unconfirmed_send_buffer.size());
 	for(const TaskSendMPI& ts : unconfirmed_send_buffer){
@@ -125,7 +129,7 @@ std::vector<const Task*> NetworkImplMPI::unconfirmedTask() const{
 	return res;
 }
 size_t NetworkImplMPI::unconfirmedBytes() const{
-	lock_guard<mutex> sl(us_lock);
+	lock_guard<recursive_mutex> sl(us_lock);
 	size_t res=0;
 	for(const TaskSendMPI& ts : unconfirmed_send_buffer){
 		res+=ts.tsk->payload.size();

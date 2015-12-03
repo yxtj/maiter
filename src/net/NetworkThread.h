@@ -11,18 +11,13 @@
 #include <google/protobuf/message.h>
 //#include "NetworkImplMPI.h"
 #include "Task.h"
+#include "RPCInfo.h"
 
 namespace dsm {
 
 typedef google::protobuf::Message Message;
 
 class NetworkImplMPI;
-
-struct RPCInfo{
-	int source;
-	int dest;
-	int tag;
-};
 
 // Hackery to get around mpi's unhappiness with threads.  This thread
 // simply polls MPI continuously for any kind of update and adds it to
@@ -81,6 +76,10 @@ public:
 //	static constexpr int ANY_SRC = TaskBase::ANY_SRC;
 //	static constexpr int ANY_TAG = TaskBase::ANY_TYPE;
 
+	// For debug purpose: get the length of receive buffer for all types and sources, display non-zero entries.
+	// i.e.: 2-4:1 means there is 1 received and unprocessed message of type 2 from 4.
+	std::string receiveQueueOccupation();
+
 private:
 	static const int kMaxHosts = 512;
 	static const int kMaxMethods = 64;
@@ -93,13 +92,13 @@ private:
 	CallbackInfo* callbacks_[kMaxMethods];
 
 	std::vector<Task*> pending_sends_;	//buffer for request to be sent
-	mutable std::mutex ps_lock;
+	mutable std::recursive_mutex ps_lock;
 
 	typedef std::deque<std::string> Queue;
 	Queue receive_buffer[kMaxMethods][kMaxHosts];
-	mutable std::mutex rec_lock[kMaxHosts];
+	mutable std::recursive_mutex rec_lock[kMaxMethods];
 	Queue reply_buffer[kMaxMethods][kMaxHosts];
-	mutable std::mutex rep_lock[kMaxHosts];
+	mutable std::recursive_mutex rep_lock[kMaxMethods];
 
 	// Enqueue the given request to pending buffer for transmission.
 	int Send(Task *req);
@@ -108,7 +107,7 @@ private:
 
 	bool checkReplyQueue(int src, int type, Message *data);
 	bool checkReceiveQueue(int src, int type, Message* data);
-	static bool CheckQueue(Queue& q, std::mutex& m, Message* data);
+	static bool CheckQueue(Queue& q, std::recursive_mutex& m, Message* data);
 
 	void ProcessReceivedMsg(int source, int tag, std::string& data);
 	void InvokeCallback(CallbackInfo *ci, RPCInfo rpc);
