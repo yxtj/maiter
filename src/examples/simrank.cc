@@ -2,6 +2,7 @@
 
 
 using namespace dsm;
+using namespace std;
 
 //DECLARE_string(graph_dir);
 DECLARE_string(result_dir);
@@ -25,7 +26,7 @@ struct Simrankiterate : public IterateKernel<string, double, vector<vector<int> 
         int pos1=remain.find(" ");
         string I_ab=remain.substr(0,pos1);
         //cout<<I_ab<<endl;
-        int i_ab=boost::lexical_cast<int>(I_ab);
+        int i_ab=stoi(I_ab);
         //cout<<i_ab<<endl;
         vector<int> tmp;
         tmp.push_back(i_ab);
@@ -50,7 +51,7 @@ struct Simrankiterate : public IterateKernel<string, double, vector<vector<int> 
         while((spacepos = links_a.find_first_of(" ")) != links_a.npos){
             int to;
             if(spacepos > 0){
-                to = boost::lexical_cast<int>(links_a.substr(0, spacepos));
+                to = stoi(links_a.substr(0, spacepos));
                 //cout<<"to:"<<to<<endl;
             }
             links_a= links_a.substr(spacepos+1);
@@ -62,7 +63,7 @@ struct Simrankiterate : public IterateKernel<string, double, vector<vector<int> 
         while((spacepos = links_b.find_first_of(" ")) != links_b.npos){
             int to;
             if(spacepos > 0){
-                to = boost::lexical_cast<int>(links_b.substr(0, spacepos));
+                to = stoi(links_b.substr(0, spacepos));
                // cout<<"to:"<<to<<endl;
             }
             links_b = links_b.substr(spacepos+1);
@@ -98,7 +99,7 @@ struct Simrankiterate : public IterateKernel<string, double, vector<vector<int> 
     void process_delta_v(const string& k, double& delta, double& value, vector<vector<int> >& data){
         if(count==0) return;
         if(delta==0) return;
-        int I_ab=boost::lexical_cast<int>(data[0][0]);
+        int I_ab=stoi(data[0][0]);
         if(I_ab==0)return;
         //value=value-delta;
         //cout<<"data[0]:"<<data[0]<<endl;
@@ -141,8 +142,8 @@ struct Simrankiterate : public IterateKernel<string, double, vector<vector<int> 
                     int a= *it_a;
                     int b= *it_b;
                     //cout<<"a:"<<a<<"    "<<"b:"<<b<<endl;
-                    string key_a=boost::lexical_cast<string>(a);
-                    string key_b=boost::lexical_cast<string>(b);
+                    string key_a=to_string(a);
+                    string key_b=to_string(b);
                     string key;
                     if(a==b) continue;
                     if(a<b){
@@ -172,59 +173,14 @@ struct Simrankiterate : public IterateKernel<string, double, vector<vector<int> 
             return zero;
     }
 };
-  struct SUM : public TermChecker<string, double> {
-    double last;
-    double curr;
-    
-    SUM(){
-        last = -std::numeric_limits<double>::max();
-        curr = 0;
-    }
 
-    double set_curr(){
-        return curr;
-    }
-    
-    double estimate_prog(LocalTableIterator<string, double>* statetable){
-        double partial_curr = 0;
-        double defaultv = statetable->defaultV();
-        while(!statetable->done()){
-            bool cont = statetable->Next();
-            if(!cont) break;
-            //statetable->Next();
-            //cout << statetable->key() << "\t" << statetable->value2() << endl;
-            if(statetable->value2() != defaultv){
-                partial_curr += static_cast<double>(statetable->value2());
-            }
-        }
-        return partial_curr;
-    }
-    
-    bool terminate(vector<double> local_reports){
-        curr = 0;
-        vector<double>::iterator it;
-        for(it=local_reports.begin(); it!=local_reports.end(); it++){
-                curr += *it;
-        }
-        
-        VLOG(0) << "terminate check : last progress " << last << " current progress " << curr << " difference " << abs(curr-last);
-        VLOG(0)<<"FLAGS_termcheck_threshold: "<<FLAGS_termcheck_threshold;
-        if(abs(curr) >= FLAGS_termcheck_threshold){
-            //VLOG(0)<<"FLAGS_termcheck_threshold: "<<FLAGS_termcheck_threshold << "currtrue: "<< curr;
-            return true;
-        }else{
-            last = curr;
-            //VLOG(0)<<"FLAGS_termcheck_threshold: "<<FLAGS_termcheck_threshold << "curr: "<< curr;
-            return false;
-        }
-    }
-  };
 static int Simrank(ConfigData& conf) {
     MaiterKernel<string, double, vector<vector<int> > >* kernel = new MaiterKernel<string, double, vector<vector<int> > >(
                                         conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
                                         new Sharding::Mod_str,
                                         new Simrankiterate,
-                                        new SUM);
+										//new SUM);
+                                        new TermCheckers<string,double>::Sum);
     
     
     kernel->registerMaiter();

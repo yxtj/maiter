@@ -19,7 +19,7 @@ struct AdsorptionIterateKernel : public IterateKernel<int, float, vector<Link> >
     void read_data(string& line, int* k, vector<Link>* data){
         string linestr(line);
         int pos = linestr.find("\t");
-        int source = boost::lexical_cast<int>(linestr.substr(0, pos));
+        int source = stoi(linestr.substr(0, pos));
 
         vector<Link> linkvec;
         int spacepos = 0;
@@ -30,8 +30,8 @@ struct AdsorptionIterateKernel : public IterateKernel<int, float, vector<Link> >
             if(spacepos > 0){
                 string link = links.substr(0, spacepos);
                 int cut = links.find_first_of(",");
-                to.end = boost::lexical_cast<int>(link.substr(0, cut));
-                to.weight = boost::lexical_cast<float>(link.substr(cut+1));
+                to.end = stoi(link.substr(0, cut));
+                to.weight = stof(link.substr(cut+1));
             }
             links = links.substr(spacepos+1);
             linkvec.push_back(to);

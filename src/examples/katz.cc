@@ -20,7 +20,7 @@ struct KatzIterateKernel : public IterateKernel<int, float, vector<int> > {
     void read_data(string& line, int* k, vector<int>* data){
         string linestr(line);
         int pos = linestr.find("\t");
-        int source = boost::lexical_cast<int>(linestr.substr(0, pos));
+        int source = stoi(linestr.substr(0, pos));
 
         vector<int> linkvec;
         string links = linestr.substr(pos+1);
@@ -28,7 +28,7 @@ struct KatzIterateKernel : public IterateKernel<int, float, vector<int> > {
         while((spacepos = links.find_first_of(" ")) != links.npos){
             int to;
             if(spacepos > 0){
-                to = boost::lexical_cast<int>(links.substr(0, spacepos));
+                to = stoi(links.substr(0, spacepos));
             }
             links = links.substr(spacepos+1);
             linkvec.push_back(to);
