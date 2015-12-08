@@ -10,12 +10,15 @@
 #include "kernel/kernel.h"
 #include "kernel/table-registry.h"
 
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/lognormal_distribution.hpp>
-#include <boost/random/variate_generator.hpp>
-#include <iostream>
-#include <fstream>
+#include "kernel/sharder_impl.hpp"
+#include "kernel/term_checker_impl.hpp"
+
+//#include <boost/random/mersenne_twister.hpp>
+//#include <boost/random/uniform_int.hpp>
+//#include <boost/random/lognormal_distribution.hpp>
+//#include <boost/random/variate_generator.hpp>
+//#include <iostream>
+//#include <fstream>
 
 #ifndef SWIG
 DECLARE_int32(shards);
