@@ -1,30 +1,34 @@
 #ifndef KERNEL_H_
 #define KERNEL_H_
 
-#include "util/common.h"
-#include "kernel/table.h"
+//#include "kernel/local-table.h"
+//#include "util/common.h"
+//#include "kernel/table.h"
 #include "kernel/global-table.h"
-#include "kernel/local-table.h"
 #include "kernel/statetable.h"
 #include "kernel/deltatable.h"
+#include "kernel/table_descriptor.h"
+
+#include "kernel/sharder.h"
+#include "kernel/term_checker.h"
+#include "kernel/kernel/IterateKernel.h"
+#include "util/marshal.hpp"
 
 static const int kStatsTableId = 1000000;
 
 namespace dsm {
 
-class GlobalTable;
-
 class TableRegistry : private boost::noncopyable {
 private:
   TableRegistry() {}
 public:
-  typedef map<int, GlobalTable*> Map;
+  typedef std::map<int, GlobalTableBase*> Map;
 
   static TableRegistry* Get();
 
   Map& tables();
-  GlobalTable* table(int id);
-  MutableGlobalTable* mutable_table(int id);
+  GlobalTableBase* table(int id);
+  MutableGlobalTableBase* mutable_table(int id);
 
 private:
   Map tmap_;

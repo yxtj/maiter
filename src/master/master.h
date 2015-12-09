@@ -1,23 +1,23 @@
 #ifndef MASTER_H_
 #define MASTER_H_
 
+#include "kernel/table-registry.h"
 #include "util/common.h"
-//#include "net/rpc.h"
-#include "net/NetworkThread.h"
 #include "worker/worker.pb.h"
 #include "kernel/kernel.h"
-#include "kernel/table-registry.h"
+#include "kernel/sharder_impl.hpp"
 
 namespace dsm {
 
 class WorkerState;
 class TaskState;
+class NetworkThread;
 
 struct RunDescriptor {
    string kernel;
    string method;
 
-   GlobalTable *table;
+   GlobalTableBase *table;
    bool barrier;
 
    CheckpointType checkpoint_type;
@@ -38,14 +38,14 @@ struct RunDescriptor {
 
    RunDescriptor(const string& kernel,
                  const string& method,
-                 GlobalTable *table,
+                 GlobalTableBase *table,
                  vector<int> cp_tables=vector<int>()) {
      Init(kernel, method, table, cp_tables);
    }
 
    void Init(const string& kernel,
              const string& method,
-             GlobalTable *table,
+             GlobalTableBase *table,
              vector<int> cp_tables=vector<int>()) {
      barrier = true;
      checkpoint_type = CP_NONE;
@@ -83,7 +83,7 @@ public:
   void run_range(RunDescriptor r, vector<int> shards);
 
   // N.B.  All run_* methods are blocking.
-  void run_all(const string& kernel, const string& method, GlobalTable* locality) {
+  void run_all(const string& kernel, const string& method, GlobalTableBase* locality) {
     run_all(RunDescriptor(kernel, method, locality));
   }
 
@@ -91,7 +91,7 @@ public:
   template<class K, class V, class D>
   void run_maiter(MaiterKernel<K, V, D>* maiter){
       if(maiter->sharder == NULL){
-          maiter->sharder = new Sharding::Mod;
+          maiter->sharder = new Sharders::Mod;
       }
       
       run_all("MaiterKernel1", "run", maiter->table);
@@ -106,13 +106,13 @@ public:
   }
   
   // Run the given kernel function on one (arbitrary) worker node.
-  void run_one(const string& kernel, const string& method, GlobalTable* locality) {
+  void run_one(const string& kernel, const string& method, GlobalTableBase* locality) {
     run_one(RunDescriptor(kernel, method, locality));
   }
 
   // Run the kernel function on the given set of shards.
   void run_range(const string& kernel, const string& method,
-                 GlobalTable* locality, vector<int> shards) {
+                 GlobalTableBase* locality, vector<int> shards) {
     run_range(RunDescriptor(kernel, method, locality), shards);
   }
 

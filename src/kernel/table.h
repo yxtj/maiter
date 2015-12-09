@@ -24,25 +24,18 @@ DECLARE_double(termcheck_threshold);
 
 namespace dsm {
 
-struct TableBase;
 struct Table;
-
-template <class K, class V1, class V2, class V3>
-class TypedGlobalTable;
-
-
-class TableData;
 
 // This interface is used by global tables to communicate with the outside
 // world and determine the current state of a computation.
-struct TableHelper {
-  virtual int id() const = 0;
-  virtual int epoch() const = 0;
-  virtual int peer_for_shard(int table, int shard) const = 0;
-  virtual void HandlePutRequest() = 0;
-  virtual void FlushUpdates() = 0;
-  virtual void SendTermcheck(int index, long updates, double current) = 0;
-  virtual ~TableHelper(){}
+struct TableHelper{
+	virtual int id() const = 0;
+	virtual int epoch() const = 0;
+	virtual int peer_for_shard(int table, int shard) const = 0;
+	virtual void HandlePutRequest() = 0;
+	virtual void FlushUpdates() = 0;
+	virtual void SendTermcheck(int index, long updates, double current) = 0;
+	virtual ~TableHelper(){}
 };
 
 template<class K, class V1, class V2, class V3>
@@ -103,16 +96,16 @@ struct Accumulators {
 
 
 struct TableFactory{
-	virtual TableBase* New() = 0;
+	virtual Table* New() = 0;
 	virtual ~TableFactory(){}
 };
 
-struct Table{
+struct TableBase{
 	virtual const TableDescriptor& info() const = 0;
 	virtual TableDescriptor& mutable_info() = 0;
 	virtual int id() const = 0;
 	virtual int num_shards() const = 0;
-	virtual ~Table(){}
+	virtual ~TableBase(){}
 };
 
 struct UntypedTable{
@@ -134,7 +127,7 @@ struct UntypedTable{
 //};
 
 // Methods common to both global and local table views.
-class TableBase: public Table{
+class Table: public TableBase{
 public:
 	typedef TableIterator Iterator;
 	virtual void Init(const TableDescriptor* info){

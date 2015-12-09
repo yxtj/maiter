@@ -1,7 +1,7 @@
 #include <stdio.h>
+#include "kernel/table-registry.h"
 
 #include "kernel/kernel.h"
-#include "kernel/table-registry.h"
 
 namespace dsm {
 

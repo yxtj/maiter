@@ -3,12 +3,10 @@
 
 #include "util/marshalled_map.hpp"
 #include "kernel/table.h"
-#include "kernel/global-table.h"
-//#include "kernel/local-table.h"
-#include "kernel/table-registry.h"
-
 #include "kernel/kernel/IterateKernel.h"
 #include "kernel/kernel/DSMKernel.h"
+#include "kernel/table-registry.h"
+#include "kernel/global-table.h"
 #include <boost/function.hpp>
 
 DECLARE_string(graph_dir);

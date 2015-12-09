@@ -1,6 +1,5 @@
-//#include "net/rpc.h"
+#include <global-table.h>
 #include "net/NetworkThread.h"
-#include "kernel/global-table.h"
 #include "statetable.h"
 
 static const int kMaxNetworkPending = 1 << 26;
@@ -11,36 +10,36 @@ DEFINE_int32(snapshot_interval, 99999999, "");
 
 namespace dsm {
 
-void GlobalTableBase::UpdatePartitions(const ShardInfo& info){
+void GlobalTable::UpdatePartitions(const ShardInfo& info){
 	partinfo_[info.shard()].sinfo.CopyFrom(info);
 }
 
-GlobalTableBase::~GlobalTableBase(){
+GlobalTable::~GlobalTable(){
 	for(int i = 0; i < partitions_.size(); ++i){
 		delete partitions_[i];
 	}
 }
 
-TableIterator* GlobalTableBase::get_iterator(int shard, bool bfilter, unsigned int fetch_num){
+TableIterator* GlobalTable::get_iterator(int shard, bool bfilter, unsigned int fetch_num){
 	return partitions_[shard]->get_iterator(this->helper(), bfilter);
 }
 
-bool GlobalTableBase::is_local_shard(int shard){
+bool GlobalTable::is_local_shard(int shard){
 	if(!helper()) return false;
 	return owner(shard) == helper_id();
 }
 
-bool GlobalTableBase::is_local_key(const StringPiece &k){
+bool GlobalTable::is_local_key(const StringPiece &k){
 	return is_local_shard(shard_for_key_str(k));
 }
 
-void GlobalTableBase::Init(const TableDescriptor *info){
-	TableBase::Init(info);
+void GlobalTable::Init(const TableDescriptor *info){
+	Table::Init(info);
 	partitions_.resize(info->num_shards);
 	partinfo_.resize(info->num_shards);
 }
 
-int64_t GlobalTableBase::shard_size(int shard){
+int64_t GlobalTable::shard_size(int shard){
 	if(is_local_shard(shard)){
 		return partitions_[shard]->size();
 	}else{
@@ -48,7 +47,7 @@ int64_t GlobalTableBase::shard_size(int shard){
 	}
 }
 
-void MutableGlobalTableBase::resize(int64_t new_size){
+void MutableGlobalTable::resize(int64_t new_size){
 	for(int i = 0; i < partitions_.size(); ++i){
 		if(is_local_shard(i)){
 			partitions_[i]->resize(new_size / partitions_.size() + 1);
@@ -56,7 +55,7 @@ void MutableGlobalTableBase::resize(int64_t new_size){
 	}
 }
 
-void MutableGlobalTableBase::swap(GlobalTable *b){
+void MutableGlobalTable::swap(GlobalTableBase *b){
 	SwapTable req;
 
 	req.set_table_a(this->id());
@@ -66,7 +65,7 @@ void MutableGlobalTableBase::swap(GlobalTable *b){
 	NetworkThread::Get()->SyncBroadcast(MTYPE_SWAP_TABLE, req);
 }
 
-void MutableGlobalTableBase::clear(){
+void MutableGlobalTable::clear(){
 	ClearTable req;
 
 	req.set_table(this->id());
@@ -75,17 +74,16 @@ void MutableGlobalTableBase::clear(){
 	NetworkThread::Get()->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
 }
 
-void MutableGlobalTableBase::start_checkpoint(const string& f){
+void MutableGlobalTable::start_checkpoint(const string& f){
 	for(int i = 0; i < partitions_.size(); ++i){
-		LocalTable *t = partitions_[i];
-
 		if(is_local_shard(i)){
+			LocalTable *t = partitions_[i];
 			t->start_checkpoint(f + StringPrintf(".%05d-of-%05d", i, partitions_.size()));
 		}
 	}
 }
 
-void MutableGlobalTableBase::write_delta(const KVPairData& d){
+void MutableGlobalTable::write_delta(const KVPairData& d){
 	if(!is_local_shard(d.shard())){
 		LOG_EVERY_N(INFO, 1000) << "Ignoring delta write for forwarded data";
 		return;
@@ -94,7 +92,7 @@ void MutableGlobalTableBase::write_delta(const KVPairData& d){
 	partitions_[d.shard()]->write_delta(d);
 }
 
-void MutableGlobalTableBase::finish_checkpoint(){
+void MutableGlobalTable::finish_checkpoint(){
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
 
@@ -104,7 +102,7 @@ void MutableGlobalTableBase::finish_checkpoint(){
 	}
 }
 
-void MutableGlobalTableBase::restore(const string& f){
+void MutableGlobalTable::restore(const string& f){
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
 
@@ -116,14 +114,13 @@ void MutableGlobalTableBase::restore(const string& f){
 	}
 }
 
-void MutableGlobalTableBase::TermCheck(){
+void MutableGlobalTable::TermCheck(){
 	PERIODIC(FLAGS_snapshot_interval, {
-		this->termcheck()
-		;
+		this->termcheck();
 	});
 }
 
-void MutableGlobalTableBase::termcheck(){
+void MutableGlobalTable::termcheck(){
 	double total_current = 0;
 	long total_updates = 0;
 	for(int i = 0; i < partitions_.size(); ++i){
@@ -144,7 +141,7 @@ void MutableGlobalTableBase::termcheck(){
 	snapshot_index++;
 }
 
-void MutableGlobalTableBase::HandlePutRequests(){
+void MutableGlobalTable::HandlePutRequests(){
 	if(helper()){
 		helper()->HandlePutRequest();
 	}
@@ -197,14 +194,14 @@ void ProtoKVPairCoder::WriteEntryToNet(StringPiece k, StringPiece v){
 	a->set_value(v.data, v.len);
 }
 
-void MutableGlobalTableBase::BufSend(){
+void MutableGlobalTable::BufSend(){
 	if(pending_writes_ > FLAGS_bufmsg){
 		VLOG(2) << "accumulate enought pending writes " << pending_writes_ << " we send them";
 		SendUpdates();
 	}
 }
 
-void MutableGlobalTableBase::SendUpdates(){
+void MutableGlobalTable::SendUpdates(){
 	KVPairData put;
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
@@ -243,7 +240,7 @@ void MutableGlobalTableBase::SendUpdates(){
 	pending_writes_ = 0;
 }
 
-int MutableGlobalTableBase::pending_write_bytes(){
+int MutableGlobalTable::pending_write_bytes(){
 	int64_t s = 0;
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
@@ -255,10 +252,10 @@ int MutableGlobalTableBase::pending_write_bytes(){
 	return s;
 }
 
-void MutableGlobalTableBase::local_swap(GlobalTable *b){
+void MutableGlobalTable::local_swap(GlobalTableBase *b){
 	CHECK(this != b);
 
-	MutableGlobalTableBase *mb = dynamic_cast<MutableGlobalTableBase*>(b);
+	MutableGlobalTable *mb = dynamic_cast<MutableGlobalTable*>(b);
 	std::swap(partinfo_, mb->partinfo_);
 	std::swap(partitions_, mb->partitions_);
 	std::swap(cache_, mb->cache_);

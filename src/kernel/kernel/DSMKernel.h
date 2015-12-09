@@ -16,7 +16,7 @@ namespace dsm {
 
 template<class K, class V1, class V2, class V3>
 class TypedGlobalTable;
-class GlobalTable;
+class GlobalTableBase;
 
 class Worker;
 
@@ -47,7 +47,7 @@ public:
 		return cp_.get<T>(key);
 	}
 
-	GlobalTable* get_table(int id);
+	GlobalTableBase* get_table(int id);
 
 	template<class K, class V1, class V2, class V3>
 	TypedGlobalTable<K, V1, V2, V3>* get_table(int id){

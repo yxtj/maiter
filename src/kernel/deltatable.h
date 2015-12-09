@@ -67,7 +67,7 @@ public:
   };
 
   struct Factory : public TableFactory {
-    TableBase* New() { return new DeltaTable<K, V1, D>(); }
+    Table* New() { return new DeltaTable<K, V1, D>(); }
   };
 
   // Construct a DeltaTable with the given initial size; it will be expanded as necessary.
@@ -75,7 +75,7 @@ public:
   ~DeltaTable() {}
 
   void Init(const TableDescriptor* td) {
-    TableBase::Init(td);
+    Table::Init(td);
   }
 
   V1 get(const K& k);

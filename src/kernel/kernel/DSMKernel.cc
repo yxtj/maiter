@@ -6,8 +6,8 @@
  */
 
 #include <glog/logging.h>
-#include "kernel/kernel/DSMKernel.h"
 #include "kernel/table-registry.h"
+#include "kernel/kernel/DSMKernel.h"
 
 namespace dsm {
 
@@ -24,9 +24,9 @@ void DSMKernel::set_args(const MarshalledMap& args){
 	args_ = args;
 }
 
-GlobalTable* DSMKernel::get_table(int id){
+GlobalTableBase* DSMKernel::get_table(int id){
 //	GlobalTable* t = (GlobalTable*)TableRegistry::Get()->table(id);
-	GlobalTable* t = dynamic_cast<GlobalTable*>(TableRegistry::Get()->table(id));
+	GlobalTableBase* t = dynamic_cast<GlobalTableBase*>(TableRegistry::Get()->table(id));
 	CHECK_NE(t, (void*)NULL);
 	return t;
 }

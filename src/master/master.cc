@@ -1,7 +1,9 @@
+#include "kernel/local-table.h"
 #include "master/master.h"
 #include "kernel/table.h"
 #include "kernel/global-table.h"
-#include "kernel/local-table.h"
+#include "net/NetworkThread.h"
+#include "net/Task.h"
 
 #include <set>
 #include <sstream>
@@ -435,12 +437,12 @@ bool Master::termcheck(){
 	VLOG(0) << "Termination check at " << barrier_timer->elapsed() << " finished in "
 						<< cp_timer.elapsed() << " total current "
 						<< StringPrintf("%.05f",
-								((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->set_curr())
+								((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->get_curr())
 						<< " total updates " << total_updates << endl;
 	conv_track_log << "Termination check at " << barrier_timer->elapsed() << " finished in "
 			<< cp_timer.elapsed() << " total current "
 			<< StringPrintf("%.05f",
-					((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->set_curr())
+					((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->get_curr())
 			<< " total updates " << total_updates << "\n";
 	conv_track_log.flush();
 
