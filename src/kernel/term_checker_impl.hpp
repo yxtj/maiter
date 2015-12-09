@@ -40,7 +40,7 @@ struct TermCheckers{
 		}
 		virtual bool terminate(const std::vector<double>& local_reports){
 			//your aggregation logic for using local reports here (e.g summation)
-			curr = std::accumulate(local_reports.begin(),local_reports.end(),0);
+			curr = std::accumulate(local_reports.begin(),local_reports.end(),0.0);
 			VLOG(0) << "terminate check : last progress " << last << " current progress " << curr
 					<< " difference " << abs(curr - last);
 			//your termination condition here (e.g. difference to last)
@@ -56,7 +56,7 @@ struct TermCheckers{
 		using TermChecker<K,V>::last;
 		using TermChecker<K,V>::curr;
 		bool terminate(const std::vector<double>& local_reports){
-			curr = std::accumulate(local_reports.begin(),local_reports.end(),0);
+			curr = std::accumulate(local_reports.begin(),local_reports.end(),0.0);
 			VLOG(0) << "terminate check : last progress " << last << " current progress " << curr
 					<< " difference " << abs(curr - last);
 			if(std::abs(curr - last) <= FLAGS_termcheck_threshold){
@@ -71,7 +71,7 @@ struct TermCheckers{
 		using TermChecker<K,V>::last;
 		using TermChecker<K,V>::curr;
 		bool terminate(const std::vector<double>& local_reports){
-			curr = std::accumulate(local_reports.begin(),local_reports.end(),0);
+			curr = std::accumulate(local_reports.begin(),local_reports.end(),0.0);
 			VLOG(0) << "terminate check : last progress " << last << " current progress " << curr
 					<< " difference " << abs(curr-last);
 			if(abs(curr) >= FLAGS_termcheck_threshold){
