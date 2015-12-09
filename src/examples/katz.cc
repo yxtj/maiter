@@ -71,7 +71,7 @@ struct KatzIterateKernel : public IterateKernel<int, float, vector<int> > {
 static int Katz(ConfigData& conf) {
     MaiterKernel<int, float, vector<int> >* kernel = new MaiterKernel<int, float, vector<int> >(
                                         conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
-                                        new Sharding::Mod,
+                                        new Sharders::Mod,
                                         new KatzIterateKernel,
                                         new TermCheckers<int, float>::Diff);
     

@@ -18,7 +18,7 @@ namespace dsm {
 #ifndef SWIG
 
 // Commonly used sharding operators.
-struct Sharding{
+struct Sharders{
 	struct String: public Sharder<std::string> {
 		int operator()(const std::string& k, int shards){
 			//return StringPiece(k).hash() % shards;

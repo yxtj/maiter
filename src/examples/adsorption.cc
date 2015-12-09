@@ -73,7 +73,7 @@ struct AdsorptionIterateKernel : public IterateKernel<int, float, vector<Link> >
 static int Adsorption(ConfigData& conf) {
     MaiterKernel<int, float, vector<Link> >* kernel = new MaiterKernel<int, float, vector<Link> >(
                                         conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
-                                        new Sharding::Mod,
+                                        new Sharders::Mod,
                                         new AdsorptionIterateKernel,
                                         new TermCheckers<int, float>::Diff);
     

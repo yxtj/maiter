@@ -177,7 +177,7 @@ struct Simrankiterate : public IterateKernel<string, double, vector<vector<int> 
 static int Simrank(ConfigData& conf) {
     MaiterKernel<string, double, vector<vector<int> > >* kernel = new MaiterKernel<string, double, vector<vector<int> > >(
                                         conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
-                                        new Sharding::Mod_str,
+                                        new Sharders::Mod_str,
                                         new Simrankiterate,
 										//new SUM);
                                         new TermCheckers<string,double>::Sum);
