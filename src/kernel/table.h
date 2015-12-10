@@ -1,5 +1,5 @@
-#ifndef ACCUMULATOR_H
-#define ACCUMULATOR_H
+#ifndef KERNEL_TABLE_H_
+#define KERNEL_TABLE_H_
 //#include "util/common.h"
 #include "util/file.h"
 #include "worker/worker.pb.h"
@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 #include <utility>
-#include <boost/thread.hpp>
+//#include <boost/thread.hpp>
 
 
 #define FETCH_NUM (2048)

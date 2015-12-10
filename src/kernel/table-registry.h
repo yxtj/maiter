@@ -5,6 +5,7 @@
 //#include "util/common.h"
 //#include "kernel/table.h"
 #include "kernel/global-table.h"
+#include "kernel/typed-global-table.hpp"
 #include "kernel/statetable.h"
 #include "kernel/deltatable.h"
 #include "kernel/table_descriptor.h"

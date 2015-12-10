@@ -6,7 +6,8 @@
 #include "kernel/kernel/IterateKernel.h"
 #include "kernel/kernel/DSMKernel.h"
 #include "kernel/table-registry.h"
-#include "kernel/global-table.h"
+//#include "kernel/global-table.h"
+#include "kernel/typed-global-table.hpp"
 #include <boost/function.hpp>
 
 DECLARE_string(graph_dir);
@@ -132,9 +133,6 @@ struct RunnerRegistrationHelper{
 /**
  * Maiter Kernel part:
  */
-
-template<class K, class V1, class V2, class V3>
-class TypedGlobalTable;
 
 //template<class K, class V, class D>
 //class MaiterKernel0: public DSMKernel{

@@ -7,19 +7,19 @@
 #include "kernel/local-table.h"
 #include "kernel/kernel/IterateKernel.h"
 #include <boost/noncopyable.hpp>
+//#include <boost/thread.hpp>
 //#include <boost/random/mersenne_twister.hpp>
 //#include <boost/random/uniform_int.hpp>
 //#include <boost/random/lognormal_distribution.hpp>
 //#include <boost/random/variate_generator.hpp>
 #include <random>
 #include <algorithm>
+#include <thread>
+#include <chrono>
 
 namespace dsm {
 
-static const int sample_size = 1000;
-
-template<class K, class V1, class V2, class V3>
-struct ClutterRecord;
+static constexpr int sample_size = 1000;
 
 template<class K, class V1, class V2, class V3>
 class StateTable:
@@ -56,9 +56,6 @@ public:
 				b_no_change = true;
 
 				//random number generator
-//                boost::mt19937 gen(time(0));
-//                boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
-//                boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
 				std::mt19937 gen(time(0));
 				std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
 				auto rand_num = [&](){return dist(gen);};
@@ -117,9 +114,6 @@ public:
 			b_no_change = true;
 
 			//random number generator
-//        boost::mt19937 gen(time(0));
-//        boost::uniform_int<> dist(0, parent_.buckets_.size()-1);
-//        boost::variate_generator<boost::mt19937&, boost::uniform_int<> > rand_num(gen, dist);
 			std::mt19937 gen(time(0));
 			std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
 			auto rand_num = [&](){return dist(gen);};
@@ -359,7 +353,7 @@ public:
 	TableIterator *get_iterator(TableHelper* helper, bool bfilter){
 		if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
 		helper->FlushUpdates();
-		boost::this_thread::sleep( boost::posix_time::seconds(0.1) );
+		std::this_thread::sleep_for(chrono::duration<double>(0.1) );
 		helper->HandlePutRequest();
 
 		Iterator* iter = new Iterator(*this, true);
@@ -368,7 +362,7 @@ public:
 			VLOG(1) << "wait for put";
 			delete iter;
 			helper->FlushUpdates();
-			boost::this_thread::sleep( boost::posix_time::seconds(1) );
+			std::this_thread::sleep_for(chrono::seconds(1) );
 			helper->HandlePutRequest();
 
 			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
@@ -402,7 +396,7 @@ public:
 	TableIterator *schedule_iterator(TableHelper* helper, bool bfilter){
 		if(terminated_) return nullptr;
 		helper->FlushUpdates();
-		boost::this_thread::sleep( boost::posix_time::seconds(0.1) );
+		std::this_thread::sleep_for(chrono::duration<double>(0.1) );
 		helper->HandlePutRequest();
 
 		ScheduledIterator* iter = new ScheduledIterator(*this, bfilter);
@@ -411,7 +405,7 @@ public:
 			VLOG(1) << "wait for put, send buffered updates";
 			delete iter;
 			helper->FlushUpdates();
-			boost::this_thread::sleep( boost::posix_time::seconds(1) );
+			std::this_thread::sleep_for(chrono::seconds(1) );
 			helper->HandlePutRequest();
 
 			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
