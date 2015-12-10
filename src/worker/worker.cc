@@ -333,6 +333,12 @@ void Worker::Restore(int epoch){
 }
 
 void Worker::HandlePutRequest(){
+	if(!running_){
+		//clear received buffer without processing its content
+		while(network_->TryRead(Task::ANY_SRC, MTYPE_PUT_REQUEST));
+		VLOG(1) << "Clearing data receiving buffer after worker ends.";
+		return;
+	}
 	lock_guard<recursive_mutex> sl(state_lock_);
 
 	KVPairData put;
