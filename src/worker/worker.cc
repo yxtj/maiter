@@ -1,5 +1,3 @@
-#include <boost/bind.hpp>
-#include <signal.h>
 #include "kernel/table-registry.h"
 #include "util/common.h"
 #include "worker/worker.h"
@@ -9,8 +7,8 @@
 
 DEFINE_double(sleep_hack, 0.0, "");
 DEFINE_double(sleep_time, 0.001, "");
-DEFINE_string(checkpoint_write_dir, "/scratch/power/checkpoints", "");
-DEFINE_string(checkpoint_read_dir, "/scratch/power/checkpoints", "");
+DEFINE_string(checkpoint_write_dir, "/tmp/maiter/checkpoints", "");
+DEFINE_string(checkpoint_read_dir, "/tmp/maiter/checkpoints", "");
 
 namespace dsm {
 
