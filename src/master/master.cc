@@ -1,5 +1,6 @@
-#include "kernel/local-table.h"
 #include "master/master.h"
+#include "master/worker-handle.h"
+#include "kernel/local-table.h"
 #include "kernel/table.h"
 #include "kernel/global-table.h"
 #include "net/NetworkThread.h"
@@ -9,8 +10,8 @@
 #include <sstream>
 #include <iomanip>
 
-DEFINE_string(dead_workers, "",
-		"For failure testing; comma delimited list of workers to pretend have died.");
+//DEFINE_string(dead_workers, "",
+//		"For failure testing; comma delimited list of workers to pretend have died.");
 DEFINE_bool(work_stealing, true, "Enable work stealing to load-balance tasks between machines.");
 DEFINE_bool(checkpoint, false, "If true, enable checkpointing.");
 DEFINE_bool(restore, false, "If true, enable restore.");
@@ -26,200 +27,8 @@ using namespace std;
 
 namespace dsm {
 
-static unordered_set<int> dead_workers;
+//static unordered_set<int> dead_workers;
 
-struct Taskid{
-	int table;
-	int shard;
-
-	Taskid(int t, int s) :
-			table(t), shard(s){
-	}
-
-	bool operator<(const Taskid& b) const{
-		return table < b.table || (table == b.table && shard < b.shard);
-	}
-};
-
-struct TaskState: private boost::noncopyable{
-	enum Status{
-		PENDING = 0, ACTIVE = 1, FINISHED = 2
-	};
-
-	TaskState(Taskid id, int64_t size) :
-			id(id), status(PENDING), size(size), stolen(false){
-	}
-
-	static bool IdCompare(TaskState *a, TaskState *b){
-		return a->id < b->id;
-	}
-
-	static bool WeightCompare(TaskState *a, TaskState *b){
-		if(a->stolen && !b->stolen){
-			return true;
-		}
-		return a->size < b->size;
-	}
-
-	Taskid id;
-	int status;
-	int size;
-	bool stolen;
-};
-
-typedef std::map<Taskid, TaskState*> TaskMap;
-typedef std::set<Taskid> ShardSet;
-struct WorkerState: private boost::noncopyable{
-	WorkerState(int w_id) :
-			id(w_id){
-		last_ping_time = Now();
-		last_task_start = 0;
-		total_runtime = 0;
-		checkpointing = false;
-		termchecking = false;
-		current = 0;
-		updates = 0;
-	}
-
-	TaskMap work;
-
-	// Table shards this worker is responsible for serving.
-	ShardSet shards;
-
-	double last_ping_time;
-
-	int status;
-	int id;
-
-	double last_task_start;
-	double total_runtime;
-
-	bool checkpointing;
-	bool termchecking;
-	double current;
-	long updates;
-
-	// Order by number of pending tasks and last update time.
-	static bool PendingCompare(WorkerState *a, WorkerState* b){
-//    return (a->pending_size() < b->pending_size());
-		return a->num_pending() < b->num_pending();
-	}
-
-	bool alive() const{
-		return dead_workers.find(id) == dead_workers.end();
-	}
-
-	bool is_assigned(Taskid id){
-		return work.find(id) != work.end();
-	}
-
-	void ping(){
-		last_ping_time = Now();
-	}
-
-	double idle_time(){
-		// Wait a little while before stealing work; should really be
-		// using something like the standard deviation, but this works
-		// for now.
-		if(num_finished() != work.size()) return 0;
-
-		return Now() - last_ping_time;
-	}
-
-	void assign_shard(int shard, bool should_service){
-		TableRegistry::Map &tables = TableRegistry::Get()->tables();
-		for(TableRegistry::Map::iterator i = tables.begin(); i != tables.end(); ++i){
-			if(shard < i->second->num_shards()){
-				Taskid t(i->first, shard);
-				if(should_service){
-					shards.insert(t);
-				}else{
-					shards.erase(shards.find(t));
-				}
-			}
-		}
-	}
-
-	bool serves(Taskid id) const{
-		return shards.find(id) != shards.end();
-	}
-
-	void assign_task(TaskState *s){
-		work[s->id] = s;
-	}
-
-	void remove_task(TaskState* s){
-		work.erase(work.find(s->id));
-	}
-
-	void clear_tasks(){
-		work.clear();
-	}
-
-	void set_finished(const Taskid& id){
-		CHECK(work.find(id) != work.end());
-		TaskState *t = work[id];
-		CHECK(t->status == TaskState::ACTIVE);
-		t->status = TaskState::FINISHED;
-	}
-
-#define COUNT_TASKS(name, type)\
-  int num_ ## name() const {\
-    int c = 0;\
-    for (TaskMap::const_iterator i = work.begin(); i != work.end(); ++i)\
-      if (i->second->status == TaskState::type) { ++c; }\
-    return c;\
-  }\
-  int64_t name ## _size() const {\
-      int64_t c = 0;\
-      for (TaskMap::const_iterator i = work.begin(); i != work.end(); ++i)\
-        if (i->second->status == TaskState::type) { c += i->second->size; }\
-      return c;\
-  }\
-  vector<TaskState*> name() const {\
-    vector<TaskState*> out;\
-    for (TaskMap::const_iterator i = work.begin(); i != work.end(); ++i)\
-      if (i->second->status == TaskState::type) { out.push_back(i->second); }\
-    return out;\
-  }
-
-	COUNT_TASKS(pending, PENDING)
-	COUNT_TASKS(active, ACTIVE)
-	COUNT_TASKS(finished, FINISHED)
-#undef COUNT_TASKS
-
-	int num_assigned() const{
-		return work.size();
-	}
-	int64_t total_size() const{
-		int64_t out = 0;
-		for(TaskMap::const_iterator i = work.begin(); i != work.end(); ++i){
-			out += 1 + i->second->size;
-		}
-		return out;
-	}
-
-	// Order pending tasks by our guess of how large they are
-	bool get_next(const RunDescriptor& r, KernelRequest* msg){
-		vector<TaskState*> p = pending();
-
-		if(p.empty()){
-			return false;
-		}
-
-		TaskState* best = *max_element(p.begin(), p.end(), &TaskState::WeightCompare);
-
-		msg->set_kernel(r.kernel);
-		msg->set_method(r.method);
-		msg->set_table(r.table->id());
-		msg->set_shard(best->id.shard);
-
-		best->status = TaskState::ACTIVE;
-		last_task_start = Now();
-
-		return true;
-	}
-};
 
 Master::Master(const ConfigData &conf) :
 		tables_(TableRegistry::Get()->tables()){
@@ -255,12 +64,12 @@ Master::Master(const ConfigData &conf) :
 
 	LOG(INFO)<< "All workers registered; starting up.";
 
-	vector<StringPiece> bits = StringPiece::split(FLAGS_dead_workers, ",");
-//  LOG(INFO) << "dead workers: " << FLAGS_dead_workers;
-	for(int i = 0; i < bits.size(); ++i){
-		LOG(INFO)<< MP(i, bits[i].AsString());
-		dead_workers.insert(strtod(bits[i].AsString().c_str(), NULL));
-	}
+//	vector<StringPiece> bits = StringPiece::split(FLAGS_dead_workers, ",");
+////  LOG(INFO) << "dead workers: " << FLAGS_dead_workers;
+//	for(int i = 0; i < bits.size(); ++i){
+//		LOG(INFO)<< MP(i, bits[i].AsString());
+//		dead_workers.insert(strtod(bits[i].AsString().c_str(), NULL));
+//	}
 }
 
 Master::~Master(){

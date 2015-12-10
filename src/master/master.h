@@ -6,62 +6,13 @@
 #include "worker/worker.pb.h"
 #include "kernel/kernel.h"
 #include "kernel/sharder_impl.hpp"
+#include "master/run-descriptor.h"
 
 namespace dsm {
 
 class WorkerState;
 class TaskState;
 class NetworkThread;
-
-struct RunDescriptor {
-   string kernel;
-   string method;
-
-   GlobalTableBase *table;
-   bool barrier;
-
-   CheckpointType checkpoint_type;
-   int checkpoint_interval;
-
-   // Tables to checkpoint.  If empty, commit all tables.
-   vector<int> checkpoint_tables;
-   vector<int> shards;
-
-   int epoch;
-
-   // Key-value map of arguments to pass to kernel functions
-   MarshalledMap params;
-
-   RunDescriptor() {
-     Init("bogus", "bogus", NULL);
-   }
-
-   RunDescriptor(const string& kernel,
-                 const string& method,
-                 GlobalTableBase *table,
-                 vector<int> cp_tables=vector<int>()) {
-     Init(kernel, method, table, cp_tables);
-   }
-
-   void Init(const string& kernel,
-             const string& method,
-             GlobalTableBase *table,
-             vector<int> cp_tables=vector<int>()) {
-     barrier = true;
-     checkpoint_type = CP_NONE;
-     checkpoint_interval = -1;
-     checkpoint_tables = cp_tables;
-
-     if (!checkpoint_tables.empty()) {
-       checkpoint_type = CP_MASTER_CONTROLLED;
-     }
-
-     this->kernel = kernel;
-     this->method = method;
-     this->table = table;
-   }
- };
-
 
 class Master : public TableHelper {
 public:
