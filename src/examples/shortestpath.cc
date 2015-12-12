@@ -1,5 +1,5 @@
 #include "client/client.h"
-
+#include <string>
 
 using namespace dsm;
 
@@ -8,6 +8,11 @@ DECLARE_int64(num_nodes);
 DECLARE_double(portion);
 DECLARE_int64(shortestpath_source);
 
+struct Link{
+  Link(int inend, float inweight) : end(inend), weight(inweight) {}
+  int end;
+  float weight;
+};
 
 struct ShortestpathIterateKernel : public IterateKernel<int, float, vector<Link> > {
     float imax;

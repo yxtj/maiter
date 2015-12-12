@@ -1,5 +1,6 @@
 #include "client/client.h"
 #include "net/NetworkThread.h"
+#include "dbg/getcallstack.h"
 
 using namespace dsm;
 
@@ -35,6 +36,7 @@ DECLARE_bool(log_prefix);
 
 int main(int argc, char** argv) {
   FLAGS_log_prefix = false;
+//  cout<<getcallstack()<<endl;
 
   Init(argc, argv);
 
@@ -44,6 +46,8 @@ int main(int argc, char** argv) {
   conf.set_num_workers(NetworkThread::Get()->size() - 1);
   conf.set_worker_id(NetworkThread::Get()->id() - 1);
 
+  cout<<NetworkThread::Get()->id()<<":"<<getcallstack()<<endl;
+// return 0;
 //  LOG(INFO) << "Running: " << FLAGS_runner;
   CHECK_NE(FLAGS_runner, "");
   RunnerRegistry::KernelRunner k = RunnerRegistry::Get()->runner(FLAGS_runner);

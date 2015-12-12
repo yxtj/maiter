@@ -1,7 +1,10 @@
 #include "client/client.h"
-
+#include <cmath>
+#include <random>
+#include <vector>
 
 using namespace dsm;
+using namespace std;
 
 DEFINE_int32(graph_size, 100, "");
 DEFINE_bool(weighted, false, "");
@@ -17,17 +20,23 @@ DECLARE_string(graph_dir);
 
 static TypedGlobalTable<int, double, double, vector<int> > *graph;
 
-static int getSeed()
-{
-    ifstream rand("/dev/urandom");
-    char tmp[sizeof(int)];
-    rand.read(tmp,sizeof(int));
-    rand.close();
-    int* number = reinterpret_cast<int*>(tmp);
-    return (*number);
-}
+struct Link{
+  Link(int inend, float inweight) : end(inend), weight(inweight) {}
+  int end;
+  float weight;
+};
 
-static boost::mt19937 gen(time(0)+getSeed());
+//static int getSeed()
+//{
+//    ifstream rand("/dev/urandom");
+//    char tmp[sizeof(int)];
+//    rand.read(tmp,sizeof(int));
+//    rand.close();
+//    int* number = reinterpret_cast<int*>(tmp);
+//    return (*number);
+//}
+
+static mt19937 gen(random_device()());
 
 static double _mean_degree=FLAGS_logn_degree_m;
 static double _sigma_degree=FLAGS_logn_degree_s;
@@ -40,21 +49,18 @@ static double mu_weight = sqrt(exp(2*_mean_weight)*exp(_sigma_weight*_sigma_weig
 static double sigma_weight = exp(_mean_weight)*sqrt(exp(2*_sigma_weight*_sigma_weight)-exp(_sigma_weight*_sigma_weight));
 
 static int rand_target() {
-    boost::uniform_int<> dist(0, FLAGS_graph_size-1);
-    boost::variate_generator<boost::mt19937&, boost::uniform_int<> > die(gen, dist);
-    return die();
+    uniform_int_distribution<int> dist(0, FLAGS_graph_size-1);
+    return dist(gen);
 }
 
 static int rand_degree() {
-    boost::lognormal_distribution<double> lnd(mu_degree, sigma_degree);
-    boost::variate_generator<boost::mt19937&, boost::lognormal_distribution<double> > lnd_generator(gen,lnd);
-    return ceil(lnd_generator());
+    lognormal_distribution<double> lnd(mu_degree, sigma_degree);
+    return static<int>(ceil(lnd(gen)));
 }
 
 static float rand_weight() {
-    boost::lognormal_distribution<float> lnd(mu_weight, sigma_weight);
-    boost::variate_generator<boost::mt19937&, boost::lognormal_distribution<float> > lnd_generator(gen,lnd);
-    return lnd_generator();
+    lognormal_distribution<float> lnd(mu_weight, sigma_weight);
+    return lnd(gen);
 }
 
 static vector<int> InitLinks(const int &key) {

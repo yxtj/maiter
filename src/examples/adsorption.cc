@@ -9,6 +9,11 @@ DECLARE_double(portion);
 DECLARE_int32(adsorption_starts);
 DECLARE_double(adsorption_damping);
 
+struct Link{
+  Link(int inend, float inweight) : end(inend), weight(inweight) {}
+  int end;
+  float weight;
+};
 
 struct AdsorptionIterateKernel : public IterateKernel<int, float, vector<Link> > {
     

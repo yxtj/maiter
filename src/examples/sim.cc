@@ -3,13 +3,12 @@
 #include<string>
 #include<fstream>
 #include<vector>
-#include <boost/lexical_cast.hpp>
 using namespace std;
 
 int Mod(string key,int shards){
     int pos=key.find("_");
     key=key.substr(0,pos);
-    pos= boost::lexical_cast<int>(key);
+    pos= stoi(key);
     return (pos % shards);
 }
 void read_input_file(int shards,int core,string path)
@@ -38,7 +37,7 @@ void read_input_file(int shards,int core,string path)
         int pos=line.find("\t");
         string key=line.substr(0,pos);
         int num=Mod(key,shards);
-        string file_num=boost::lexical_cast<string>(num);
+        string file_num=to_string(num);
         string command="echo \""+line+"\" >> part/part"+file_num;
         system(command.c_str());
         getline(file,line);
@@ -63,14 +62,14 @@ void read_input_file(int shards,int core,string path)
         int pos=line.find(" ");
         string ip=line.substr(0,pos);
         cout<<"IP:"<<ip<<endl;
-        string file_num=boost::lexical_cast<string>(i);
+        string file_num=to_string(i);
         //string command="ssh "+ip;
         //system(command.c_str());
         //command="mkdir "+path;
         //system(command.c_str());
         //system("exit");
         for(int k=0;k<core;k++){
-          string file_num=boost::lexical_cast<string>(i);
+          string file_num=to_string(i);
           string command= "scp -r part/part"+file_num+" root@"+ip+":"+path;
           system(command.c_str());
           i++;
