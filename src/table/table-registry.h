@@ -1,25 +1,33 @@
-#ifndef KERNEL_H_
-#define KERNEL_H_
+#ifndef TABLE_REGISTY_H_
+#define TABLE_REGISTY_H_
 
-//#include "kernel/local-table.h"
-//#include "util/common.h"
-//#include "kernel/table.h"
-#include "kernel/global-table.h"
-#include "kernel/typed-global-table.hpp"
-#include "kernel/statetable.h"
-#include "kernel/deltatable.h"
-#include "kernel/table_descriptor.h"
+#include "global-table.h"
+#include "typed-global-table.hpp"
+#include "statetable.h"
+#include "deltatable.h"
+#include "table_descriptor.h"
 
-#include "kernel/sharder.h"
-#include "kernel/term_checker.h"
-#include "kernel/kernel/IterateKernel.h"
+//#include "tbl_widget/sharder.h"
+//#include "tbl_widget/term_checker.h"
+//#include "tbl_widget/IterateKernel.h"
 #include "util/marshal.hpp"
+#include "util/noncopyable.h"
+
+#include <map>
 
 static const int kStatsTableId = 1000000;
 
 namespace dsm {
 
-class TableRegistry : private boost::noncopyable {
+
+template <class K>
+class Sharder;
+template <class K, class V1, class V3>
+class IterateKernel;
+template <class K, class V2>
+class TermChecker;
+
+class TableRegistry : private noncopyable {
 private:
   TableRegistry() {}
 public:
@@ -65,4 +73,4 @@ static TypedGlobalTable<K, V1, V2, V3>* CreateTable(const TableDescriptor *info)
 }
 
 } // end namespace
-#endif /* KERNEL_H_ */
+#endif /* TABLE_REGISTY_H_ */

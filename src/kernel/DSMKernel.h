@@ -5,18 +5,20 @@
  *      Author: tzhou
  */
 
-#ifndef KERNEL_KERNEL_DSMKERNEL_H_
-#define KERNEL_KERNEL_DSMKERNEL_H_
+#ifndef KERNEL_DSMKERNEL_H_
+#define KERNEL_DSMKERNEL_H_
 
 #include "util/marshalled_map.hpp"
-#include "kernel/table.h"
+//#include "table/table.h"
+//#include "table/global-table.h"
 #include <string>
 
 namespace dsm {
 
+class GlobalTableBase;
+
 template<class K, class V1, class V2, class V3>
 class TypedGlobalTable;
-class GlobalTableBase;
 
 class Worker;
 
@@ -75,4 +77,4 @@ private:
 
 } /* namespace dsm */
 
-#endif /* KERNEL_KERNEL_DSMKERNEL_H_ */
+#endif /* KERNEL_DSMKERNEL_H_ */

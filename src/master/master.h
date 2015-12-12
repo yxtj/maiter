@@ -1,11 +1,11 @@
 #ifndef MASTER_H_
 #define MASTER_H_
 
-#include "kernel/table-registry.h"
 #include "util/common.h"
 #include "worker/worker.pb.h"
 #include "kernel/kernel.h"
-#include "kernel/sharder_impl.hpp"
+#include "table/table-registry.h"
+#include "table/tbl_widget/sharder_impl.hpp"
 #include "master/run-descriptor.h"
 
 namespace dsm {

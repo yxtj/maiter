@@ -1,6 +1,7 @@
 #ifndef CLIENT_H_
 #define CLIENT_H_
 
+#include "table/table-registry.h"
 #include "util/common.h"
 #include "util/file.h"
 
@@ -8,17 +9,13 @@
 #include "master/master.h"
 
 #include "kernel/kernel.h"
-#include "kernel/table-registry.h"
+#include "table/tbl_widget/sharder_impl.hpp"
+#include "table/tbl_widget/term_checker_impl.hpp"
 
-#include "kernel/sharder_impl.hpp"
-#include "kernel/term_checker_impl.hpp"
-
-//#include <boost/random/mersenne_twister.hpp>
-//#include <boost/random/uniform_int.hpp>
-//#include <boost/random/lognormal_distribution.hpp>
-//#include <boost/random/variate_generator.hpp>
 //#include <iostream>
 //#include <fstream>
+
+#include "dbg/getcallstack.h"
 
 #ifndef SWIG
 DECLARE_int32(shards);
@@ -39,10 +36,5 @@ DECLARE_int32(iterations);
 // executed with the bindings provided, once for each table entry.
 #define PMap(bindings, code)
 
-struct Link{
-  Link(int inend, float inweight) : end(inend), weight(inweight) {}
-  int end;
-  float weight;
-};
 
 #endif /* CLIENT_H_ */

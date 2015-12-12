@@ -1,11 +1,11 @@
 #ifndef WORKER_H_
 #define WORKER_H_
 
-#include "kernel/local-table.h"
 #include "util/common.h"
 #include "kernel/kernel.h"
-#include "kernel/table.h"
-#include "kernel/global-table.h"
+#include "table/table.h"
+#include "table/local-table.h"
+#include "table/global-table.h"
 #include "worker/worker.pb.h"
 #include "net/RPCInfo.h"
 
@@ -19,7 +19,7 @@ class NetworkThread;
 // start a worker and exit when the computation is finished.
 bool StartWorker(const ConfigData& conf);
 
-class Worker: public TableHelper, private boost::noncopyable{
+class Worker: public TableHelper, private noncopyable{
 	struct Stub;
 public:
 	Worker(const ConfigData &c);

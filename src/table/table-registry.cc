@@ -1,7 +1,7 @@
-#include <local-table.h>
-#include <stdio.h>
-#include <table-registry.h>
-#include "kernel/global-table.h"
+#include "table-registry.h"
+#include "global-table.h"
+
+#include <glog/logging.h>
 
 namespace dsm {
 

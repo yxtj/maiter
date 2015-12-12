@@ -4,18 +4,17 @@
 #include "util/file.h"
 #include "worker/worker.pb.h"
 
-#include "sharder.h"
-//#include "sharder.hpp"
-#include "term_checker.h"
-//#include "term_checker_impl.hpp"
+#include "tbl_widget/sharder.h"
+//#include "tbl_widget/sharder.hpp"
+#include "tbl_widget/term_checker.h"
+//#include "tbl_widget/term_checker_impl.hpp"
 #include "table_descriptor.h"
 #include "table_iterator.h"
-#include "trigger.h"
+#include "tbl_widget/trigger.h"
 
 #include <string>
 #include <vector>
 #include <utility>
-//#include <boost/thread.hpp>
 
 
 #define FETCH_NUM (2048)

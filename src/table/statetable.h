@@ -1,17 +1,11 @@
 #ifndef SPARSE_MAP_H_
 #define SPARSE_MAP_H_
 
-#include "util/common.h"
+#include "util/noncopyable.h"
 #include "worker/worker.pb.h"
-#include "kernel/table.h"
-#include "kernel/local-table.h"
-#include "kernel/kernel/IterateKernel.h"
-#include <boost/noncopyable.hpp>
-//#include <boost/thread.hpp>
-//#include <boost/random/mersenne_twister.hpp>
-//#include <boost/random/uniform_int.hpp>
-//#include <boost/random/lognormal_distribution.hpp>
-//#include <boost/random/variate_generator.hpp>
+#include "table.h"
+#include "local-table.h"
+#include "tbl_widget/IterateKernel.h"
 #include <random>
 #include <algorithm>
 #include <thread>
@@ -25,7 +19,7 @@ template<class K, class V1, class V2, class V3>
 class StateTable:
 		public LocalTable,
 		public TypedTable<K, V1, V2, V3>,
-		private boost::noncopyable{
+		private noncopyable{
 private:
 #pragma pack(push, 1)
 	struct Bucket{

@@ -1,7 +1,7 @@
 #ifndef FILE_H_
 #define FILE_H_
 
-#include "boost/noncopyable.hpp"
+#include "noncopyable.h"
 #include "util/common.h"
 #include "util/common.pb.h"
 #include <lzo/lzo1x.h>
@@ -172,7 +172,7 @@ public:
   }
 };
 
-class LZOFile : public File, private boost::noncopyable {
+class LZOFile : public File, private noncopyable {
 public:
   LZOFile(const string& fname, const string& mode) {
     init(new LocalFile(fname, mode), mode);

@@ -5,9 +5,9 @@
  *      Author: tzhou
  */
 
+#include "DSMKernel.h"
+#include "table/table-registry.h"
 #include <glog/logging.h>
-#include "kernel/table-registry.h"
-#include "kernel/kernel/DSMKernel.h"
 
 namespace dsm {
 

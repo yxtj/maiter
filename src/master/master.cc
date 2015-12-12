@@ -1,8 +1,8 @@
-#include "master/master.h"
+#include "master.h"
 #include "master/worker-handle.h"
-#include "kernel/local-table.h"
-#include "kernel/table.h"
-#include "kernel/global-table.h"
+#include "table/local-table.h"
+#include "table/table.h"
+#include "table/global-table.h"
 #include "net/NetworkThread.h"
 #include "net/Task.h"
 

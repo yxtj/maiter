@@ -8,8 +8,8 @@
 #ifndef MASTER_WORKER_HANDLE_H_
 #define MASTER_WORKER_HANDLE_H_
 
-#include "kernel/table-registry.h"
-#include "master/run-descriptor.h"
+#include "run-descriptor.h"
+#include "table/table-registry.h"
 #include <vector>
 #include <set>
 #include <map>
@@ -29,7 +29,7 @@ struct Taskid{
 	}
 };
 
-struct TaskState: private boost::noncopyable{
+struct TaskState: private noncopyable{
 	enum Status{
 		PENDING = 0, ACTIVE = 1, FINISHED = 2
 	};
@@ -58,7 +58,7 @@ struct TaskState: private boost::noncopyable{
 typedef std::map<Taskid, TaskState*> TaskMap;
 typedef std::set<Taskid> ShardSet;
 
-struct WorkerState: private boost::noncopyable{
+struct WorkerState: private noncopyable{
 	WorkerState(int w_id) :
 			id(w_id){
 		last_ping_time = Now();

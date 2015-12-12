@@ -8,11 +8,10 @@
 #ifndef DELTATABLE_H_
 #define DELTATABLE_H_
 
-#include "util/common.h"
+#include "util/noncopyable.h"
 #include "worker/worker.pb.h"
-#include "kernel/table.h"
-#include "kernel/local-table.h"
-#include <boost/noncopyable.hpp>
+#include "table.h"
+#include "local-table.h"
 
 namespace dsm {
 
@@ -20,7 +19,7 @@ template <class K, class V1, class D>
 class DeltaTable :
 	public LocalTable,
 	public PTypedTable<K, V1, D>,
-  private boost::noncopyable {
+  private noncopyable {
 private:
 #pragma pack(push, 1)
   struct Bucket {

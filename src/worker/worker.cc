@@ -1,6 +1,6 @@
-#include "kernel/table-registry.h"
+#include "worker.h"
+#include "table/table-registry.h"
 #include "util/common.h"
-#include "worker/worker.h"
 #include "kernel/kernel.h"
 #include "net/NetworkThread.h"
 #include "net/Task.h"
@@ -12,7 +12,7 @@ DEFINE_string(checkpoint_read_dir, "/tmp/maiter/checkpoints", "");
 
 namespace dsm {
 
-struct Worker::Stub: private boost::noncopyable{
+struct Worker::Stub: private noncopyable{
 	int32_t id;
 	int32_t epoch;
 
@@ -143,6 +143,7 @@ void Worker::KernelLoop(){
 		TableRegistry::Map &tmap = TableRegistry::Get()->tables();
 		for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 			GlobalTableBase* t = i->second;
+			VLOG(1)<<"Kernel Done";
 			HandlePutRequest();
 			for(int j = 0; j < t->num_shards(); ++j){
 				if(t->is_local_shard(j)){
@@ -333,8 +334,8 @@ void Worker::Restore(int epoch){
 void Worker::HandlePutRequest(){
 	if(!running_){
 		//clear received buffer without processing its content
-		while(network_->TryRead(Task::ANY_SRC, MTYPE_PUT_REQUEST));
 		VLOG(1) << "Clearing data receiving buffer after worker ends.";
+		while(network_->TryRead(Task::ANY_SRC, MTYPE_PUT_REQUEST));
 		return;
 	}
 	lock_guard<recursive_mutex> sl(state_lock_);

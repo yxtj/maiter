@@ -10,7 +10,7 @@
 
 #include <vector>
 #include <limits>
-#include "table_iterator.h"
+#include "table/table_iterator.h"
 
 namespace dsm{
 

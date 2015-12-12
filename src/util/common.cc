@@ -1,7 +1,6 @@
 #include "util/common.h"
 #include "util/file.h"
 #include "util/static-initializers.h"
-//#include "net/rpc.h"
 #include "net/NetworkThread.h"
 
 #include <stdio.h>
@@ -223,4 +222,5 @@ void Init(int argc, char** argv) {
 
   srandom(time(NULL));
 }
-}
+
+} //namespace dsm

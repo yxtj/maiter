@@ -13,10 +13,11 @@
 #include "table_iterator.h"
 #include "table.h"
 #include "util/marshal.hpp"
+#include "util/stringpiece.h"
+#include "util/noncopyable.h"
 #include <deque>
 #include <utility>
 #include <mutex>
-#include <boost/noncopyable.hpp>
 
 #include <glog/logging.h>
 #include <gflags/gflags.h>
@@ -30,7 +31,7 @@ class TypedGlobalTable:
 //  virtual public GlobalTableBase,
 		public MutableGlobalTable,
 		public TypedTable<K, V1, V2, V3>,
-		private boost::noncopyable{
+		private noncopyable{
 public:
 	bool initialized(){
 		return binit;

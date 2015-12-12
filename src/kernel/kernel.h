@@ -1,14 +1,13 @@
-#ifndef KERNELREGISTRY_H_
-#define KERNELREGISTRY_H_
+#ifndef KERNEL_H_
+#define KERNEL_H_
 
 #include "util/marshalled_map.hpp"
-#include "kernel/table.h"
-#include "kernel/kernel/IterateKernel.h"
-#include "kernel/kernel/DSMKernel.h"
-#include "kernel/table-registry.h"
-//#include "kernel/global-table.h"
-#include "kernel/typed-global-table.hpp"
-#include <boost/function.hpp>
+//#include "IterateKernel.h"
+#include "DSMKernel.h"
+#include "table/table.h"
+#include "table/table-registry.h"
+#include "table/typed-global-table.hpp"
+#include "table/tbl_widget/IterateKernel.h"
 
 DECLARE_string(graph_dir);
 
@@ -45,9 +44,9 @@ struct KernelInfoT: public KernelInfo{
 	}
 
 	void Run(DSMKernel* obj, const std::string& method_id){
-		dynamic_cast<C*>(obj)->set_maiter(maiter);
-		boost::function<void(C*)> m(methods_[method_id]);
-		m((C*)obj);
+		C* p=dynamic_cast<C*>(obj);
+		p->set_maiter(maiter);
+		(p->*(methods_[method_id]))();
 	}
 
 	bool has_method(const std::string& name){
@@ -385,4 +384,4 @@ public:
 };
 
 }
-#endif /* KERNELREGISTRY_H_ */
+#endif /* KERNEL_H_ */

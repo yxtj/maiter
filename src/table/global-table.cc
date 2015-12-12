@@ -1,6 +1,7 @@
-#include <global-table.h>
-#include "net/NetworkThread.h"
+#include "global-table.h"
 #include "statetable.h"
+
+#include "net/NetworkThread.h"
 
 static const int kMaxNetworkPending = 1 << 26;
 static const int kMaxNetworkChunk = 1 << 20;

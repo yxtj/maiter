@@ -4,10 +4,6 @@
 #include "local-table.h"
 #include "table.h"
 #include "util/file.h"
-//#include "util/rpc.h"
-
-#include <queue>
-//#include <boost/thread.hpp>
 #include <mutex>
 
 //#define GLOBAL_TABLE_USE_SCOPEDLOCK
