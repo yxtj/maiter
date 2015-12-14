@@ -1,24 +1,17 @@
 -- OVERVIEW
 
-Maiter is modified based on Piccolo.
+Maiter2 is modified based on Piccolo.
 
 -- PREREQUISITES
 
-To build and use Maiter, you will need a minimum of the following:
+To build and use Maiter2, you will need a minimum of the following:
 
 * CMake (> 2.6)
 * OpenMPI
-* Python (2.*)
-* gcc/g++ (> 4)
+* gcc/g++ (> 4.8 ,or others with C++11 support)
 * protocol buffers
 
-If available, the following libraries will be used:
-
-* Python development headers; SWIG
-* TCMalloc
-* google-perftools
-
-In addition to these, Maiter comes with several support libraries which are 
+In addition to these, Maiter2 comes with several support libraries which are 
 compiled as part of the build process; these are:
 
 * google-flags
@@ -27,15 +20,11 @@ compiled as part of the build process; these are:
 
 On debian/ubuntu, the required libraries can be acquired by running:
 
-sudo apt-get install build-essential cmake g++ libboost-dev libboost-python-dev libboost-thread-dev liblzo2-dev libnuma-dev libopenmpi-dev libprotobuf-dev libcr-dev libibverbs-dev openmpi-bin protobuf-compiler liblapack-dev
+sudo apt-get install build-essential cmake g++ liblzo2-dev libopenmpi-dev libprotobuf-dev protobuf-compiler
  
-the optional libraries can be install via:
-
-sudo apt-get install libgoogle-perftools-dev python-dev swig
-
 -- BUILDING
 
-To build, simply run 'make' from the toplevel Maiter directory.  After building
+To build, simply run 'make' from the toplevel Maiter2 directory.  After building
 output should be available in the bin/ directory.  Specifically, a successful
 build should generate a bin/{debug,release}/examples/example-dsm binary.
 
@@ -44,8 +33,8 @@ build should generate a bin/{debug,release}/examples/example-dsm binary.
 
 --- Configure your cluster
 
-To execute a Maiter program, you will need to modify conf/mpi-cluster
-to point to the set of machines Maiter will be executed on - for example, a file
+To execute a Maiter2 program, you will need to modify conf/mpi-cluster
+to point to the set of machines Maiter2 will be executed on - for example, a file
 might look like:
 
 localhost slots=1
