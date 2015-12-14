@@ -5,7 +5,7 @@ add_library(common
             common.cc 
             file.cc 
             stringpiece.cc
-            #rpc.cc 
+            timer.cc
             static-initializers.cc 
             ${COMMON_PB_SRC} 
             ${COMMON_PB_HDR})

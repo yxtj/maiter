@@ -5,8 +5,9 @@
 #include "Task.h"
 #include "util/common.h"
 //#include "util/common.pb.h"
-//#include <signal.h>
 #include <string>
+#include <thread>
+#include <chrono>
 
 //DECLARE_bool(localtest);
 DECLARE_double(sleep_time);
@@ -16,8 +17,8 @@ using namespace std;
 
 namespace dsm {
 
-void Sleep(){
-	Sleep(FLAGS_sleep_time);
+static inline void Sleep(){
+	this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
 }
 
 NetworkThread::NetworkThread():running(false),net(NULL){
@@ -92,7 +93,7 @@ void NetworkThread::ProcessReceivedMsg(int source, int tag, string& data){
 }
 
 void NetworkThread::Run(){
-	double t=Now();
+//	double t=Now();
 	while(running){
 		//receive
 		TaskHeader hdr;
@@ -114,7 +115,7 @@ void NetworkThread::Run(){
 		//clear useless send buffer
 		net->collectFinishedSend();
 		//send
-		Timer tt;
+//		Timer tt;
 		/* bunch send: */
 		if(!pending_sends_.empty()){
 			lock_guard<recursive_mutex> sl(ps_lock);

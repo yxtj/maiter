@@ -5,8 +5,8 @@
  *      Author: tzhou
  */
 
-#ifndef KERNEL_TABLE_DESCRIPTOR_H_
-#define KERNEL_TABLE_DESCRIPTOR_H_
+#ifndef TABLE_TABLE_DESCRIPTOR_H_
+#define TABLE_TABLE_DESCRIPTOR_H_
 
 #include <vector>
 
@@ -15,6 +15,7 @@
 //#include "trigger.h"
 //#include "marshal.h"
 //#include "kernel/kernel/IterateKernel.h"
+//#include "TableHelper.h"
 
 namespace dsm {
 
@@ -83,4 +84,4 @@ public:
 
 } //namespace dsm
 
-#endif /* KERNEL_TABLE_DESCRIPTOR_H_ */
+#endif /* TABLE_TABLE_DESCRIPTOR_H_ */

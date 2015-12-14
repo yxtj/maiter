@@ -107,26 +107,6 @@ uint64_t get_memory_rss() {
   return m * 1024;
 }
 
-double get_processor_frequency() {
-  double freq;
-  int a, b;
-  FILE* procinfo = fopen("/proc/cpuinfo", "r");
-  while (fscanf(procinfo, "cpu MHz : %d.%d", &a, &b) != 2) {
-    fgetc(procinfo);
-  }
-
-  freq = a * 1e6 + b * 1e-4;
-  fclose(procinfo);
-  return freq;
-}
-
-void Sleep(double t) {
-  timespec req;
-  req.tv_sec = (int)t;
-  req.tv_nsec = (int64_t)(1e9 * (t - (int64_t)t));
-  nanosleep(&req, NULL);
-}
-
 void SpinLock::lock() volatile {
   while (!__sync_bool_compare_and_swap(&d, 0, 1));
 }

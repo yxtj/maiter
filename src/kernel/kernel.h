@@ -9,6 +9,11 @@
 #include "table/typed-global-table.hpp"
 #include "table/tbl_widget/IterateKernel.h"
 
+#include <fstream>
+//#include <iostream>
+#include <string>
+#include <map>
+
 DECLARE_string(graph_dir);
 
 namespace dsm {
@@ -64,7 +69,7 @@ public:
 	Map& kernels(){
 		return m_;
 	}
-	KernelInfo* kernel(const string& name){
+	KernelInfo* kernel(const std::string& name){
 		return m_[name];
 	}
 
@@ -100,7 +105,7 @@ public:
 	typedef int (*KernelRunner)(ConfigData&);
 	typedef std::map<std::string, KernelRunner> Map;
 
-	KernelRunner runner(const string& name){
+	KernelRunner runner(const std::string& name){
 		return m_[name];
 	}
 	Map& runners(){
@@ -154,17 +159,16 @@ public:
 	}
 
 	void read_file(TypedGlobalTable<K, V, V, D>* table){
-		string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
+		std::string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
 		//cout<<"Unable to open file: " << patition_file<<endl;
-		ifstream inFile;
-		inFile.open(patition_file.c_str());
+		std::ifstream inFile(patition_file);
 		if(!inFile){
 			LOG(FATAL) << "Unable to open file" << patition_file;
 //			cerr << system("ifconfig -a | grep 192.168.*") << endl;
 			exit(1); // terminate with error
 		}
 
-		string line;
+		std::string line;
 		//read a line of the input file
 		while(getline(inFile,line)){
 			K key;
@@ -198,14 +202,11 @@ template<class K, class V, class D>
 class MaiterKernel2: public DSMKernel{ //the second phase: iterative processing of the local state table
 private:
 	MaiterKernel<K, V, D>* maiter;                  //user-defined iteratekernel
-	vector<pair<K, V> >* output;                    //the output buffer
+	std::vector<std::pair<K, V> > output;                    //the output buffer
 
 public:
 	void set_maiter(MaiterKernel<K, V, D>* inmaiter){
 		maiter = inmaiter;
-	}
-	virtual ~MaiterKernel2(){
-		delete output;
 	}
 	void run_iter(const K& k, V &v1, V &v2, D &v3){
 		//cout<<"delta:"<<v1<<endl;
@@ -214,33 +215,33 @@ public:
 
 		maiter->table->accumulateF2(k, v1);                               //perform v=v+delta_v
 																		  // process delta_v before accumulate
-		maiter->iterkernel->g_func(k, v1, v2, v3, output); //invoke api, perform g(delta_v) and send messages to out-neighbors
+		maiter->iterkernel->g_func(k, v1, v2, v3, &output); //invoke api, perform g(delta_v) and send messages to out-neighbors
 		//cout << " key " << k << endl;
 		maiter->table->updateF1(k, maiter->iterkernel->default_v()); //perform delta_v=0, reset delta_v after delta_v has been spread out
 
-		typename vector<pair<K, V> >::iterator iter;
-		for(iter = output->begin(); iter != output->end(); iter++){ //send the buffered messages to remote state table
-			pair<K, V> kvpair = *iter;
+		typename std::vector<std::pair<K, V> >::iterator iter;
+		for(iter = output.begin(); iter != output.end(); ++iter){	//send the buffered messages to remote state table
+			std::pair<K, V>& kvpair = *iter;
 			//cout << "accumulating " << kvpair.first << " with " <<kvpair.second << endl;
 			maiter->table->accumulateF1(kvpair.first, kvpair.second); //apply the output messages to remote state table
 		}
-		output->clear();                                                   //clear the output buffer
+		output.clear();                                                   //clear the output buffer
 
 	}
 
-	void run_loop(TypedGlobalTable<K, V, V, D>* a){
+	void run_loop(TypedGlobalTable<K, V, V, D>* tgt){
 		Timer timer;                        //for experiment, time recording
 		//double totalF1 = 0;                 //the sum of delta_v, it should be smaller and smaller as iterations go on
 		double totalF2 = 0;       //the sum of v, it should be larger and larger as iterations go on
 		long updates = 0;                   //for experiment, recording number of update operations
-		output = new vector<pair<K, V> >;
+//		output = new std::vector<std::pair<K, V> >;
 
 		//the main loop for iterative update
 		while(true){
 			//set false, no inteligient stop scheme, which can check whether there are changes in statetable
 
 			//get the iterator of the local state table
-			typename TypedGlobalTable<K, V, V, D>::Iterator *it2 = a->get_typed_iterator(
+			typename TypedGlobalTable<K, V, V, D>::Iterator *it2 = tgt->get_typed_iterator(
 					current_shard(), false);
 			if(it2 == nullptr) break;
 
@@ -279,12 +280,10 @@ public:
 	}
 
 	void dump(TypedGlobalTable<K, V, V, D>* a){
-		double totalF1 = 0; //the sum of delta_v, it should be smaller enough when iteration converges
-		double totalF2 = 0;      //the sum of v, it should be larger enough when iteration converges
-		ofstream File;                 //the output file containing the local state table infomation
-
-		string file = StringPrintf("%s/part-%d", maiter->output.c_str(), current_shard()); //the output path
-		File.open(file.c_str(), ios::out);
+		double totalF1 = 0;	//the sum of delta_v, it should be smaller enough when iteration converges
+		double totalF2 = 0;	//the sum of v, it should be larger enough when iteration converges
+		std::string file = StringPrintf("%s/part-%d", maiter->output.c_str(), current_shard()); //the output path
+		std::ofstream File(file);	//the output file containing the local state table infomation
 
 		//get the iterator of the local state table
 		typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_entirepass_iterator(current_shard());
@@ -300,9 +299,7 @@ public:
 		delete it;
 
 		File.close();
-
-		cout << "total F1 : " << totalF1 << endl;
-		cout << "total F2 : " << totalF2 << endl;
+		VLOG(0)<<"W"<<maiter->conf.worker_id()<<":\ntotal F1 : " << totalF1 << "\ntotal F2 : " << totalF2;
 	}
 
 	void run(){
@@ -319,7 +316,7 @@ public:
 	int64_t num_nodes;
 	double schedule_portion;
 	ConfigData conf;
-	string output;
+	std::string output;
 	Sharder<K> *sharder;
 	IterateKernel<K, V, D> *iterkernel;
 	TermChecker<K, V> *termchecker;
@@ -328,7 +325,7 @@ public:
 	MaiterKernel(){
 		Reset();
 	}
-	MaiterKernel(ConfigData& inconf, int64_t nodes, double portion, string outdir,
+	MaiterKernel(ConfigData& inconf, int64_t nodes, double portion, std::string outdir,
 			Sharder<K>* insharder,                  //the user-defined partitioner
 			IterateKernel<K, V, D>* initerkernel,   //the user-defined iterate kernel
 			TermChecker<K, V>* intermchecker){     //the user-defined terminate checker

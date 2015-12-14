@@ -2,12 +2,13 @@
 #define LOCALTABLE_H_
 
 #include "table.h"
-//#include "util/file.h"
 #include <string>
 
 namespace dsm {
 
 static const double kLoadFactor = 0.8;
+
+class TableHelper;
 
 // Represents a single shard of a partitioned global table.
 class LocalTable: public Table,
@@ -18,7 +19,7 @@ class LocalTable: public Table,
 		public Snapshottable{
 public:
 	LocalTable() :
-			delta_file_(NULL){
+			delta_file_(nullptr){
 	}
 	bool empty(){
 		return size() == 0;

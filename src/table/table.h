@@ -1,16 +1,16 @@
-#ifndef KERNEL_TABLE_H_
-#define KERNEL_TABLE_H_
-//#include "util/common.h"
+#ifndef TABLE_TABLE_H_
+#define TABLE_TABLE_H_
+
 #include "util/file.h"
+#include "util/common.pb.h"
 #include "worker/worker.pb.h"
 
-#include "tbl_widget/sharder.h"
-//#include "tbl_widget/sharder.hpp"
-#include "tbl_widget/term_checker.h"
-//#include "tbl_widget/term_checker_impl.hpp"
+#include "TableHelper.h"
 #include "table_descriptor.h"
 #include "table_iterator.h"
 #include "tbl_widget/trigger.h"
+//#include "tbl_widget/sharder.h"
+//#include "tbl_widget/term_checker.h"
 
 #include <string>
 #include <vector>
@@ -19,23 +19,9 @@
 
 #define FETCH_NUM (2048)
 
-DECLARE_double(termcheck_threshold);
-
 namespace dsm {
 
 struct Table;
-
-// This interface is used by global tables to communicate with the outside
-// world and determine the current state of a computation.
-struct TableHelper{
-	virtual int id() const = 0;
-	virtual int epoch() const = 0;
-	virtual int peer_for_shard(int table, int shard) const = 0;
-	virtual void HandlePutRequest() = 0;
-	virtual void FlushUpdates() = 0;
-	virtual void SendTermcheck(int index, long updates, double current) = 0;
-	virtual ~TableHelper(){}
-};
 
 template<class K, class V1, class V2, class V3>
 struct ClutterRecord{
@@ -53,7 +39,7 @@ struct ClutterRecord{
 	ClutterRecord(const ClutterRecord<K1, U1, U2, U3>& __p):
 		k(__p.k), v1(__p.v1), v2(__p.v2), v3(__p.v3){}
 
-	ostream& operator<<(ostream& out){
+	std::ostream& operator<<(std::ostream& out){
 		return out << k << "\t" << v1 << "|" << v2 << "|" << v3;
 	}
 };
@@ -476,7 +462,7 @@ struct NetDecodeIterator :
 		return intit == decodedeque.end();
 	}
 	bool Next(){
-		intit++;
+		++intit;
 		return true;
 	}
 	const K& key(){
@@ -495,8 +481,8 @@ struct NetDecodeIterator :
 	}
 
 private:
-	std::vector<pair<K, V1> > decodedeque;
-	typename std::vector<pair<K, V1> >::iterator intit;
+	std::vector<std::pair<K, V1> > decodedeque;
+	typename std::vector<std::pair<K, V1> >::iterator intit;
 };
 
 // Checkpoint and restoration.

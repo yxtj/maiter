@@ -1,6 +1,9 @@
 #ifndef TIMER_H_
 #define TIMER_H_
 
+#include <time.h>
+#include <stdint.h>
+
 namespace dsm {
 static uint64_t rdtsc() {
   uint32_t hi, lo;
@@ -14,6 +17,8 @@ inline double Now() {
   return tp.tv_sec + 1e-9 * tp.tv_nsec;
 }
 
+double get_processor_frequency();
+
 class Timer {
 public:
   Timer() {
@@ -22,29 +27,29 @@ public:
 
   void Reset() {
     start_time_ = Now();
-    start_cycle_ = rdtsc();
+//    start_cycle_ = rdtsc();
   }
 
   double elapsed() const {
     return Now() - start_time_;
   }
 
-  uint64_t cycles_elapsed() const {
-    return rdtsc() - start_cycle_;
-  }
-
-  // Rate at which an event occurs.
-  double rate(int count) {
-    return count / (Now() - start_time_);
-  }
-
-  double cycle_rate(int count) {
-    return double(cycles_elapsed()) / count;
-  }
+//  uint64_t cycles_elapsed() const {
+//    return rdtsc() - start_cycle_;
+//  }
+//
+//  // Rate at which an event occurs.
+//  double rate(int count) {
+//    return count / (Now() - start_time_);
+//  }
+//
+//  double cycle_rate(int count) {
+//    return double(cycles_elapsed()) / count;
+//  }
 
 private:
   double start_time_;
-  uint64_t start_cycle_;
+//  uint64_t start_cycle_;
 };
 
 }

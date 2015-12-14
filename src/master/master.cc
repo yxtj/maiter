@@ -9,6 +9,8 @@
 #include <set>
 #include <sstream>
 #include <iomanip>
+#include <thread>
+#include <chrono>
 
 //DEFINE_string(dead_workers, "",
 //		"For failure testing; comma delimited list of workers to pretend have died.");
@@ -544,7 +546,7 @@ int Master::reap_one_task(){
 		w.ping();
 		return w_id;
 	}else{
-		Sleep(FLAGS_sleep_time);
+		this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
 		return -1;
 	}
 

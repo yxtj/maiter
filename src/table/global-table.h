@@ -1,14 +1,13 @@
-#ifndef GLOBALTABLE_H_
-#define GLOBALTABLE_H_
+#ifndef GLOBAL_TABLE_H_
+#define GLOBAL_TABLE_H_
 
 #include "local-table.h"
 #include "table.h"
-#include "util/file.h"
+#include "util/timer.h"
 #include <mutex>
+#include <unordered_map>
 
 //#define GLOBAL_TABLE_USE_SCOPEDLOCK
-
-DECLARE_int32(bufmsg);
 
 namespace dsm {
 
@@ -120,8 +119,8 @@ protected:
 
 	int worker_id_;
 
-	vector<LocalTable*> partitions_;
-	vector<LocalTable*> cache_;
+	std::vector<LocalTable*> partitions_;
+	std::vector<LocalTable*> cache_;
 
 	std::recursive_mutex m_;
 	std::mutex m_trig_;
@@ -132,14 +131,14 @@ protected:
 		return m_trig_;
 	}
 
-	vector<PartitionInfo> partinfo_;
+	std::vector<PartitionInfo> partinfo_;
 
 	struct CacheEntry{
 		double last_read_time;
 		string value;
 	};
 
-	unordered_map<StringPiece, CacheEntry> remote_cache_;
+	std::unordered_map<StringPiece, CacheEntry> remote_cache_;
 };
 
 class MutableGlobalTable:
@@ -189,4 +188,4 @@ protected:
 
 }
 
-#endif /* GLOBALTABLE_H_ */
+#endif /* GLOBAL_TABLE_H_ */

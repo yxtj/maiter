@@ -31,8 +31,6 @@ using std::vector;
 using std::string;
 using std::pair;
 using std::make_pair;
-//using std::tr1::unordered_map;
-//using std::tr1::unordered_set;
 using std::unordered_map;
 using std::unordered_set;
 
@@ -43,10 +41,7 @@ void Init(int argc, char** argv);
 uint64_t get_memory_rss();
 uint64_t get_memory_total();
 
-void Sleep(double t);
 void DumpProfile();
-
-double get_processor_frequency();
 
 // Log-bucketed histogram.
 class Histogram{

@@ -7,6 +7,8 @@
 
 #include <worker-handle.h>
 
+using namespace std;
+
 namespace dsm {
 
 // if should_service=true, assign shard

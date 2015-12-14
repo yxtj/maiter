@@ -1,8 +1,10 @@
 #include "client/client.h"
 #include "net/NetworkThread.h"
 #include "dbg/getcallstack.h"
+#include <iostream>
 
 using namespace dsm;
+using namespace std;
 
 DEFINE_string(runner, "", "");
 

@@ -1,5 +1,6 @@
 #include "local-table.h"
 #include "table.h"
+#include "util/timer.h"
 
 #ifndef NDEBUG
 #include "dbg/getcallstack.h"

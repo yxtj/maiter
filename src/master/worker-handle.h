@@ -159,7 +159,7 @@ struct WorkerState: private noncopyable{
       return c;\
   }\
   std::vector<TaskState*> name() const {\
-    vector<TaskState*> out;\
+    std::vector<TaskState*> out;\
     for (TaskMap::const_iterator i = work.begin(); i != work.end(); ++i)\
       if (i->second->status == TaskState::type) { out.push_back(i->second); }\
     return out;\

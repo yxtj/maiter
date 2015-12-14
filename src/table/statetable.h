@@ -2,10 +2,13 @@
 #define SPARSE_MAP_H_
 
 #include "util/noncopyable.h"
-#include "worker/worker.pb.h"
+//#include "worker/worker.pb.h"
+#include "tbl_widget/IterateKernel.h"
+#include "tbl_widget/sharder.h"
+#include "tbl_widget/term_checker.h"
 #include "table.h"
 #include "local-table.h"
-#include "tbl_widget/IterateKernel.h"
+#include "TableHelper.h"
 #include <random>
 #include <algorithm>
 #include <thread>
@@ -128,7 +131,7 @@ public:
 				if(!bfilter) b_no_change = false;
 			}else{
 				//sample random pos, the sample reflect the whole data set more or less
-				vector<int> sampled_pos;
+				std::vector<int> sampled_pos;
 				int i;
 				int trials = 0;
 				for(i = 0; i < sample_size; i++){
@@ -167,8 +170,7 @@ public:
 
 				if(cut_index == 0 || parent_.buckets_[sampled_pos[0]].priority == threshold){
 					//to avoid non eligible records
-					int i;
-					for(i = 0; i < parent_.size_; i++){
+					for(int i = 0; i < parent_.size_; i++){
 						if(!parent_.buckets_[i].in_use) continue;
 						if(parent_.buckets_[i].v1 == defaultv) continue;
 
@@ -177,8 +179,7 @@ public:
 						}
 					}
 				}else{
-					int i;
-					for(i = 0; i < parent_.size_; i++){
+					for(int i = 0; i < parent_.size_; i++){
 						if(!parent_.buckets_[i].in_use) continue;
 						if(parent_.buckets_[i].v1 == defaultv) continue;
 
@@ -239,7 +240,7 @@ public:
 		int pos;
 		StateTable<K, V1, V2, V3> &parent_;
 		double portion;
-		vector<int> scheduled_pos;
+		std::vector<int> scheduled_pos;
 		bool b_no_change;
 	};
 
@@ -347,7 +348,7 @@ public:
 	TableIterator *get_iterator(TableHelper* helper, bool bfilter){
 		if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
 		helper->FlushUpdates();
-		std::this_thread::sleep_for(chrono::duration<double>(0.1) );
+		std::this_thread::sleep_for(std::chrono::duration<double>(0.1) );
 		helper->HandlePutRequest();
 
 		Iterator* iter = new Iterator(*this, true);
@@ -356,7 +357,7 @@ public:
 			VLOG(1) << "wait for put";
 			delete iter;
 			helper->FlushUpdates();
-			std::this_thread::sleep_for(chrono::seconds(1) );
+			std::this_thread::sleep_for(std::chrono::seconds(1) );
 			helper->HandlePutRequest();
 
 			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
@@ -390,7 +391,7 @@ public:
 	TableIterator *schedule_iterator(TableHelper* helper, bool bfilter){
 		if(terminated_) return nullptr;
 		helper->FlushUpdates();
-		std::this_thread::sleep_for(chrono::duration<double>(0.1) );
+		std::this_thread::sleep_for(std::chrono::duration<double>(0.1) );
 		helper->HandlePutRequest();
 
 		ScheduledIterator* iter = new ScheduledIterator(*this, bfilter);
@@ -399,7 +400,7 @@ public:
 			VLOG(1) << "wait for put, send buffered updates";
 			delete iter;
 			helper->FlushUpdates();
-			std::this_thread::sleep_for(chrono::seconds(1) );
+			std::this_thread::sleep_for(std::chrono::seconds(1) );
 			helper->HandlePutRequest();
 
 			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate

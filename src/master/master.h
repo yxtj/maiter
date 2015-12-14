@@ -4,6 +4,7 @@
 #include "util/common.h"
 #include "worker/worker.pb.h"
 #include "kernel/kernel.h"
+#include "table/TableHelper.h"
 #include "table/table-registry.h"
 #include "table/tbl_widget/sharder_impl.hpp"
 #include "master/run-descriptor.h"

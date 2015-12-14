@@ -4,6 +4,8 @@
 #include "kernel/kernel.h"
 #include "net/NetworkThread.h"
 #include "net/Task.h"
+#include <thread>
+#include <chrono>
 
 DEFINE_double(sleep_hack, 0.0, "");
 DEFINE_double(sleep_time, 0.001, "");
@@ -101,7 +103,7 @@ void Worker::KernelLoop(){
 
 		while(!network_->TryRead(config_.master_id(), MTYPE_RUN_KERNEL, &kreq)){
 			CheckNetwork();
-			Sleep(FLAGS_sleep_time);
+			this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
 
 			if(!running_){
 				return;
@@ -132,7 +134,7 @@ void Worker::KernelLoop(){
 		d->set_args(args);
 
 		if(this->id() == 1 && FLAGS_sleep_hack > 0){
-			Sleep(FLAGS_sleep_hack);
+			this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_hack));
 		}
 
 		// Run the user kernel

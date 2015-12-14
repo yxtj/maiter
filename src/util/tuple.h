@@ -42,23 +42,23 @@ inline tuple4<A, B, C, D> MP(A x, B y, C z, D a) {
 }
 
 template<class A>
-inline vector<A> MakeVector(const A&x) {
-  vector<A> out;
+inline std::vector<A> MakeVector(const A&x) {
+  std::vector<A> out;
   out.push_back(x);
   return out;
 }
 
 template<class A>
-inline vector<A> MakeVector(const A&x, const A&y) {
-  vector<A> out;
+inline std::vector<A> MakeVector(const A&x, const A&y) {
+  std::vector<A> out;
   out.push_back(x);
   out.push_back(y);
   return out;
 }
 
 template<class A>
-inline vector<A> MakeVector(const A&x, const A&y, const A &z) {
-  vector<A> out;
+inline std::vector<A> MakeVector(const A&x, const A&y, const A &z) {
+  std::vector<A> out;
   out.push_back(x);
   out.push_back(y);
   out.push_back(z);

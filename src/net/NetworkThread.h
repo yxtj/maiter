@@ -28,8 +28,8 @@ public:
 	int64_t pending_bytes() const;
 
 	// Blocking read for the given source and message type.
-	void Read(int desired_src, int type, Message* data, int *source = nullptr);
-	bool TryRead(int desired_src, int type, Message* data, int *source = nullptr);
+	void Read(int desired_src, int type, Message* data=nullptr, int *source = nullptr);
+	bool TryRead(int desired_src, int type, Message* data=nullptr, int *source = nullptr);
 
 	// Enqueue the given request to pending buffer for transmission.
 //  void Send(RPCRequest *req);

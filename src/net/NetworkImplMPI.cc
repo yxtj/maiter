@@ -47,7 +47,7 @@ NetworkImplMPI* NetworkImplMPI::GetInstance(){
 }
 
 void NetworkImplMPI::shutdown(){
-	VLOG(2)<<"Shut down MPI at rank "<<id();
+	VLOG(1)<<"Shut down MPI at rank "<<id();
 	MPI::Finalize();
 }
 
@@ -96,7 +96,6 @@ void NetworkImplMPI::send(const Task* t){
 ////
 // State checking
 ////
-double t=Now();
 size_t NetworkImplMPI::collectFinishedSend(){
 	if(unconfirmed_send_buffer.empty())
 		return 0;
