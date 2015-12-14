@@ -5,17 +5,10 @@
  *      Author: tzhou
  */
 
-#ifndef TABLE_TABLE_DESCRIPTOR_H_
-#define TABLE_TABLE_DESCRIPTOR_H_
+#ifndef TABLE_TABLEDESCRIPTOR_H_
+#define TABLE_TABLEDESCRIPTOR_H_
 
 #include <vector>
-
-//#include "sharder.h"
-//#include "term_checker.h"
-//#include "trigger.h"
-//#include "marshal.h"
-//#include "kernel/kernel/IterateKernel.h"
-//#include "TableHelper.h"
 
 namespace dsm {
 
@@ -30,26 +23,17 @@ class TableHelper;
 struct TableDescriptor{
 public:
 	TableDescriptor(){
-		Reset();
+		init();
 	}
 
 	TableDescriptor(int id, int shards){
-		Reset();
+		init();
 		table_id = id;
 		num_shards = shards;
 	}
 
-	void Reset(){
-		table_id = -1;
-		num_shards = -1;
-		max_stale_time = 0.;
-		helper = nullptr;
-		partition_factory = nullptr;
-		key_marshal = value1_marshal = value2_marshal = value3_marshal = nullptr;
-		sharder = nullptr;
-		iterkernel = nullptr;
-		termchecker = nullptr;
-	}
+	void init();
+	void reset();
 
 	int table_id;
 	int num_shards;
@@ -84,4 +68,4 @@ public:
 
 } //namespace dsm
 
-#endif /* TABLE_TABLE_DESCRIPTOR_H_ */
+#endif /* TABLE_TABLEDESCRIPTOR_H_ */

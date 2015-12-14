@@ -43,29 +43,26 @@ public:
 		Iterator(StateTable<K, V1, V2, V3>& parent, bool bfilter) :
 				pos(-1), parent_(parent){
 			pos = -1;           //pos(-1) doesn't work
-			/*
-			 this filter is very important in large-scale experiment, if there is no such control,
-			 * many useless parsing will occur.,degrading the performance a lot
-
+			/* This filter is very important in large-scale experiment.
+			 * If there is no such control, many useless parsing will occur.
+			 * It will degrading the performance a lot
 			 */
 			if(bfilter){
-				//check if there is a change
-				b_no_change = true;
-
-				//random number generator
 				std::mt19937 gen(time(0));
 				std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
 				auto rand_num = [&](){return dist(gen);};
 
-				defaultv =
+				V1 defaultv =
 						static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->default_v();
+				//check if there is a change
+				b_no_change = true;
 				for(int i = 0; i < sample_size && b_no_change; i++){
 					int rand_pos = rand_num();
 					while(!parent_.buckets_[rand_pos].in_use){
 						rand_pos = rand_num();
 					}
 
-					b_no_change = b_no_change && parent_.buckets_[rand_pos].v1 != defaultv;
+					b_no_change &= parent_.buckets_[rand_pos].v1 != defaultv;
 				}
 			}else{
 				b_no_change = false;
@@ -100,7 +97,7 @@ public:
 		int pos;
 		StateTable<K, V1, V2, V3> &parent_;
 		bool b_no_change;
-		V1 defaultv;
+//		V1 defaultv;
 	};
 
 	struct ScheduledIterator: public TypedTableIterator<K, V1, V2, V3> {
@@ -302,7 +299,6 @@ public:
 
 	// Construct a StateTable with the given initial size; it will be expanded as necessary.
 	StateTable(int size = 1);
-	~StateTable(){}
 
 	void Init(const TableDescriptor* td){
 		Table::Init(td);

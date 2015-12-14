@@ -30,7 +30,6 @@ namespace dsm{
 
 template<class K, class V1, class V2, class V3>
 class TypedGlobalTable:
-//  virtual public GlobalTableBase,
 		public MutableGlobalTable,
 		public TypedTable<K, V1, V2, V3>,
 		private noncopyable{
@@ -56,6 +55,7 @@ public:
 	void InitStateTable(){
 		for(int i = 0; i < partitions_.size(); ++i){
 			if(is_local_shard(i)){
+				delete partitions_[i];
 				partitions_[i] = create_localT(i);
 			}
 		}
@@ -99,13 +99,13 @@ public:
 
 	virtual TypedTableIterator<K, V1, V2, V3>* get_typed_iterator(int shard, bool bfilter,
 			unsigned int fetch_num = FETCH_NUM){
-		return static_cast<TypedTableIterator<K, V1, V2, V3>*>(get_iterator(shard, bfilter,
-				fetch_num));
+		return dynamic_cast<TypedTableIterator<K, V1, V2, V3>*>(
+				get_iterator(shard, bfilter,fetch_num));
 	}
 
 	TypedTableIterator<K, V1, V2, V3>* get_entirepass_iterator(int shard){
-		return (TypedTableIterator<K, V1, V2, V3>*)partitions_[shard]->entirepass_iterator(
-				this->helper());
+		return dynamic_cast<TypedTableIterator<K, V1, V2, V3>*>(
+				partitions_[shard]->entirepass_iterator(this->helper()));
 	}
 
 	void ApplyUpdates(const dsm::KVPairData& req){

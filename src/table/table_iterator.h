@@ -64,6 +64,7 @@ protected:
 		return &m;
 	}
 };
+
 template <class K, class V1>
 struct PTypedTableIterator : public TableIterator {
 	virtual const K& key() = 0;
@@ -71,8 +72,9 @@ struct PTypedTableIterator : public TableIterator {
 
 	virtual void key_str(std::string *out) { kmarshal()->marshal(key(), out); }
 	virtual void value1_str(std::string *out) { v1marshal()->marshal(value1(), out); }
-	virtual void value2_str(std::string *out) { v1marshal()->marshal(value1(), out); }
-	virtual void value3_str(std::string *out) { v1marshal()->marshal(value1(), out); }
+	//value2_str and value3_str are there for TableIterator
+	virtual void value2_str(std::string *out) {}
+	virtual void value3_str(std::string *out) {}
 
 protected:
 	virtual Marshal<K> *kmarshal(){

@@ -1,12 +1,12 @@
 #ifndef TABLE_TABLE_H_
 #define TABLE_TABLE_H_
 
+#include <table/TableDescriptor.h>
 #include "util/file.h"
 #include "util/common.pb.h"
 #include "worker/worker.pb.h"
 
 #include "TableHelper.h"
-#include "table_descriptor.h"
 #include "table_iterator.h"
 #include "tbl_widget/trigger.h"
 //#include "tbl_widget/sharder.h"
@@ -15,9 +15,10 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <ostream>
 
 
-#define FETCH_NUM (2048)
+static constexpr int FETCH_NUM = (2048);
 
 namespace dsm {
 
@@ -44,41 +45,6 @@ struct ClutterRecord{
 	}
 };
 
-//
-//template <class K, class V>
-//struct LocalTableIterator {
-//    virtual const K& key() = 0;
-//    virtual V& value2() = 0;
-//    virtual bool done() = 0;
-//    virtual bool Next() = 0;
-//    virtual V defaultV() = 0;
-//    virtual ~LocalTableIterator(){}
-//};
-
-// Each table is associated with a single accumulator.  Accumulators are
-// applied whenever an update is supplied for an existing key-value cell.
-
-// Commonly used accumulation and sharding operators.
-/*
-template <class V>
-struct Accumulators {
-  struct Min : public Accumulator<V> {
-    void accumulate(V* a, const V& b) { *a = std::min(*a, b); }
-    V priority(const V& delta, const V& state) {return state - std::min(state, delta);}
-  };
-
-  struct Max : public Accumulator<V> {
-    void accumulate(V* a, const V& b) { *a = std::max(*a, b); }
-    V priority(const V& delta, const V& state) {return std::max(state, delta) - state;}
-  };
-
-  struct Sum : public Accumulator<V> {
-    void accumulate(V* a, const V& b) { *a = *a + b; }
-    V priority(const V& delta, const V& state) {return delta;}
-  };
-};
-*/
-
 
 struct TableFactory{
 	virtual Table* New() = 0;
@@ -100,16 +66,6 @@ struct UntypedTable{
 			const StringPiece &v3) = 0;
 	virtual ~UntypedTable(){}
 };
-
-//struct TableIterator {
-//  virtual void key_str(std::string *out) = 0;
-//  virtual void value1_str(std::string *out) = 0;
-//  virtual void value2_str(std::string *out) = 0;
-//  virtual void value3_str(std::string *out) = 0;
-//  virtual bool done() = 0;
-//  virtual bool Next() = 0;
-//  virtual ~TableIterator(){}
-//};
 
 // Methods common to both global and local table views.
 class Table: public TableBase{
@@ -235,51 +191,6 @@ protected:
 	virtual Marshal<V3> *v3marshal() = 0;
 };
 
-//template<class K, class V1, class V2, class V3>
-//struct TypedTableIterator: public TableIterator{
-//	virtual const K& key() = 0;
-//	virtual V1& value1() = 0;
-//	virtual V2& value2() = 0;
-//	virtual V3& value3() = 0;
-//
-//	virtual void key_str(std::string *out){
-//		kmarshal()->marshal(key(), out);
-//	}
-//	virtual void value1_str(std::string *out){
-//		v1marshal()->marshal(value1(), out);
-//	}
-//	virtual void value2_str(std::string *out){
-//		v2marshal()->marshal(value2(), out);
-//	}
-//	virtual void value3_str(std::string *out){
-//		v3marshal()->marshal(value3(), out);
-//	}
-//
-//protected:
-//	virtual Marshal<K> *kmarshal(){
-//		static Marshal<K> m;
-//		return &m;
-//	}
-//
-//	virtual Marshal<V1> *v1marshal(){
-//		static Marshal<V1> m;
-//		return &m;
-//	}
-//
-//	virtual Marshal<V2> *v2marshal(){
-//		static Marshal<V2> m;
-//		return &m;
-//	}
-//
-//	virtual Marshal<V3> *v3marshal(){
-//		static Marshal<V3> m;
-//		return &m;
-//	}
-//};
-
-//template<class K, class V1, class V2, class V3>
-//struct TypedTableIterator;
-
 // Key/value typed interface.
 template<class K, class V1, class D>
 class PTypedTable: virtual public UntypedTable{
@@ -321,38 +232,7 @@ protected:
 	virtual Marshal<V1> *v1marshal() = 0;
 };
 
-//template<class K, class V1>
-//struct PTypedTableIterator: public TableIterator{
-//	virtual const K& key() = 0;
-//	virtual V1& value1() = 0;
-//
-//	virtual void key_str(std::string *out){
-//		kmarshal()->marshal(key(), out);
-//	}
-//	virtual void value1_str(std::string *out){
-//		v1marshal()->marshal(value1(), out);
-//	}
-//	virtual void value2_str(std::string *out){
-//		v1marshal()->marshal(value1(), out);
-//	}
-//	virtual void value3_str(std::string *out){
-//		v1marshal()->marshal(value1(), out);
-//	}
-//
-//protected:
-//	virtual Marshal<K> *kmarshal(){
-//		static Marshal<K> m;
-//		return &m;
-//	}
-//
-//	virtual Marshal<V1> *v1marshal(){
-//		static Marshal<V1> m;
-//		return &m;
-//	}
-//};
-
 struct DecodeIteratorBase {};
-
 
 // Added for the sake of triggering on remote updates/puts <CRM>
 template <typename K, typename V1, typename V2, typename V3>
