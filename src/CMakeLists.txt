@@ -107,6 +107,7 @@ set(CMAKE_CXX_FLAGS "${CXX_DEFAULT} -fPIC -fno-omit-frame-pointer -std=c++0x -gg
 add_subdirectory (dbg)
 add_subdirectory (util)
 add_subdirectory (net)
+add_subdirectory (driver)
 add_subdirectory (table)
 add_subdirectory (kernel)
 add_subdirectory (master)

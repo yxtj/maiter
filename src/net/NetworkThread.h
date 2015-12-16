@@ -28,8 +28,10 @@ public:
 	int64_t pending_bytes() const;
 
 	// Blocking read for the given source and message type.
-	void Read(int desired_src, int type, Message* data=nullptr, int *source = nullptr);
-	bool TryRead(int desired_src, int type, Message* data=nullptr, int *source = nullptr);
+	void Read(int desired_src, int type, Message* data=nullptr, int *srcRet=nullptr, int *typeRet=nullptr);
+	bool TryRead(int desired_src, int type, Message* data=nullptr, int *srcRet=nullptr, int *typeRet=nullptr);
+	void ReadAny(string& data, int *sourcsrcRete=nullptr, int *typeRet=nullptr);
+	bool TryReadAny(string& data, int *sosrcReturce=nullptr, int *typeRet=nullptr);
 
 	// Enqueue the given request to pending buffer for transmission.
 //  void Send(RPCRequest *req);
@@ -108,6 +110,7 @@ private:
 	bool checkReplyQueue(int src, int type, Message *data);
 	bool checkReceiveQueue(int src, int type, Message* data);
 	static bool CheckQueue(Queue& q, std::recursive_mutex& m, Message* data);
+	static bool CheckQueueRaw(Queue& q, recursive_mutex& m, string& data);
 
 	void ProcessReceivedMsg(int source, int tag, std::string& data);
 	void InvokeCallback(CallbackInfo *ci, RPCInfo rpc);

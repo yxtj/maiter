@@ -21,7 +21,9 @@ add_dependencies(example worker_proto common_proto)
 add_executable(maiter main.cc)
 
 # we need to resolve static initializers, so glob all the symbols together with -whole-archive
-target_link_libraries(maiter -Wl,-whole-archive dbg common net table kernel worker master example -Wl,-no-whole-archive)
+target_link_libraries(maiter
+		-Wl,-whole-archive dbg common net driver table kernel worker master example
+		-Wl,-no-whole-archive)
 target_link_libraries(maiter gflags glog webgraph)
 
 target_link_libraries(maiter ${EXAMPLE_LIBS})
