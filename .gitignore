@@ -3,12 +3,26 @@
 
 .cproject
 .project
+.settings/
 
-#compiled binary files
-bin/*
+#compiled binary files:
+
+bin/
 *.exe
 *.o
 *.a
 *.so
 
+#temporary files:
+
+*~
+
+#test files:
+
+test/
+conf/
+
+/Makefile
+Makefile
+track_log
 

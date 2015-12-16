@@ -3,6 +3,7 @@ CC ?= gcc
 CMAKE = cmake
 TOP = $(shell pwd)
 MAKE := $(MAKE) --no-print-directory
+CMAKE_FLAGS = 
 #OPROFILE = 1
 
 #ifeq ($(shell which distcc > /dev/null; echo $$?), 0)
@@ -10,22 +11,27 @@ MAKE := $(MAKE) --no-print-directory
 #	CC := distcc $(CC)
 #	PARALLELISM := $(shell distcc -j)
 #else
-	PARALLELISM = 1
+	PARALLELISM = 2
 #endif
 
 export CXX CC CFLAGS CPPFLAGS OPROFILE
 
-all: release 
+all: debug 
 
 release: 
 	@mkdir -p bin/release
-	@cd bin/release && $(CMAKE) -DCMAKE_BUILD_TYPE=Release $(TOP)/src
+	@cd bin/release && $(CMAKE) $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=Release $(TOP)/src
 	@cd bin/release && $(MAKE) -j${PARALLELISM}
 
 debug: 
 	@mkdir -p bin/debug
-	@cd bin/debug && $(CMAKE) -DCMAKE_BUILD_TYPE=Debug $(TOP)/src
+	@cd bin/debug && $(CMAKE) $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=Debug $(TOP)/src
 	@cd bin/debug  && $(MAKE) -j${PARALLELISM}
+
+eclipse:
+	#CMAKE_FLAGS = -G"Eclipse CDT4 - Unix Makefiles"
+	@make debug CMAKE_FLAGS=-G"Eclipse CDT4 - Unix Makefiles"
+	#$(MAKE) release CMAKE_FLAGS = -G"Eclipse CDT4 - Unix Makefiles"
 
 docs:
 	@cd docs/ && $(MAKE)
