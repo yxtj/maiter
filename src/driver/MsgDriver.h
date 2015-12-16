@@ -10,7 +10,7 @@
 
 #include "Dispatcher.hpp"
 #include "net/RPCInfo.h"
-#include <google/protobuf/message.h>
+//#include <google/protobuf/message.h>
 #include <queue>
 #include <string>
 //#include <thread>
@@ -22,33 +22,40 @@ class NetworkThread;
 
 class MsgDriver{
 public:
-	typedef google::protobuf::Message Message;
-	typedef Dispatcher<const std::string&, const RPCInfo&>::callback_t cb_net_t;
-	typedef Dispatcher<const std::string&>::callback_t cb_que_t;
+//	typedef google::protobuf::Message Message;
+	typedef Dispatcher<const std::string&, const RPCInfo&>::callback_t callback_t;
 
 	MsgDriver();
+	// Launch the Message Driver. Data flow is as below:
+	// data->immediateDispatcher--+-->queue->processDispatcher-+->end
+	//                            +-->processed->end           +->defaultHandle->end
 	void run();
+	void terminate();
+	//TODO: change run() to be a launcher of next 2 thread.
+//	void inputThread();
+//	void outputThread();
 
-	void registerNetDispFun(const int type, cb_net_t cb);
-	void registerQueDispFun(const int type, cb_que_t cb);
-	void registerDefaultHandler(cb_que_t cb);
+	// Link an inputer source to read from.
 	void linkInputter(NetworkThread* input);
-
-	static bool DecodeMessage(const int type, const std::string& data, Message* msg);
+	// For message should be handled at receiving time (i.e. alive check)
+	void registerImmediateHandler(const int type, callback_t cb);
+	// For message should be handled in sequence (i.e. data update)
+	void registerProcessHandler(const int type, callback_t cb);
+	void registerDefaultOutHandler(callback_t cb);
 
 	void readBlocked(std::string& data, RPCInfo& info);
 	bool readUnblocked(std::string& data, RPCInfo& info);
-	void handleInput(std::string& data, RPCInfo& info);
-	void handleOutput(const std::string& data, const int type);
+	void processInput(std::string& data, RPCInfo& info);
+	void processOutput(const std::string& data, const RPCInfo& info);
 
 private:
 	bool running_;
-	Dispatcher<const std::string&, const RPCInfo&> netDisper; //immediately response
-	std::queue<std::pair<int,std::string> > que; //queue for message waiting for process
-	Dispatcher<const std::string&> queDisper; //response when processed
-	cb_que_t defaultHandler;
-
 	NetworkThread *net;
+
+	Dispatcher<const std::string&, const RPCInfo&> netDisper; //immediately response
+	std::queue<std::pair<std::string, RPCInfo> > que; //queue for message waiting for process
+	Dispatcher<const std::string&, const RPCInfo&> queDisper; //response when processed
+	callback_t defaultHandler;
 };
 
 } /* namespace dsm */

@@ -17,30 +17,35 @@ using namespace std;
 
 namespace dsm {
 
+//Helper
 void Sleep(){
 	this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
 }
 
-MsgDriver::MsgDriver():running_(true),net(nullptr)
+MsgDriver::MsgDriver():running_(false),net(nullptr)
 {
 
 }
 
-void MsgDriver::registerNetDispFun(const int type, cb_net_t cb){
-	netDisper.registerDispFun(type,cb);
+void MsgDriver::terminate(){
+	running_=false;
 }
-void MsgDriver::registerQueDispFun(const int type, cb_que_t cb){
-	queDisper.registerDispFun(type,cb);
-}
+
+//Register
 void MsgDriver::linkInputter(NetworkThread* inputter){
 	net=inputter;
 }
+void MsgDriver::registerImmediateHandler(const int type, callback_t cb){
+	netDisper.registerDispFun(type,cb);
+}
+void MsgDriver::registerProcessHandler(const int type, callback_t cb){
+	queDisper.registerDispFun(type,cb);
+}
+void MsgDriver::registerDefaultOutHandler(callback_t cb){
+	defaultHandler=cb;
+}
 
-//bool MsgDriver::DecodeMessage(const int type, const std::string& data, Message* msg){
-//	msg->
-//	return false;
-//}
-
+//Read data
 void MsgDriver::readBlocked(string& msg, RPCInfo& info){
 	info.dest=net->id();
 //	net->Read(Task::ANY_SRC, Task::ANY_TYPE, &msg, &info.source, &info.tag);
@@ -52,32 +57,40 @@ bool MsgDriver::readUnblocked(string& msg, RPCInfo& info){
 	return net->TryReadAny(msg, &info.source, &info.tag);
 }
 
-void MsgDriver::handleInput(string& data, RPCInfo& info){
+//Process
+void MsgDriver::processInput(string& data, RPCInfo& info){
 	if(!netDisper.receiveData(info.tag, data, info))
-		que.push(make_pair(info.tag, data));
+		que.push(make_pair(move(data),move(info)));
 }
-void MsgDriver::handleOutput(const string& data, const int type){
-	if(!queDisper.receiveData(type, data))
+void MsgDriver::processOutput(const string& data, const RPCInfo& info){
+	if(!queDisper.receiveData(info.tag, data, info))
 		defaultHandler(data);
 }
 
+//Main working process
 void MsgDriver::run(){
+	if(net==nullptr){
+		LOG(FATAL)<<"input source has not been set.";
+	}
+	running_=true;
+	//TODO: use 2 thread to handle input and output
 	string data;
 	RPCInfo info;
 	while(running_){
-		//TODO: use 2 thread to handle input and output
 		bool idled=true;
+		//input
 		while(readUnblocked(data,info)){
-			handleInput(data,info);
+			processInput(data,info);
 			idled=false;
 		}
-
 		//output
 		while(!que.empty()){
-			const pair<int,string>& t=que.front();
-			handleOutput(t.second, t.first);
+			const pair<string, RPCInfo>& t=que.front();
+			processOutput(t.first, t.second);
+			que.pop();
 			idled=false;
 		}
+		//sleep
 		if(idled)
 			Sleep();
 	}
