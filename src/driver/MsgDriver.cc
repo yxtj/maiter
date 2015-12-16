@@ -64,7 +64,7 @@ void MsgDriver::processInput(string& data, RPCInfo& info){
 }
 void MsgDriver::processOutput(const string& data, const RPCInfo& info){
 	if(!queDisper.receiveData(info.tag, data, info))
-		defaultHandler(data);
+		defaultHandler(data,info);
 }
 
 //Main working process
