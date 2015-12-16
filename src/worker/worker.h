@@ -44,7 +44,12 @@ public:
 	void HandleShardAssignment(const ShardAssignmentRequest& req, EmptyMessage *resp,
 			const RPCInfo& rpc);
 
+	void SendPutRequest(int dstWorkerID, const KVPairData& msg);
 	void HandlePutRequest();
+
+	void SyncSwapRequest(const SwapTable& req){}
+	void SyncClearRequest(const ClearTable& req){}
+
 
 	// Barrier: wait until all table data is transmitted.
 	void HandleFlush(const EmptyMessage& req, EmptyMessage *resp, const RPCInfo& rpc);

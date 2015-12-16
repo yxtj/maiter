@@ -333,6 +333,10 @@ void Worker::Restore(int epoch){
 	network_->Send(config_.master_id(), MTYPE_RESTORE_DONE, req);
 }
 
+void Worker::SendPutRequest(int dstWorkerID, const KVPairData& put){
+	NetworkThread::Get()->Send(dstWorkerID + 1, MTYPE_PUT_REQUEST, put);
+}
+
 void Worker::HandlePutRequest(){
 	if(!running_){
 		//clear received buffer without processing its content

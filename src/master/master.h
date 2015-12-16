@@ -26,9 +26,13 @@ public:
   int peer_for_shard(int table, int shard) const {
     return tables_[table]->owner(shard);
   }
-  void HandlePutRequest() { return; }
-  void FlushUpdates() {return;}
-  void SendTermcheck(int index, long updates, double current) {return;}
+  void SendPutRequest(int dstWorkerID, const KVPairData& put){}
+  void HandlePutRequest() {}
+  void FlushUpdates() {}
+  void SendTermcheck(int index, long updates, double current) {}
+
+  void SyncSwapRequest(const SwapTable& req);
+  void SyncClearRequest(const ClearTable& req);
 
   void run_all(RunDescriptor r);
   void run_one(RunDescriptor r);

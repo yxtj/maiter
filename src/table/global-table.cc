@@ -1,10 +1,11 @@
 #include "global-table.h"
 #include "statetable.h"
 
-#include "net/NetworkThread.h"
+//#include "net/NetworkThread.h"
+#include <gflags/gflags.h>
 
-static const int kMaxNetworkPending = 1 << 26;
-static const int kMaxNetworkChunk = 1 << 20;
+//static const int kMaxNetworkPending = 1 << 26;
+//static const int kMaxNetworkChunk = 1 << 20;
 
 DEFINE_int32(snapshot_interval, 99999999, "");
 //DEFINE_int32(bufmsg, 1000000, "");
@@ -64,7 +65,8 @@ void MutableGlobalTable::swap(GlobalTableBase *b){
 	req.set_table_b(b->id());
 	VLOG(2) << StringPrintf("Sending swap request (%d <--> %d)", req.table_a(), req.table_b());
 
-	NetworkThread::Get()->SyncBroadcast(MTYPE_SWAP_TABLE, req);
+//	NetworkThread::Get()->SyncBroadcast(MTYPE_SWAP_TABLE, req);
+	helper()->SyncSwapRequest(req);
 }
 
 void MutableGlobalTable::clear(){
@@ -73,7 +75,8 @@ void MutableGlobalTable::clear(){
 	req.set_table(this->id());
 	VLOG(2) << StringPrintf("Sending clear request (%d)", req.table());
 
-	NetworkThread::Get()->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
+//	NetworkThread::Get()->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
+	helper()->SyncClearRequest(req);
 }
 
 void MutableGlobalTable::start_checkpoint(const string& f){
@@ -224,10 +227,11 @@ void MutableGlobalTable::SendUpdates(){
 				put.set_done(true);
 
 				//VLOG(3) << "Sending update for " << MP(t->id(), t->shard()) << " to " << owner(i) << " size " << put.kv_data_size();
-				sent_bytes_ += NetworkThread::Get()->Send(owner(i) + 1, MTYPE_PUT_REQUEST, put);
+//				sent_bytes_ += NetworkThread::Get()->Send(owner(i) + 1, MTYPE_PUT_REQUEST, put);
+				helper()->SendPutRequest(owner(i),put);
 			}while(!t->empty());
 
-			VLOG(3) << "Done with update for " << MP(t->id(), t->shard());
+			VLOG(3) << "Done with update for (" <<t->id()<<","<<t->shard()<<")";
 			t->clear();
 		}
 	}
@@ -250,7 +254,6 @@ int MutableGlobalTable::pending_write_bytes(){
 			s += t->size();
 		}
 	}
-
 	return s;
 }
 
@@ -263,4 +266,5 @@ void MutableGlobalTable::local_swap(GlobalTableBase *b){
 	std::swap(cache_, mb->cache_);
 	std::swap(pending_writes_, mb->pending_writes_);
 }
-}
+
+} // namespace dsm

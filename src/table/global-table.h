@@ -149,7 +149,7 @@ public:
 	MutableGlobalTable(){
 		pending_writes_ = 0;
 		snapshot_index = 0;
-		sent_bytes_ = 0;
+//		sent_bytes_ = 0;
 	}
 
 	void BufSend();
@@ -171,7 +171,7 @@ public:
 
 	void swap(GlobalTableBase *b);
 
-	int64_t sent_bytes_;
+//	int64_t sent_bytes_;
 	Timer timer;
 	int timerindex;
 

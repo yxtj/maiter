@@ -103,6 +103,13 @@ Master::~Master(){
 	delete barrier_timer;
 }
 
+void Master::SyncSwapRequest(const SwapTable& req){
+	NetworkThread::Get()->SyncBroadcast(MTYPE_SWAP_TABLE, req);
+}
+void Master::SyncClearRequest(const ClearTable& req){
+	NetworkThread::Get()->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
+}
+
 void Master::start_checkpoint(){
 	if(checkpointing_){
 		return;
