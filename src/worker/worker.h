@@ -7,8 +7,9 @@
 #include "table/table.h"
 #include "table/local-table.h"
 #include "table/global-table.h"
-#include "worker/worker.pb.h"
+#include "msg/message.pb.h"
 #include "net/RPCInfo.h"
+#include "driver/MsgDriver.h"
 
 #include <mutex>
 
@@ -29,7 +30,6 @@ public:
 	void Run();
 
 	void KernelLoop();
-	void TableLoop();
 	Stats get_stats(){
 		return stats_;
 	}
@@ -78,6 +78,8 @@ public:
 	bool has_incoming_data() const;
 
 private:
+	void registerHandlers();
+
 	void StartCheckpoint(int epoch, CheckpointType type);
 	void FinishCheckpoint();
 	void SendTermcheck(int index, long updates, double current);
@@ -108,11 +110,11 @@ private:
 	unordered_map<uint32_t, TableIterator*> iterators_;
 
 	struct KernelId{
-		string kname_;
+		std::string kname_;
 		int table_;
 		int shard_;
 
-		KernelId(string kname, int table, int shard) :
+		KernelId(std::string kname, int table, int shard) :
 				kname_(kname), table_(table), shard_(shard){
 		}
 
@@ -128,9 +130,11 @@ private:
 		}
 	};
 
-	map<KernelId, DSMKernel*> kernels_;
+	std::map<KernelId, DSMKernel*> kernels_;
 
 	Stats stats_;
+
+	MsgDriver driver;
 };
 
 }

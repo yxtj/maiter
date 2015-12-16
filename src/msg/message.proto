@@ -1,7 +1,14 @@
 package dsm;
 
-import "util/common.proto";
+import "msg/mtype.proto";
+import "msg/common.proto";
 option optimize_for = SPEED;
+
+message EmptyMessage {}
+
+message ReplyMessage {
+  required MessageTypes type = 1;
+}
 
 enum CheckpointType {
   CP_NONE = 0;

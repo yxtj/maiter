@@ -3,8 +3,8 @@
 
 #include <table/TableDescriptor.h>
 #include "util/file.h"
-#include "util/common.pb.h"
-#include "worker/worker.pb.h"
+#include "msg/common.pb.h"
+#include "msg/message.pb.h"
 
 #include "TableHelper.h"
 #include "table_iterator.h"

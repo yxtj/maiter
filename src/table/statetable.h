@@ -2,7 +2,6 @@
 #define SPARSE_MAP_H_
 
 #include "util/noncopyable.h"
-//#include "worker/worker.pb.h"
 #include "tbl_widget/IterateKernel.h"
 #include "tbl_widget/sharder.h"
 #include "tbl_widget/term_checker.h"

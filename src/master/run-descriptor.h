@@ -8,7 +8,7 @@
 #ifndef MASTER_RUN_DESCRIPTOR_H_
 #define MASTER_RUN_DESCRIPTOR_H_
 
-#include "worker/worker.pb.h"
+#include "msg/message.pb.h"
 #include "util/marshalled_map.hpp"
 #include <string>
 #include <vector>

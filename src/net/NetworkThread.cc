@@ -4,7 +4,6 @@
 #include "NetworkImplMPI.h"
 #include "Task.h"
 #include "util/common.h"
-//#include "util/common.pb.h"
 #include <string>
 #include <thread>
 #include <chrono>

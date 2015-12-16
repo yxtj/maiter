@@ -2,7 +2,7 @@
 #define MASTER_H_
 
 #include "util/common.h"
-#include "worker/worker.pb.h"
+#include "msg/message.pb.h"
 #include "kernel/kernel.h"
 #include "table/TableHelper.h"
 #include "table/table-registry.h"

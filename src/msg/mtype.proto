@@ -1,0 +1,47 @@
+package dsm;
+
+enum MessageTypes {
+  MTYPE_RUN_KERNEL = 1;
+  MTYPE_KERNEL_DONE = 2;
+  
+  MTYPE_PUT_REQUEST = 4;  
+  
+  MTYPE_GET = 5;
+    
+  MTYPE_WORKER_SHUTDOWN = 8;
+  MTYPE_REGISTER_WORKER = 9;
+  
+  MTYPE_START_CHECKPOINT = 10;
+  MTYPE_FINISH_CHECKPOINT = 11;
+  MTYPE_CHECKPOINT_DONE = 12;
+  
+  MTYPE_CHECKPOINT_ASYN_INIT=40;	//master tell all workers to start asynchronous checkpoint (ACP)
+  MTYPE_CHECKPOINT_ASYN_REPORT=41;	//worker report its success to all the others
+  MTYPE_CHECKPOINT_ASYN_REPORT_FAIL=42;	//worker report its failure to all the others
+  MTYPE_CHECKPOINT_ASYN_SUCC=43;	//master tell all workers to commit this ACP
+  MTYPE_CHECKPOINT_ASYN_FAIL=44;	//master tell all workers to cancel this ACP and rollback
+  
+  MTYPE_RESTORE = 13;
+  MTYPE_RESTORE_DONE = 14;
+  
+  MTYPE_WORKER_FLUSH = 15;
+  MTYPE_WORKER_FLUSH_DONE = 16;
+  
+  MTYPE_SHARD_ASSIGNMENT = 17;
+  MTYPE_SHARD_ASSIGNMENT_DONE = 18;
+  
+  MTYPE_ITERATOR = 20;
+
+  MTYPE_TERMCHECK_DONE = 21;
+  MTYPE_TERMINATION = 22;
+
+  MTYPE_SYNC_REPLY = 31;
+
+  MTYPE_WORKER_APPLY = 33;
+  MTYPE_WORKER_APPLY_DONE = 34;
+
+  MTYPE_SWAP_TABLE = 35;  
+  MTYPE_CLEAR_TABLE = 37;
+
+  MTYPE_ENABLE_TRIGGER = 38;
+};

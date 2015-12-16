@@ -8,7 +8,7 @@
 #ifndef TABLE_TABLEHELPER_H_
 #define TABLE_TABLEHELPER_H_
 
-#include "worker/worker.pb.h"
+#include "msg/message.pb.h"
 
 namespace dsm{
 

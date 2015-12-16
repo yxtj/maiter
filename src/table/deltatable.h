@@ -9,7 +9,7 @@
 #define DELTATABLE_H_
 
 #include "util/noncopyable.h"
-#include "worker/worker.pb.h"
+#include "msg/message.pb.h"
 #include "table.h"
 #include "local-table.h"
 

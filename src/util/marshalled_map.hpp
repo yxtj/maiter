@@ -10,7 +10,7 @@
 
 #include <string>
 #include <unordered_map>
-#include "util/common.pb.h"
+#include "msg/common.pb.h"
 #include "util/marshal.hpp"
 
 namespace dsm{
