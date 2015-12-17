@@ -21,10 +21,13 @@ namespace dsm {
 void Sleep(){
 	this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
 }
-
+MsgDriver::callback_t MsgDriver::GetDummyHandler(){
+	static callback_t dummy=[](const std::string&, const RPCInfo&){};
+	return dummy;
+}
 MsgDriver::MsgDriver():running_(false),net(nullptr)
 {
-
+	clear();
 }
 
 void MsgDriver::terminate(){
@@ -62,7 +65,7 @@ void MsgDriver::resetWaitingQueue(){
 	que.clear();
 }
 void MsgDriver::resetDefaultOutHandler(){
-	defaultHandler=[](const std::string&, const RPCInfo&){};
+	defaultHandler=GetDummyHandler();
 }
 void MsgDriver::clear(){
 	resetImmediateHandler();

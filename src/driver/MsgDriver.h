@@ -24,6 +24,7 @@ class MsgDriver{
 public:
 //	typedef google::protobuf::Message Message;
 	typedef Dispatcher<const std::string&, const RPCInfo&>::callback_t callback_t;
+	static callback_t GetDummyHandler();
 
 	MsgDriver();
 	// Launch the Message Driver. Data flow is as below:
