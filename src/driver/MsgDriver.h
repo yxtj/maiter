@@ -11,7 +11,7 @@
 #include "Dispatcher.hpp"
 #include "net/RPCInfo.h"
 //#include <google/protobuf/message.h>
-#include <queue>
+#include <deque>
 #include <string>
 //#include <thread>
 #include <functional>
@@ -39,9 +39,18 @@ public:
 	void linkInputter(NetworkThread* input);
 	// For message should be handled at receiving time (i.e. alive check)
 	void registerImmediateHandler(const int type, callback_t cb);
+	void unregisterImmediateHandler(const int type);
 	// For message should be handled in sequence (i.e. data update)
 	void registerProcessHandler(const int type, callback_t cb);
+	void unregisterProcessHandler(const int type);
+
 	void registerDefaultOutHandler(callback_t cb);
+
+	void resetImmediateHandler();
+	void resetProcessHandler();
+	void resetDefaultOutHandler();
+	void resetWaitingQueue();
+	void clear();
 
 	void readBlocked(std::string& data, RPCInfo& info);
 	bool readUnblocked(std::string& data, RPCInfo& info);
@@ -53,7 +62,7 @@ private:
 	NetworkThread *net;
 
 	Dispatcher<const std::string&, const RPCInfo&> netDisper; //immediately response
-	std::queue<std::pair<std::string, RPCInfo> > que; //queue for message waiting for process
+	std::deque<std::pair<std::string, RPCInfo> > que; //queue for message waiting for process
 	Dispatcher<const std::string&, const RPCInfo&> queDisper; //response when processed
 	callback_t defaultHandler;
 };

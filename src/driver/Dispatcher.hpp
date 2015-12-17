@@ -28,6 +28,8 @@ public:
 
 	void registerDispFun(const int type, callback_t cb, const bool spawnThread=false);
 	void unregisterDispFun(const int type);
+	void clear();
+
 	void changeThreadPolicy(const int type, const bool spawnThread);
 	bool canHandle(const int type) const;
 
@@ -35,6 +37,7 @@ public:
 	void runWithData(const int type, Params... param) const;
 private:
 	std::unordered_map<int, std::pair<callback_t, bool> > callbacks_;
+
 	inline void launch(const std::pair<callback_t, bool>& target, Params... param) const;
 };
 
@@ -46,6 +49,11 @@ void Dispatcher<Params...>::registerDispFun(const int type, callback_t cb, const
 template<class... Params>
 void Dispatcher<Params...>::unregisterDispFun(const int type){
 	callbacks_.erase(type);
+}
+
+template<class... Params>
+void Dispatcher<Params...>::clear(){
+	callbacks_.clear();
 }
 
 template<class... Params>
