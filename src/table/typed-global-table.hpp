@@ -223,10 +223,9 @@ void TypedGlobalTable<K, V1, V2, V3>::put(const K &k, const V1 &v1, const V2 &v2
 	//}
 	//BufSend();
 
-	PERIODIC(0.1, {
-		this->HandlePutRequests()
-		;
-	});
+//	PERIODIC(0.1, {
+//		this->HandlePutRequests();
+//	});
 }
 
 template<class K, class V1, class V2, class V3>
@@ -247,10 +246,9 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF1(const K &k, const V1 &v){
 
 	}
 
-	PERIODIC(0.1, {
-		this->HandlePutRequests()
-		;
-	});
+//	PERIODIC(0.1, {
+//		this->HandlePutRequests();
+//	});
 	/*
 	 //Deal with updates enqueued inside triggers
 	 while(!update_queue.empty()) {

@@ -13,6 +13,8 @@
 #include <thread>
 #include <chrono>
 
+#include "dbg/getcallstack.h"
+
 namespace dsm {
 
 static constexpr int sample_size = 1000;
@@ -123,14 +125,12 @@ public:
 						b_no_change = b_no_change && parent_.buckets_[i].v1 != defaultv;
 					}
 				}
-				if(b_no_change && bfilter) return;
 				if(!bfilter) b_no_change = false;
 			}else{
 				//sample random pos, the sample reflect the whole data set more or less
 				std::vector<int> sampled_pos;
-				int i;
 				int trials = 0;
-				for(i = 0; i < sample_size; i++){
+				for(int i = 0; i < sample_size; i++){
 					int rand_pos = rand_num();
 					trials++;
 					while(!parent_.buckets_[rand_pos].in_use){
@@ -345,40 +345,41 @@ public:
 		helper->FlushUpdates();
 		std::this_thread::sleep_for(std::chrono::duration<double>(0.1) );
 		helper->HandlePutRequest();
+//		DLOG_EVERY_N(INFO,100)<<getcallstack();
 
 		Iterator* iter = new Iterator(*this, true);
-		int trial = 0;
-		while(iter->b_no_change){
-			VLOG(1) << "wait for put";
-			delete iter;
-			helper->FlushUpdates();
-			std::this_thread::sleep_for(std::chrono::seconds(1) );
-			helper->HandlePutRequest();
-
-			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
-
-			iter = new Iterator(*this, bfilter);
-
-			trial++;
-			if(trial >= 10){
-				delete iter;
-				EntirePassIterator* entireIter = new EntirePassIterator(*this);
-
-				total_curr = 0;
-				while (!entireIter->done()){
-					bool cont = entireIter->Next();
-					if(!cont) break;
-
-					total_curr += entireIter->value2();
-				}
-
-				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
-				helper->SendTermcheck(-1, total_updates, total_curr);
-
-				return entireIter;
-			}
-
-		}
+//		int trial = 0;
+//		while(iter->b_no_change){
+//			VLOG(1) << "wait for put";
+//			delete iter;
+//			helper->FlushUpdates();
+//			std::this_thread::sleep_for(std::chrono::seconds(1) );
+//			helper->HandlePutRequest();
+//
+//			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
+//
+//			iter = new Iterator(*this, bfilter);
+//
+//			trial++;
+//			if(trial >= 10){
+//				delete iter;
+//				EntirePassIterator* entireIter = new EntirePassIterator(*this);
+//
+//				total_curr = 0;
+//				while (!entireIter->done()){
+//					bool cont = entireIter->Next();
+//					if(!cont) break;
+//
+//					total_curr += entireIter->value2();
+//				}
+//
+//				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
+//				helper->SendTermcheck(-1, total_updates, total_curr);
+//
+//				return entireIter;
+//			}
+//
+//		}
 
 		return iter;
 	}
@@ -388,37 +389,38 @@ public:
 		helper->FlushUpdates();
 		std::this_thread::sleep_for(std::chrono::duration<double>(0.1) );
 		helper->HandlePutRequest();
+//		DLOG_EVERY_N(INFO,100)<<getcallstack();
 
 		ScheduledIterator* iter = new ScheduledIterator(*this, bfilter);
-		int trial = 0;
-		while(iter->b_no_change){
-			VLOG(1) << "wait for put, send buffered updates";
-			delete iter;
-			helper->FlushUpdates();
-			std::this_thread::sleep_for(std::chrono::seconds(1) );
-			helper->HandlePutRequest();
-
-			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
-
-			iter = new ScheduledIterator(*this, bfilter);
-
-			trial++;
-			if(trial >= 10){
-				delete iter;
-				EntirePassIterator* entireIter = new EntirePassIterator(*this);
-
-				total_curr = 0;
-				while (!entireIter->done()){
-					entireIter->Next();
-					total_curr += entireIter->value2();
-				}
-
-				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
-				helper->SendTermcheck(-1, total_updates, total_curr);
-
-				return entireIter;
-			}
-		}
+//		int trial = 0;
+//		while(iter->b_no_change){
+//			VLOG(1) << "wait for put, send buffered updates";
+//			delete iter;
+//			helper->FlushUpdates();
+//			std::this_thread::sleep_for(std::chrono::seconds(1) );
+//			helper->HandlePutRequest();
+//
+//			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
+//
+//			iter = new ScheduledIterator(*this, bfilter);
+//
+//			trial++;
+//			if(trial >= 10){
+//				delete iter;
+//				EntirePassIterator* entireIter = new EntirePassIterator(*this);
+//
+//				total_curr = 0;
+//				while (!entireIter->done()){
+//					entireIter->Next();
+//					total_curr += entireIter->value2();
+//				}
+//
+//				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
+//				helper->SendTermcheck(-1, total_updates, total_curr);
+//
+//				return entireIter;
+//			}
+//		}
 
 		return iter;
 	}

@@ -70,7 +70,7 @@ public:
 	// Handle updates from the master or other workers.
 	virtual void SendUpdates() = 0;
 	virtual void ApplyUpdates(const KVPairData& req) = 0;
-	virtual void HandlePutRequests() = 0;
+//	virtual void HandlePutRequests() = 0;
 	virtual void TermCheck() = 0;
 
 	virtual int pending_write_bytes() = 0;
@@ -155,7 +155,7 @@ public:
 	void BufSend();
 	void SendUpdates();
 	virtual void ApplyUpdates(const KVPairData& req) = 0;
-	void HandlePutRequests();
+//	void HandlePutRequests();
 	void TermCheck();
 
 	int pending_write_bytes();

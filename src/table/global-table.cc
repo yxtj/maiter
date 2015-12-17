@@ -146,11 +146,11 @@ void MutableGlobalTable::termcheck(){
 	snapshot_index++;
 }
 
-void MutableGlobalTable::HandlePutRequests(){
-	if(helper()){
-		helper()->HandlePutRequest();
-	}
-}
+//void MutableGlobalTable::HandlePutRequests(){
+//	if(helper()){
+//		helper()->HandlePutRequest();
+//	}
+//}
 
 ProtoTableCoder::ProtoTableCoder(const TableData *in) :
 		read_pos_(0), t_(const_cast<TableData*>(in)){
