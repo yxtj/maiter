@@ -1,6 +1,7 @@
 #include "client/client.h"
-#include "net/NetworkThread.h"
-#include "dbg/getcallstack.h"
+//TODO: change back after message-driven is finished
+//#include "net/NetworkThread.h"
+#include <mpi.h>
 #include <iostream>
 
 using namespace dsm;
@@ -23,6 +24,10 @@ DEFINE_int32(max_iterations, 100, "");
 DEFINE_int64(num_nodes, 100, "");
 DEFINE_double(portion, 1, "");
 DEFINE_double(termcheck_threshold, 1000000000, "");
+DEFINE_double(sleep_time, 0.001, "");
+DEFINE_string(checkpoint_write_dir, "/tmp/maiter/checkpoints", "");
+DEFINE_string(checkpoint_read_dir, "/tmp/maiter/checkpoints", "");
+
 
 DEFINE_int32(adsorption_starts, 100, "");
 DEFINE_double(adsorption_damping, 0.1, "");
@@ -43,12 +48,13 @@ int main(int argc, char** argv) {
   Init(argc, argv);
 
   ConfigData conf;
-//  conf.set_num_workers(MPI::COMM_WORLD.Get_size() - 1);
-//  conf.set_worker_id(MPI::COMM_WORLD.Get_rank() - 1);
-  conf.set_num_workers(NetworkThread::Get()->size() - 1);
-  conf.set_worker_id(NetworkThread::Get()->id() - 1);
+  //TODO: change back after message-driven is finished
+  conf.set_num_workers(MPI::COMM_WORLD.Get_size() - 1);
+  conf.set_worker_id(MPI::COMM_WORLD.Get_rank() - 1);
+//  conf.set_num_workers(NetworkThread::Get()->size() - 1);
+//  conf.set_worker_id(NetworkThread::Get()->id() - 1);
 
-  cout<<NetworkThread::Get()->id()<<":"<<getcallstack()<<endl;
+//  cout<<NetworkThread::Get()->id()<<":"<<getcallstack()<<endl;
 // return 0;
 //  LOG(INFO) << "Running: " << FLAGS_runner;
   CHECK_NE(FLAGS_runner, "");
