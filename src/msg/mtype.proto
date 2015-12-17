@@ -4,6 +4,8 @@ enum MessageTypes {
   MTYPE_RUN_KERNEL = 1;
   MTYPE_KERNEL_DONE = 2;
   
+  MTYPE_REPLY = 3;
+  
   MTYPE_PUT_REQUEST = 4;  
   
   MTYPE_GET = 5;

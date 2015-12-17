@@ -8,6 +8,8 @@
 #include <thread>
 #include <chrono>
 
+#include "msg/message.pb.h"
+
 //DECLARE_bool(localtest);
 DECLARE_double(sleep_time);
 //DEFINE_bool(rpc_log, false, "");
@@ -46,7 +48,6 @@ bool NetworkThread::active() const{
 int64_t NetworkThread::pending_bytes() const{
 	int64_t t = net->unconfirmedBytes();
 
-//	boost::recursive_mutex::scoped_lock sl(ps_lock);
 	lock_guard<recursive_mutex> sl(ps_lock);
 	for(size_t i = 0; i < pending_sends_.size(); ++i){
 		t += pending_sends_[i]->payload.size();
@@ -58,23 +59,28 @@ int64_t NetworkThread::pending_bytes() const{
 void NetworkThread::InvokeCallback(CallbackInfo *ci, RPCInfo rpc){
 	ci->call(rpc);
 	MsgHeader reply_header(true);
-	Send(new Task(rpc.source, rpc.tag, *ci->resp, reply_header));
+//	Send(new Task(rpc.source, rpc.tag, *ci->resp, reply_header));
+	ReplyMessage rm;
+	rm.set_type(static_cast<MessageTypes>(rpc.tag));
+	Send(new Task(rpc.source, MTYPE_REPLY, rm, reply_header));
 }
 void NetworkThread::ProcessReceivedMsg(int source, int tag, string& data){
 	//Case 1: received a reply packet, put into reply buffer
 	//Case 2: received a RPC request, call related callback function
 	//Case 3: received a normal data packet, put into received buffer
-	const MsgHeader *h = reinterpret_cast<const MsgHeader*>(data.data());
-	if(h->is_reply){	//Case 1
-		//boost::recursive_mutex::scoped_lock sl(q_lock[tag]);
+//	const MsgHeader *h = reinterpret_cast<const MsgHeader*>(data.data());
+//	if(h->is_reply){	//Case 1
+	if(tag==MTYPE_REPLY){
+		ReplyMessage rm;
+		rm.ParseFromArray(data.data(),data.size());
+		tag=rm.type();
 		VLOG(2) << "Processing reply, type " << tag << ", from " << source << ", to " << id();
 		lock_guard<recursive_mutex> sl(rep_lock[tag]);
 		reply_buffer[tag][source].push_back(data);
 	}else{
 		if(callbacks_[tag] != NULL){	//Case 2
 			CallbackInfo *ci = callbacks_[tag];
-			ci->req->ParseFromArray(data.data() + sizeof(MsgHeader),
-					data.size() - sizeof(MsgHeader));
+			Task::Decode(*(ci->req),data);
 			VLOG(2) << "Processing RPC, type " << tag << ", from " << source << ", to " << id()
 								<< ", content:" << ci->req->ShortDebugString();
 
@@ -86,7 +92,6 @@ void NetworkThread::ProcessReceivedMsg(int source, int tag, string& data){
 				InvokeCallback(ci, rpc);
 			}
 		}else{	//Case 3
-			//boost::recursive_mutex::scoped_lock sl(q_lock[tag]);
 			lock_guard<recursive_mutex> sl(rec_lock[tag]);
 			receive_buffer[tag][source].push_back(data);
 		}
@@ -127,7 +132,6 @@ void NetworkThread::Run(){
 		}
 		/* single send: */
 //		while(!pending_sends_.empty()){
-//			//boost::recursive_mutex::scoped_lock sl(ps_lock);
 //			lock_guard<recursive_mutex> sl(ps_lock);
 //			Task* s = pending_sends_.back();
 //			pending_sends_.pop_back();
@@ -150,7 +154,7 @@ bool NetworkThread::CheckQueue(NetworkThread::Queue& q, recursive_mutex& m, Mess
 
 		if(data){
 			const string& s = q.front();
-			data->ParseFromArray(s.data() + sizeof(MsgHeader), s.size() - sizeof(MsgHeader));
+			Task::Decode(*data,s);
 		}
 
 		q.pop_front();

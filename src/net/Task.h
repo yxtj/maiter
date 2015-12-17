@@ -43,7 +43,14 @@ struct Task : public TaskBase{
 	Task(int s_d,int type,const std::string& s):TaskBase{s_d,type},payload(s){}
 
 	Task(int s_d,int type,const google::protobuf::Message& msg,const MsgHeader& h=MsgHeader(false));
+
+	static void Decode(google::protobuf::Message& msg, const std::string& data);
+	void decode(google::protobuf::Message& msg);
 };
+
+inline void Task::decode(google::protobuf::Message& msg){
+	Task::Decode(msg,payload);
+}
 
 struct TaskTimed : public Task{
 	Timer t;
