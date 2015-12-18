@@ -1,7 +1,10 @@
 #include "util/common.h"
 #include "util/file.h"
 #include "util/static-initializers.h"
+
 #include "net/NetworkThread.h"
+#include "net/NetworkThread2.h"
+#include "net/NetworkImplMPI.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -198,7 +201,13 @@ void Init(int argc, char** argv) {
     exit(0);
   }
 
-  NetworkThread::Init();
+//  NetworkThread::Init();
+
+  //TODO: change back after message-driven is finished
+  if(NetworkImplMPI::GetInstance()->id()==0)
+	  NetworkThread::Init();
+  else
+	  NetworkThread2::Init();
 
   srandom(time(NULL));
 }

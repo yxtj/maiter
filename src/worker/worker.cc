@@ -8,7 +8,10 @@
 #include "net/Task.h"
 #include <string>
 #include <thread>
+#include <functional>
 #include <chrono>
+
+#include "dbg/getcallstack.h"
 
 DECLARE_double(sleep_time);
 DEFINE_double(sleep_hack, 0.0, "");
@@ -16,6 +19,10 @@ DECLARE_string(checkpoint_write_dir);
 DECLARE_string(checkpoint_read_dir);
 
 namespace dsm {
+
+static void Sleep(){
+	this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
+}
 
 struct Worker::Stub: private noncopyable{
 	int32_t id;
@@ -42,6 +49,7 @@ Worker::Worker(const ConfigData &c){
 	}
 
 	running_ = true;
+	running_kernel_=false;
 
 	// HACKHACKHACK - register ourselves with any existing tables
 	TableRegistry::Map &t = TableRegistry::Get()->tables();
@@ -51,16 +59,6 @@ Worker::Worker(const ConfigData &c){
 
 	registerHandlers();
 }
-
-int Worker::peer_for_shard(int table, int shard) const{
-	return TableRegistry::Get()->tables()[table]->owner(shard);
-}
-
-void Worker::Run(){
-//	KernelLoop();
-	KernelLoop2();
-}
-
 Worker::~Worker(){
 	running_ = false;
 
@@ -69,152 +67,116 @@ Worker::~Worker(){
 	}
 }
 
-void Worker::KernelLoop(){
+int Worker::peer_for_shard(int table, int shard) const{
+	return TableRegistry::Get()->tables()[table]->owner(shard);
+}
+
+void Worker::registerWorker(){
 	VLOG(1) << "Worker " << config_.worker_id() << " registering...";
 	RegisterWorkerRequest req;
 	req.set_id(id());
 	network_->Send(0, MTYPE_REGISTER_WORKER, req);
+}
 
-	KernelRequest kreq;
+void Worker::Run(){
+	registerWorker();
+	thread t(bind(&Worker::MsgLoop,this));
+//	MsgLoop();
+//	thread t(bind(&Worker::KernelLoop,this));
+	KernelLoop();
+	t.join();
+}
 
+void Worker::MsgLoop(){
+	string data;
+	RPCInfo info;
+	info.dest=network_->id();
 	while(running_){
-		Timer idle;
-
-		while(!network_->TryRead(config_.master_id(), MTYPE_RUN_KERNEL, &kreq)){
-			CheckNetwork();
-			this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
-
-			if(!running_){
-				return;
-			}
+		while(network_->TryReadAny(data, &info.source, &info.tag)){
+			driver.pushData(data,info);
 		}
-		stats_["idle_time"] += idle.elapsed();
+		Sleep();
+	}
+}
 
-		VLOG(1) << "Received run request for " << kreq;
-
-		if(peer_for_shard(kreq.table(), kreq.shard()) != config_.worker_id()){
-			LOG(FATAL)<< "Received a shard I can't work on! : " << kreq.shard()
-			<< " : " << peer_for_shard(kreq.table(), kreq.shard());
+void Worker::KernelLoop(){
+	while(running_){
+		waitKernel();
+		if(!running_){
+			return;
 		}
 
-		KernelInfo *helper = KernelRegistry::Get()->kernel(kreq.kernel());
-		KernelId id(kreq.kernel(), kreq.table(), kreq.shard());
-		DSMKernel* d = kernels_[id];
+		runKernel();
 
-		if(!d){
-			d = helper->create();
-			kernels_[id] = d;
-			d->initialize_internal(this, kreq.table(), kreq.shard());
-			d->InitKernel();
-		}
+		finishKernel();
 
-		MarshalledMap args;
-		args.FromMessage(kreq.args());
-		d->set_args(args);
-
-		if(this->id() == 1 && FLAGS_sleep_hack > 0){
-			this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_hack));
-		}
-
-		// Run the user kernel
-		helper->Run(d, kreq.method());
-
-		KernelDone kd;
-		kd.mutable_kernel()->CopyFrom(kreq);
-		TableRegistry::Map &tmap = TableRegistry::Get()->tables();
-		for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
-			GlobalTableBase* t = i->second;
-			VLOG(1)<<"Kernel Done";
-			HandlePutRequest();
-			for(int j = 0; j < t->num_shards(); ++j){
-				if(t->is_local_shard(j)){
-					ShardInfo *si = kd.add_shards();
-					si->set_entries(t->shard_size(j));
-					si->set_owner(this->id());
-					si->set_table(i->first);
-					si->set_shard(j);
-				}
-			}
-		}
-		network_->Send(config_.master_id(), MTYPE_KERNEL_DONE, kd);
-
-		VLOG(1) << "Kernel finished: " << kreq;
 		DumpProfile();
 	}
 }
 
-void Worker::KernelLoop2(){
-	VLOG(1) << "Worker " << config_.worker_id() << " registering...";
-	RegisterWorkerRequest req;
-	req.set_id(id());
-	network_->Send(0, MTYPE_REGISTER_WORKER, req);
-
-	KernelRequest kreq;
-
-	while(running_){
-		Timer idle;
-
-		while(!network_->TryRead(config_.master_id(), MTYPE_RUN_KERNEL, &kreq)){
-			CheckNetwork();
-			this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
-
-			if(!running_){
-				return;
-			}
+// HandleRunKernel2() and HandleShutdown2() can end this waiting
+void Worker::waitKernel(){
+	Timer idle;
+//	while(!network_->TryRead(config_.master_id(), MTYPE_RUN_KERNEL, &kreq)){
+	while(!running_kernel_){
+//		CheckNetwork();
+		Sleep();
+		if(!running_){
+			return;
 		}
-		stats_["idle_time"] += idle.elapsed();
-
-		VLOG(1) << "Received run request for " << kreq;
-
-		if(peer_for_shard(kreq.table(), kreq.shard()) != config_.worker_id()){
-			LOG(FATAL)<< "Received a shard I can't work on! : " << kreq.shard()
-			<< " : " << peer_for_shard(kreq.table(), kreq.shard());
-		}
-
-		KernelInfo *helper = KernelRegistry::Get()->kernel(kreq.kernel());
-		KernelId id(kreq.kernel(), kreq.table(), kreq.shard());
-		DSMKernel* d = kernels_[id];
-
-		if(!d){
-			d = helper->create();
-			kernels_[id] = d;
-			d->initialize_internal(this, kreq.table(), kreq.shard());
-			d->InitKernel();
-		}
-
-		MarshalledMap args;
-		args.FromMessage(kreq.args());
-		d->set_args(args);
-
-		if(this->id() == 1 && FLAGS_sleep_hack > 0){
-			this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_hack));
-		}
-
-		// Run the user kernel
-		helper->Run(d, kreq.method());
-
-		KernelDone kd;
-		kd.mutable_kernel()->CopyFrom(kreq);
-		TableRegistry::Map &tmap = TableRegistry::Get()->tables();
-		for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
-			GlobalTableBase* t = i->second;
-			VLOG(1)<<"Kernel Done";
-			HandlePutRequest();
-			for(int j = 0; j < t->num_shards(); ++j){
-				if(t->is_local_shard(j)){
-					ShardInfo *si = kd.add_shards();
-					si->set_entries(t->shard_size(j));
-					si->set_owner(this->id());
-					si->set_table(i->first);
-					si->set_shard(j);
-				}
-			}
-		}
-		network_->Send(config_.master_id(), MTYPE_KERNEL_DONE, kd);
-
-		VLOG(1) << "Kernel finished: " << kreq;
-		DumpProfile();
 	}
+	stats_["idle_time"] += idle.elapsed();
+	VLOG(1) << "Received run request for " << kreq;
+	if(peer_for_shard(kreq.table(), kreq.shard()) != config_.worker_id()){
+		LOG(FATAL)<< "Received a shard I can't work on! : " << kreq.shard()
+				<< " : " << peer_for_shard(kreq.table(), kreq.shard());
+	}
+}
+void Worker::runKernel(){
+	KernelInfo *helper = KernelRegistry::Get()->kernel(kreq.kernel());
+	KernelId id(kreq.kernel(), kreq.table(), kreq.shard());
+	DSMKernel* d = kernels_[id];
+
+	if(!d){
+		d = helper->create();
+		kernels_[id] = d;
+		d->initialize_internal(this, kreq.table(), kreq.shard());
+		d->InitKernel();
+	}
+
+	MarshalledMap args;
+	args.FromMessage(kreq.args());
+	d->set_args(args);
+
+	if(this->id() == 1 && FLAGS_sleep_hack > 0){
+		this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_hack));
+	}
+
+	// Run the user kernel
+	helper->Run(d, kreq.method());
+}
+void Worker::finishKernel(){
+	KernelDone kd;
+	kd.mutable_kernel()->CopyFrom(kreq);
+	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+		GlobalTableBase* t = i->second;
+		VLOG(1)<<"Kernel Done of table "<<i->first;
+		HandlePutRequest();
+		for(int j = 0; j < t->num_shards(); ++j){
+			if(t->is_local_shard(j)){
+				ShardInfo *si = kd.add_shards();
+				si->set_entries(t->shard_size(j));
+				si->set_owner(this->id());
+				si->set_table(i->first);
+				si->set_shard(j);
+			}
+		}
+	}
+	running_kernel_=false;
+	network_->Send(config_.master_id(), MTYPE_KERNEL_DONE, kd);
+
+	VLOG(1) << "Kernel finished: " << kreq;
 }
 
 void Worker::CheckNetwork(){
@@ -391,16 +353,20 @@ void Worker::SendPutRequest(int dstWorkerID, const KVPairData& put){
 }
 
 void Worker::HandlePutRequest(){
-	if(!running_){
+	return;
+	if(!running_ || !running_kernel_){
 		//clear received buffer without processing its content
-		VLOG(1) << "Clearing data receiving buffer after worker ends.";
-		while(network_->TryRead(Task::ANY_SRC, MTYPE_PUT_REQUEST));
+		VLOG(1) << "Clearing data receiving buffer after work finished.";
+//		if(kreq.kernel()=="MaiterKernel2")
+//			VLOG(1)<<"\n"<<getcallstack();
+//		while(network_->TryRead(Task::ANY_SRC, MTYPE_PUT_REQUEST));
 		return;
 	}
 	lock_guard<recursive_mutex> sl(state_lock_);
 
 	KVPairData put;
-	while(network_->TryRead(Task::ANY_SRC, MTYPE_PUT_REQUEST, &put)){
+//	while(network_->TryRead(Task::ANY_SRC, MTYPE_PUT_REQUEST, &put)){
+	while(false){
 		if(put.marker() != -1){
 			UpdateEpoch(put.source(), put.marker());
 			continue;
@@ -428,69 +394,6 @@ void Worker::HandlePutRequest(){
 	}
 }
 
-void Worker::HandleSwapRequest(const SwapTable& req, EmptyMessage *resp, const RPCInfo& rpc){
-	MutableGlobalTableBase *ta = TableRegistry::Get()->mutable_table(req.table_a());
-	MutableGlobalTableBase *tb = TableRegistry::Get()->mutable_table(req.table_b());
-
-	ta->local_swap(tb);
-}
-
-void Worker::HandleClearRequest(const ClearTable& req, EmptyMessage *resp, const RPCInfo& rpc){
-	MutableGlobalTableBase *ta = TableRegistry::Get()->mutable_table(req.table());
-
-	for(int i = 0; i < ta->num_shards(); ++i){
-		if(ta->is_local_shard(i)){
-			ta->get_partition(i)->clear();
-		}
-	}
-}
-
-void Worker::HandleShardAssignment(const ShardAssignmentRequest& shard_req, EmptyMessage *resp,
-		const RPCInfo& rpc){
-//  LOG(INFO) << "Shard assignment: " << shard_req.DebugString();
-	for(int i = 0; i < shard_req.assign_size(); ++i){
-		const ShardAssignment &a = shard_req.assign(i);
-		GlobalTableBase *t = TableRegistry::Get()->table(a.table());
-		int old_owner = t->owner(a.shard());
-		t->get_partition_info(a.shard())->sinfo.set_owner(a.new_worker());
-
-		VLOG(3) << "Setting owner: " << MP(a.shard(), a.new_worker());
-
-		if(a.new_worker() == id() && old_owner != id()){
-			VLOG(1) << "Setting self as owner of " << MP(a.table(), a.shard());
-
-			// Don't consider ourselves canonical for this shard until we receive updates
-			// from the old owner.
-			if(old_owner != -1){
-				LOG(INFO)<< "Setting " << MP(a.table(), a.shard())
-				<< " as tainted.  Old owner was: " << old_owner
-				<< " new owner is :  " << id();
-				t->get_partition_info(a.shard())->tainted = true;
-			}
-		} else if (old_owner == id() && a.new_worker() != id()){
-			VLOG(1) << "Lost ownership of " << MP(a.table(), a.shard()) << " to " << a.new_worker();
-			// A new worker has taken ownership of this shard.  Flush our data out.
-			t->get_partition_info(a.shard())->dirty = true;
-			dirty_tables_.insert(t);
-		}
-	}
-}
-
-void Worker::HandleFlush(const EmptyMessage& req, EmptyMessage *resp, const RPCInfo& rpc){
-	Timer net;
-
-	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
-	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
-		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
-		if(t){
-			t->SendUpdates();
-		}
-	}
-
-	network_->Flush();
-	stats_["network_time"] += net.elapsed();
-}
-
 void Worker::FlushUpdates(){
 	//VLOG(2) << "finish one pass";
 	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
@@ -503,24 +406,10 @@ void Worker::FlushUpdates(){
 	}
 }
 
-void Worker::HandleApply(const EmptyMessage& req, EmptyMessage *resp, const RPCInfo& rpc){
-	HandlePutRequest();
-}
-
-void Worker::HandleEnableTrigger(const EnableTrigger& req, EmptyMessage *resp, const RPCInfo& rpc){
-
-	TableRegistry::Get()->tables()[req.table()]->trigger(req.trigger_id())->enable(req.enable());
-}
-
-void Worker::HandleTermNotification(const TerminationNotification& req, EmptyMessage* resp,
-		const RPCInfo& rpc){
-	GlobalTableBase *ta = TableRegistry::Get()->table(0);              //we have only 1 table, index 0
-	DLOG(INFO)<<"worker "<<id()<<" get a termination notification.";
-	for(int i = 0; i < ta->num_shards(); ++i){
-		if(ta->is_local_shard(i)){
-			ta->get_partition(i)->terminate();
-		}
-	}
+void Worker::sendReply(const RPCInfo& rpc){
+	ReplyMessage rm;
+	rm.set_type(static_cast<MessageTypes>(rpc.tag));
+	network_->Send(rpc.source, MTYPE_REPLY, rm);
 }
 
 void Worker::CheckForMasterUpdates(){
@@ -555,7 +444,7 @@ void Worker::CheckForMasterUpdates(){
 
 bool StartWorker(const ConfigData& conf){
 	//TODO: change back after message-driven is finished
-	if(NetworkImplMPI::GetInstance()->id() == 0) return false;
+	if(NetworkImplMPI::GetInstance()->id() == conf.master_id()) return false;
 
 	Worker w(conf);
 	w.Run();
