@@ -10,10 +10,10 @@
 
 #include "Dispatcher.hpp"
 #include "net/RPCInfo.h"
-//#include <google/protobuf/message.h>
 #include <deque>
 #include <string>
 //#include <thread>
+#include <mutex>
 #include <functional>
 
 namespace dsm {
@@ -27,17 +27,20 @@ public:
 	static callback_t GetDummyHandler();
 
 	MsgDriver();
+	void terminate();
+	bool empty() const;
+	bool busy() const;
+
+	// Link an inputer source to read from.
+	void linkInputter(NetworkThread* input);
 	// Launch the Message Driver. Data flow is as below:
 	// data->immediateDispatcher--+-->queue->processDispatcher-+->end
 	//                            +-->processed->end           +->defaultHandle->end
 	void delegated_run();
-	void terminate();
 	//TODO: change run() to be a launcher of next 2 thread.
 //	void inputThread();
 //	void outputThread();
 
-	// Link an inputer source to read from.
-	void linkInputter(NetworkThread* input);
 	// For message should be handled at receiving time (i.e. alive check)
 	void registerImmediateHandler(const int type, callback_t cb, bool spawnThread=false);
 	void unregisterImmediateHandler(const int type);
@@ -69,9 +72,10 @@ private:
 	bool running_;
 	NetworkThread *net;
 
-	Dispatcher<const std::string&, const RPCInfo&> netDisper; //immediately response
+	Dispatcher<const std::string&, const RPCInfo&> inDisper; //immediately response
 	std::deque<std::pair<std::string, RPCInfo> > que; //queue for message waiting for process
-	Dispatcher<const std::string&, const RPCInfo&> queDisper; //response when processed
+	mutable std::mutex lockQue;
+	Dispatcher<const std::string&, const RPCInfo&> outDisper; //response when processed
 	callback_t defaultHandler;
 };
 

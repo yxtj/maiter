@@ -33,22 +33,28 @@ MsgDriver::MsgDriver():running_(false),net(nullptr)
 void MsgDriver::terminate(){
 	running_=false;
 }
+bool MsgDriver::empty() const{
+	return !inDisper.busy() && que.empty();
+}
+bool MsgDriver::busy() const{
+	return inDisper.busy() || !outDisper.busy() || que.empty();
+}
 
 //Register
 void MsgDriver::linkInputter(NetworkThread* inputter){
 	net=inputter;
 }
 void MsgDriver::registerImmediateHandler(const int type, callback_t cb, bool spawnThread){
-	netDisper.registerDispFun(type,cb,spawnThread);
+	inDisper.registerDispFun(type,cb,spawnThread);
 }
 void MsgDriver::unregisterImmediateHandler(const int type){
-	netDisper.unregisterDispFun(type);
+	inDisper.unregisterDispFun(type);
 }
 void MsgDriver::registerProcessHandler(const int type, callback_t cb, bool spawnThread){
-	queDisper.registerDispFun(type,cb,spawnThread);
+	outDisper.registerDispFun(type,cb,spawnThread);
 }
 void MsgDriver::unregisterProcessHandler(const int type){
-	queDisper.unregisterDispFun(type);
+	outDisper.unregisterDispFun(type);
 }
 void MsgDriver::registerDefaultOutHandler(callback_t cb){
 	defaultHandler=cb;
@@ -56,10 +62,10 @@ void MsgDriver::registerDefaultOutHandler(callback_t cb){
 
 //reset & clear
 void MsgDriver::resetImmediateHandler(){
-	netDisper.clear();
+	inDisper.clear();
 }
 void MsgDriver::resetProcessHandler(){
-	queDisper.clear();
+	outDisper.clear();
 }
 void MsgDriver::resetWaitingQueue(){
 	que.clear();
@@ -88,14 +94,15 @@ bool MsgDriver::readUnblocked(string& msg, RPCInfo& info){
 
 //Process
 bool MsgDriver::processInput(string& data, RPCInfo& info){
-	if(!netDisper.receiveData(info.tag, data, info)){
+	if(!inDisper.receiveData(info.tag, data, info)){
+		lock_guard<mutex> ql(lockQue);
 		que.push_back(make_pair(move(data),move(info)));
 		return true;
 	}
 	return false;
 }
 bool MsgDriver::processOutput(string& data, RPCInfo& info){
-	if(!queDisper.receiveData(info.tag, data, info)){
+	if(!outDisper.receiveData(info.tag, data, info)){
 		defaultHandler(data,info);
 		return true;
 	}
