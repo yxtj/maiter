@@ -30,7 +30,7 @@ public:
 	// Launch the Message Driver. Data flow is as below:
 	// data->immediateDispatcher--+-->queue->processDispatcher-+->end
 	//                            +-->processed->end           +->defaultHandle->end
-	void run();
+	void delegated_run();
 	void terminate();
 	//TODO: change run() to be a launcher of next 2 thread.
 //	void inputThread();
@@ -39,10 +39,10 @@ public:
 	// Link an inputer source to read from.
 	void linkInputter(NetworkThread* input);
 	// For message should be handled at receiving time (i.e. alive check)
-	void registerImmediateHandler(const int type, callback_t cb);
+	void registerImmediateHandler(const int type, callback_t cb, bool spawnThread=false);
 	void unregisterImmediateHandler(const int type);
 	// For message should be handled in sequence (i.e. data update)
-	void registerProcessHandler(const int type, callback_t cb);
+	void registerProcessHandler(const int type, callback_t cb, bool spawnThread=false);
 	void unregisterProcessHandler(const int type);
 
 	void registerDefaultOutHandler(callback_t cb);
@@ -55,10 +55,17 @@ public:
 
 	void readBlocked(std::string& data, RPCInfo& info);
 	bool readUnblocked(std::string& data, RPCInfo& info);
-	void processInput(std::string& data, RPCInfo& info);
-	void processOutput(const std::string& data, const RPCInfo& info);
+
+	// return whether the input bypasses the dispatcher (enqueue)
+	bool pushData(std::string& data, RPCInfo& info);
+	// return whether a value is picked and bypasses the dispatcher (default handled)
+	bool popData();
 
 private:
+	//return whether the provided data bypasses dispatcher (enqueue & default handled)
+	bool processInput(std::string& data, RPCInfo& info);
+	bool processOutput(std::string& data, RPCInfo& info);
+
 	bool running_;
 	NetworkThread *net;
 

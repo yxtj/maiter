@@ -38,14 +38,14 @@ void MsgDriver::terminate(){
 void MsgDriver::linkInputter(NetworkThread* inputter){
 	net=inputter;
 }
-void MsgDriver::registerImmediateHandler(const int type, callback_t cb){
-	netDisper.registerDispFun(type,cb);
+void MsgDriver::registerImmediateHandler(const int type, callback_t cb, bool spawnThread){
+	netDisper.registerDispFun(type,cb,spawnThread);
 }
 void MsgDriver::unregisterImmediateHandler(const int type){
 	netDisper.unregisterDispFun(type);
 }
-void MsgDriver::registerProcessHandler(const int type, callback_t cb){
-	queDisper.registerDispFun(type,cb);
+void MsgDriver::registerProcessHandler(const int type, callback_t cb, bool spawnThread){
+	queDisper.registerDispFun(type,cb,spawnThread);
 }
 void MsgDriver::unregisterProcessHandler(const int type){
 	queDisper.unregisterDispFun(type);
@@ -87,17 +87,33 @@ bool MsgDriver::readUnblocked(string& msg, RPCInfo& info){
 }
 
 //Process
-void MsgDriver::processInput(string& data, RPCInfo& info){
-	if(!netDisper.receiveData(info.tag, data, info))
+bool MsgDriver::processInput(string& data, RPCInfo& info){
+	if(!netDisper.receiveData(info.tag, data, info)){
 		que.push_back(make_pair(move(data),move(info)));
+		return true;
+	}
+	return false;
 }
-void MsgDriver::processOutput(const string& data, const RPCInfo& info){
-	if(!queDisper.receiveData(info.tag, data, info))
+bool MsgDriver::processOutput(string& data, RPCInfo& info){
+	if(!queDisper.receiveData(info.tag, data, info)){
 		defaultHandler(data,info);
+		return true;
+	}
+	return false;
 }
 
-//Main working process
-void MsgDriver::run(){
+//Main working functions
+bool MsgDriver::pushData(string& data, RPCInfo& info){
+	return processInput(data,info);
+}
+bool MsgDriver::popData(){
+	if(que.empty())	return false;
+	pair<string, RPCInfo> t=move(que.front());
+	que.pop_front();
+	return processOutput(t.first, t.second);
+}
+
+void MsgDriver::delegated_run(){
 	if(net==nullptr){
 		LOG(FATAL)<<"input source has not been set.";
 	}
@@ -109,12 +125,12 @@ void MsgDriver::run(){
 		bool idled=true;
 		//input
 		while(readUnblocked(data,info)){
-			processInput(data,info);
+			pushData(data,info);
 			idled=false;
 		}
 		//output
 		while(!que.empty()){
-			const pair<string, RPCInfo>& t=que.front();
+			pair<string, RPCInfo>& t=que.front();
 			processOutput(t.first, t.second);
 			que.pop_front();
 			idled=false;
