@@ -104,10 +104,10 @@ Master::~Master(){
 }
 
 void Master::SyncSwapRequest(const SwapTable& req){
-	NetworkThread::Get()->SyncBroadcast(MTYPE_SWAP_TABLE, req);
+	network_->SyncBroadcast(MTYPE_SWAP_TABLE, req);
 }
 void Master::SyncClearRequest(const ClearTable& req){
-	NetworkThread::Get()->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
+	network_->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
 }
 
 void Master::start_checkpoint(){
