@@ -80,11 +80,11 @@ void Worker::registerWorker(){
 
 void Worker::Run(){
 	registerWorker();
-	thread t(bind(&Worker::MsgLoop,this));
-//	MsgLoop();
+//	thread t(bind(&Worker::MsgLoop,this));
+	MsgLoop();
 //	thread t(bind(&Worker::KernelLoop,this));
-	KernelLoop();
-	t.join();
+//	KernelLoop();
+//	t.join();
 }
 
 void Worker::MsgLoop(){
@@ -96,6 +96,9 @@ void Worker::MsgLoop(){
 			driver.pushData(data,info);
 		}
 		Sleep();
+		while(!driver.empty()){
+			driver.popData();
+		}
 	}
 }
 
@@ -134,15 +137,9 @@ void Worker::waitKernel(){
 }
 void Worker::runKernel(){
 	KernelInfo *helper = KernelRegistry::Get()->kernel(kreq.kernel());
-	KernelId id(kreq.kernel(), kreq.table(), kreq.shard());
-	DSMKernel* d = kernels_[id];
-
-	if(!d){
-		d = helper->create();
-		kernels_[id] = d;
-		d->initialize_internal(this, kreq.table(), kreq.shard());
-		d->InitKernel();
-	}
+	DSMKernel* d = helper->create();
+	d->initialize_internal(this, kreq.table(), kreq.shard());
+	d->InitKernel();
 
 	MarshalledMap args;
 	args.FromMessage(kreq.args());
@@ -154,6 +151,7 @@ void Worker::runKernel(){
 
 	// Run the user kernel
 	helper->Run(d, kreq.method());
+	delete d;
 }
 void Worker::finishKernel(){
 	KernelDone kd;
@@ -376,7 +374,7 @@ void Worker::HandlePutRequest(){
 							<< MP(put.table(), put.shard());
 
 		MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
-		t->ApplyUpdates(put);
+		t->MergeUpdates(put);
 
 		// Record messages from our peer channel up until they checkpointed.
 		if(active_checkpoint_ == CP_MASTER_CONTROLLED

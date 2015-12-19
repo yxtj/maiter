@@ -69,7 +69,8 @@ class MutableGlobalTableBase: virtual public GlobalTableBase{
 public:
 	// Handle updates from the master or other workers.
 	virtual void SendUpdates() = 0;
-	virtual void ApplyUpdates(const KVPairData& req) = 0;
+	virtual void MergeUpdates(const KVPairData& req) = 0;
+	virtual void ProcessUpdates() = 0;
 //	virtual void HandlePutRequests() = 0;
 	virtual void TermCheck() = 0;
 
@@ -80,7 +81,7 @@ public:
 
 	// Exchange the content of this table with that of table 'b'.
 	virtual void swap(GlobalTableBase *b) = 0;
-	protected:
+protected:
 	friend class Worker;
 	virtual void local_swap(GlobalTableBase *b) = 0;
 };
@@ -154,7 +155,8 @@ public:
 
 	void BufSend();
 	void SendUpdates();
-	virtual void ApplyUpdates(const KVPairData& req) = 0;
+	virtual void MergeUpdates(const KVPairData& req) = 0;
+	virtual void ProcessUpdates() = 0;
 //	void HandlePutRequests();
 	void TermCheck();
 

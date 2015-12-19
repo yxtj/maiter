@@ -136,29 +136,6 @@ private:
 	NetworkThread2 *network_;
 	unordered_set<GlobalTableBase*> dirty_tables_;
 
-	struct KernelId{
-		std::string kname_;
-		int table_;
-		int shard_;
-
-		KernelId(std::string kname, int table, int shard) :
-				kname_(kname), table_(table), shard_(shard){
-		}
-
-#define CMP_LESS(a, b, member)\
-  if ((a).member < (b).member) { return true; }\
-  if ((b).member < (a).member) { return false; }
-
-		bool operator<(const KernelId& o) const{
-			CMP_LESS(*this, o, kname_);
-			CMP_LESS(*this, o, table_);
-			CMP_LESS(*this, o, shard_);
-			return false;
-		}
-	};
-
-	std::map<KernelId, DSMKernel*> kernels_;
-
 	Stats stats_;
 
 	MsgDriver driver;

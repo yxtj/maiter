@@ -13,6 +13,7 @@
 //#include <iostream>
 #include <string>
 #include <map>
+#include <thread>
 
 DECLARE_string(graph_dir);
 
@@ -241,8 +242,8 @@ public:
 			//set false, no inteligient stop scheme, which can check whether there are changes in statetable
 
 			//get the iterator of the local state table
-			typename TypedGlobalTable<K, V, V, D>::Iterator *it2 = tgt->get_typed_iterator(
-					current_shard(), false);
+			typename TypedGlobalTable<K, V, V, D>::Iterator *it2 =
+					tgt->get_typed_iterator(current_shard(), true);
 			if(it2 == nullptr) break;
 
 			//should not use for(;!it->done();it->Next()), that will skip some entry
@@ -253,7 +254,8 @@ public:
 				updates++;                      //for experiment, recording the number of updates
 
 //                cout << "processing " << it2->key() << " " << it2->value1() << " " << it2->value2() << endl;
-				run_iter(it2->key(), it2->value1(), it2->value2(), it2->value3());
+//				run_iter(it2->key(), it2->value1(), it2->value2(), it2->value3());
+				maiter->table->ProcessUpdatesSingle(it2->key(), it2->value1(), it2->value2(), it2->value3());
 			}
 			delete it2;                         //delete the table iterator
 
@@ -266,7 +268,17 @@ public:
 
 	void map(){
 		VLOG(0) << "start performing iterative update";
-		run_loop(maiter->table);
+//		run_loop(maiter->table);
+		maiter->table->ProcessUpdates();
+		Table* t=nullptr;
+		for(int i = 0; i < maiter->table->num_shards(); ++i){
+			if(maiter->table->is_local_shard(i))
+				t=maiter->table->get_partition(i);
+		}
+		while(t->alive()){
+			maiter->table->SendUpdates();
+			std::this_thread::sleep_for(std::chrono::duration<double>(0.01));
+		}
 	}
 };
 

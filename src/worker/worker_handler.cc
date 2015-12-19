@@ -40,10 +40,11 @@ void Worker::registerHandlers(){
 	RegDSPImmediate(MTYPE_ENABLE_TRIGGER, &Worker::HandleEnableTrigger2);
 	RegDSPImmediate(MTYPE_TERMINATION, &Worker::HandleTermNotification2);
 
-	RegDSPImmediate(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel2);
+	RegDSPImmediate(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel2,true);
 	RegDSPImmediate(MTYPE_WORKER_SHUTDOWN, &Worker::HandleShutdown2);
 	RegDSPImmediate(MTYPE_REPLY, &Worker::HandleReply);
-	RegDSPImmediate(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest2);
+
+	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest2);
 	return;
 
 //	RegisterCallback2(MTYPE_SHARD_ASSIGNMENT, &Worker::HandleShardAssignment2, this);
@@ -69,20 +70,11 @@ void Worker::HandlePutRequest2(const string& d, const RPCInfo& info){
 		return;
 	}
 
-	VLOG(2) << "Read put request of size: " << put.kv_data_size() << " for "
+	DVLOG(1) << "Read put request of size: " << put.kv_data_size() << " for "
 						<< MP(put.table(), put.shard());
 
 	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
-	t->ApplyUpdates(put);
-
-	// Record messages from our peer channel up until they checkpointed.
-	if(active_checkpoint_ == CP_MASTER_CONTROLLED
-			|| (active_checkpoint_ == CP_ROLLING && put.epoch() < epoch_)){
-		if(checkpoint_tables_.find(t->id()) != checkpoint_tables_.end()){
-			Checkpointable *ct = dynamic_cast<Checkpointable*>(t);
-			ct->write_delta(put);
-		}
-	}
+	t->MergeUpdates(put);
 
 	if(put.done() && t->tainted(put.shard())){
 		VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());
@@ -177,7 +169,7 @@ void Worker::HandleEnableTrigger2(const string& d, const RPCInfo& rpc){
 void Worker::HandleTermNotification2(const string& d, const RPCInfo& rpc){
 	TerminationNotification req;
 	req.ParseFromString(d);
-	GlobalTableBase *ta = TableRegistry::Get()->table(0);              //we have only 1 table, index 0
+	GlobalTableBase *ta = TableRegistry::Get()->table(0);	//we have only 1 table, index 0
 	DLOG(INFO)<<"worker "<<id()<<" get a termination notification.";
 	for(int i = 0; i < ta->num_shards(); ++i){
 		if(ta->is_local_shard(i)){
@@ -190,7 +182,19 @@ void Worker::HandleRunKernel2(const std::string& d, const RPCInfo& rpc){
 	kreq.ParseFromString(d);
 	running_kernel_=true;
 	sendReply(rpc);
-
+//	if(kreq.kernel()=="MaiterKernel2"){
+//		//temporary implementation of MaiterKernel2
+//		GlobalTableBase* t=TableRegistry::Get()->table(0);
+//		//start working
+//		dynamic_cast<MutableGlobalTableBase*>(t)->ProcessUpdates();
+//		while(t->alive()){
+//			this_thread::sleep_for(chrono::duration<double>(0.01));
+//		}
+//	}else
+	{
+		runKernel();
+	}
+	finishKernel();
 }
 void Worker::HandleShutdown2(const string& , const RPCInfo& rpc){
 	if(config_.master_id()==rpc.source){

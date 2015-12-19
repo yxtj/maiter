@@ -16,7 +16,8 @@ DEFINE_int32(edge_size, 1000, "");
 DEFINE_bool(build_graph, false, "");
 DEFINE_bool(dump_results, false, "");
 
-DEFINE_int32(bufmsg, 1000000, "");
+DEFINE_int32(bufmsg, 10000, "expected minimum number of message per sending");
+DEFINE_double(buftime, 3, "maximum time interval between 2 sendings");
 
 DEFINE_string(graph_dir, "subgraphs", "");
 DEFINE_string(result_dir, "result", "");

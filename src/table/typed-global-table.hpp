@@ -14,6 +14,7 @@
 #include "table.h"
 #include "tbl_widget/sharder.h"
 #include "tbl_widget/term_checker.h"
+#include "tbl_widget/IterateKernel.h"
 #include "util/marshal.hpp"
 #include "util/stringpiece.h"
 #include "util/noncopyable.h"
@@ -38,7 +39,6 @@ public:
 		return binit;
 	}
 
-	typedef std::pair<K, V1> KVPair;
 	typedef TypedTableIterator<K, V1, V2, V3> Iterator;
 	typedef NetDecodeIterator<K, V1> NetUpdateDecoder;
 	virtual void Init(const TableDescriptor *tinfo){
@@ -47,8 +47,6 @@ public:
 		for(int i = 0; i < partitions_.size(); ++i){
 			partitions_[i] = create_deltaT(i);
 		}
-		//Clear the update queue, just in case
-		update_queue.clear();
 		binit = false;
 	}
 
@@ -74,7 +72,7 @@ public:
 	void updateF1(const K &k, const V1 &v);
 	void updateF2(const K &k, const V2 &v);
 	void updateF3(const K &k, const V3 &v);
-	void enqueue_updateF1(K k, V1 v);
+//	void enqueue_updateF1(K k, V1 v);
 	void accumulateF1(const K &k, const V1 &v); // 2 TypeGloobleTable :TypeTable
 	void accumulateF2(const K &k, const V2 &v);
 	void accumulateF3(const K &k, const V3 &v);
@@ -89,7 +87,7 @@ public:
 
 	TableIterator* get_iterator(int shard, bool bfilter, unsigned int fetch_num = FETCH_NUM);
 
-	TypedTable<K, V1, V2, V3>* partition(int idx){
+	TypedTable<K, V1, V2, V3>* localT(int idx){
 		return dynamic_cast<TypedTable<K, V1, V2, V3>*>(partitions_[idx]);
 	}
 
@@ -97,8 +95,8 @@ public:
 		return dynamic_cast<PTypedTable<K, V1, V3>*>(partitions_[idx]);
 	}
 
-	virtual TypedTableIterator<K, V1, V2, V3>* get_typed_iterator(int shard, bool bfilter,
-			unsigned int fetch_num = FETCH_NUM){
+	virtual TypedTableIterator<K, V1, V2, V3>* get_typed_iterator(
+			int shard, bool bfilter, unsigned int fetch_num = FETCH_NUM){
 		return dynamic_cast<TypedTableIterator<K, V1, V2, V3>*>(
 				get_iterator(shard, bfilter,fetch_num));
 	}
@@ -108,15 +106,14 @@ public:
 				partitions_[shard]->entirepass_iterator(this->helper()));
 	}
 
-	void ApplyUpdates(const dsm::KVPairData& req){
+	void MergeUpdates(const dsm::KVPairData& req){
 		std::lock_guard<std::recursive_mutex> sl(mutex());
 
 		VLOG(2) << "applying updates, from " << req.source();
 
 		if(!is_local_shard(req.shard())){
-			LOG_EVERY_N(INFO, 1000)
-			<< "Forwarding push request from: (" << id()<<","<<req.shard()
-					<< ") to " << owner(req.shard());
+			LOG_EVERY_N(INFO, 1000)<< "Forwarding push request from: ("
+				<< id()<<","<<req.shard() << ") to " << owner(req.shard());
 		}
 
 		// Changes to support centralized of triggers <CRM>
@@ -130,7 +127,45 @@ public:
 			accumulateF1(it.key(), it.value1());
 		}
 
+		ProcessUpdates();
 		TermCheck();
+	}
+
+	void ProcessUpdates(){
+		//get the iterator of the local state table
+		Iterator *it2 = get_typed_iterator(helper_id(), true);
+		if(it2 == nullptr){
+			DLOG(INFO)<<"invalid iterator at ProcessUpdates";
+			return;
+		}
+		//should not use for(;!it->done();it->Next()), that will skip some entry
+		while(!it2->done()){
+			bool cont = it2->Next();        //if we have more in the state table, we continue
+			if(!cont) break;
+			ProcessUpdatesSingle(it2->key(), it2->value1(), it2->value2(), it2->value3());
+		}
+		delete it2;                         //delete the table iterator
+	}
+	void ProcessUpdatesSingle(const K& k, V1& v1, V2& v2, V3& v3){
+		IterateKernel<K, V1, V3>* kernel=
+				static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
+		//pre-process
+		kernel->process_delta_v(k, v1, v2, v3);
+		//perform v=v+delta_v
+		//process delta_v before accumulate
+		accumulateF2(k, v1);
+		//invoke api, perform g(delta_v) and send messages to out-neighbors
+		std::vector<std::pair<K,V1> > output;
+		output.reserve(v3.size());
+		kernel->g_func(k, v1, v2, v3, &output);
+		//perform delta_v=0, reset delta_v after delta_v has been spread out
+		updateF1(k, kernel->default_v());
+
+		//send the buffered messages to remote state table
+		for(auto& kvpair : output){
+			//apply the output messages to remote state table
+			accumulateF1(kvpair.first, kvpair.second);
+		}
 	}
 
 	Marshal<K> *kmarshal(){
@@ -150,7 +185,6 @@ protected:
 	int shard_for_key_str(const StringPiece& k);
 	virtual LocalTable* create_localT(int shard);
 	virtual LocalTable* create_deltaT(int shard);
-	std::deque<KVPair> update_queue;
 	bool binit;
 };
 
@@ -179,7 +213,7 @@ V1 TypedGlobalTable<K, V1, V2, V3>::get_localF1(const K& k){
 
 	CHECK(is_local_shard(shard)) << " non-local for shard: " << shard;
 
-	return partition(shard)->getF1(k);
+	return localT(shard)->getF1(k);
 }
 
 template<class K, class V1, class V2, class V3>
@@ -188,7 +222,7 @@ V2 TypedGlobalTable<K, V1, V2, V3>::get_localF2(const K& k){
 
 	CHECK(is_local_shard(shard)) << " non-local for shard: " << shard;
 
-	return partition(shard)->getF2(k);
+	return localT(shard)->getF2(k);
 }
 
 template<class K, class V1, class V2, class V3>
@@ -197,7 +231,7 @@ V3 TypedGlobalTable<K, V1, V2, V3>::get_localF3(const K& k){
 
 	CHECK(is_local_shard(shard)) << " non-local for shard: " << shard;
 
-	return partition(shard)->getF3(k);
+	return localT(shard)->getF3(k);
 }
 
 // Store the given key-value pair in this hash. If 'k' has affinity for a
@@ -210,22 +244,12 @@ void TypedGlobalTable<K, V1, V2, V3>::put(const K &k, const V1 &v1, const V2 &v2
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<std::recursive_mutex> sl(mutex());
 #endif
-
 	if(is_local_shard(shard)){
-		partition(shard)->put(k, v1, v2, v3);
+		localT(shard)->put(k, v1, v2, v3);
 	}else{
 		VLOG(1) << "not local put";
 		++pending_writes_;
 	}
-
-	//if (pending_writes_ > kWriteFlushCount) {
-	//SendUpdates();
-	//}
-	//BufSend();
-
-//	PERIODIC(0.1, {
-//		this->HandlePutRequests();
-//	});
 }
 
 template<class K, class V1, class V2, class V3>
@@ -238,7 +262,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF1(const K &k, const V1 &v){
 #endif
 
 	if(is_local_shard(shard)){
-		partition(shard)->updateF1(k, v);
+		localT(shard)->updateF1(k, v);
 
 		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
 	}else{
@@ -249,14 +273,6 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF1(const K &k, const V1 &v){
 //	PERIODIC(0.1, {
 //		this->HandlePutRequests();
 //	});
-	/*
-	 //Deal with updates enqueued inside triggers
-	 while(!update_queue.empty()) {
-	 KVPair thispair(update_queue.front());
-	 update_queue.pop_front();
-	 update(thispair.first,thispair.second);
-	 }
-	 */
 }
 
 template<class K, class V1, class V2, class V3>
@@ -269,7 +285,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF2(const K &k, const V2 &v){
 #endif
 
 	if(is_local_shard(shard)){
-		partition(shard)->updateF2(k, v);
+		localT(shard)->updateF2(k, v);
 
 		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
 	}else{
@@ -288,7 +304,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF3(const K &k, const V3 &v){
 #endif
 
 	if(is_local_shard(shard)){
-		partition(shard)->updateF3(k, v);
+		localT(shard)->updateF3(k, v);
 
 		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
 	}else{
@@ -308,18 +324,13 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &k, const V1 &v){ //3
 
 	if(is_local_shard(shard)){
 		//VLOG(1) << this->owner(shard) << ":" << shard << " accumulate " << v << " on local " << k;
-		partition(shard)->accumulateF1(k, v);  //TypeTable
+		localT(shard)->accumulateF1(k, v);  //TypeTable
 	}else{
 		//VLOG(1) << this->owner(shard) << ":" << shard << " accumulate " << v << " on remote " << k;
 		deltaT(shard)->accumulate(k, v);
 
 		++pending_writes_;
-		if(pending_writes_ > FLAGS_bufmsg){
-			SendUpdates();
-		}
-		//BufSend();
-
-		//PERIODIC(0.1, {this->HandlePutRequests();});
+		BufSend();
 	}
 }
 
@@ -333,7 +344,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF2(const K &k, const V2 &v){ // 
 #endif
 
 	if(is_local_shard(shard)){
-		partition(shard)->accumulateF2(k, v); // Typetable
+		localT(shard)->accumulateF2(k, v); // Typetable
 
 		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
 	}else{
@@ -352,7 +363,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF3(const K &k, const V3 &v){
 #endif
 
 	if(is_local_shard(shard)){
-		partition(shard)->accumulateF3(k, v);
+		localT(shard)->accumulateF3(k, v);
 
 		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
 	}else{
@@ -361,11 +372,11 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF3(const K &k, const V3 &v){
 	}
 }
 
-template<class K, class V1, class V2, class V3>
-void TypedGlobalTable<K, V1, V2, V3>::enqueue_updateF1(K k, V1 v){
-	KVPair thispair(k, v);
-	update_queue.push_back(thispair);
-}
+//template<class K, class V1, class V2, class V3>
+//void TypedGlobalTable<K, V1, V2, V3>::enqueue_updateF1(K k, V1 v){
+//	KVPair thispair(k, v);
+//	update_queue.push_back(thispair);
+//}
 
 // Return the value associated with 'k', possibly blocking for a remote fetch.
 template<class K, class V1, class V2, class V3>
@@ -376,7 +387,7 @@ ClutterRecord<K, V1, V2, V3> TypedGlobalTable<K, V1, V2, V3>::get(const K &k){
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<std::recursive_mutex> sl(mutex());
 #endif
-	return partition(shard)->get(k);
+	return localT(shard)->get(k);
 }
 
 // Return the value associated with 'k', possibly blocking for a remote fetch.
@@ -389,7 +400,7 @@ V1 TypedGlobalTable<K, V1, V2, V3>::getF1(const K &k){
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<std::recursive_mutex> sl(mutex());
 #endif
-	return partition(shard)->getF1(k);
+	return localT(shard)->getF1(k);
 }
 
 // Return the value associated with 'k', possibly blocking for a remote fetch.
@@ -402,7 +413,7 @@ V2 TypedGlobalTable<K, V1, V2, V3>::getF2(const K &k){
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<std::recursive_mutex> sl(mutex());
 #endif
-	return partition(shard)->getF2(k);
+	return localT(shard)->getF2(k);
 }
 
 // Return the value associated with 'k', possibly blocking for a remote fetch.
@@ -415,7 +426,7 @@ V3 TypedGlobalTable<K, V1, V2, V3>::getF3(const K &k){
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<std::recursive_mutex> sl(mutex());
 #endif
-	return partition(shard)->getF3(k);
+	return localT(shard)->getF3(k);
 }
 
 template<class K, class V1, class V2, class V3>
@@ -426,7 +437,7 @@ bool TypedGlobalTable<K, V1, V2, V3>::contains(const K &k){
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 		std::lock_guard<std::recursive_mutex> sl(mutex());
 #endif
-		return partition(shard)->contains(k);
+		return localT(shard)->contains(k);
 	}else{
 		return false;
 	}
@@ -437,7 +448,7 @@ bool TypedGlobalTable<K, V1, V2, V3>::remove(const K &k){
 	int shard = this->get_shard(k);
 
 	if(is_local_shard(shard)){
-		return partition(shard)->remove(k);
+		return localT(shard)->remove(k);
 		return true;
 	}else{
 		return false;

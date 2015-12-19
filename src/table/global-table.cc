@@ -1,7 +1,6 @@
 #include "global-table.h"
 #include "statetable.h"
-
-//#include "net/NetworkThread.h"
+#include "util/timer.h"
 #include <gflags/gflags.h>
 
 //static const int kMaxNetworkPending = 1 << 26;
@@ -10,6 +9,7 @@
 DEFINE_int32(snapshot_interval, 99999999, "");
 //DEFINE_int32(bufmsg, 1000000, "");
 DECLARE_int32(bufmsg);
+DECLARE_double(buftime);
 
 namespace dsm {
 
@@ -200,8 +200,12 @@ void ProtoKVPairCoder::WriteEntryToNet(StringPiece k, StringPiece v){
 }
 
 void MutableGlobalTable::BufSend(){
-	if(pending_writes_ > FLAGS_bufmsg){
-		VLOG(2) << "accumulate enought pending writes " << pending_writes_ << " we send them";
+	static Timer t;
+	if(pending_writes_ > FLAGS_bufmsg ||
+			(pending_writes_ != 0 && t.elapsed() > FLAGS_buftime))
+	{
+		VLOG(1) << "accumulate enought pending writes " << pending_writes_ << " we send them";
+		t.Reset();
 		SendUpdates();
 	}
 }

@@ -129,6 +129,9 @@ public:
 	void terminate(){
 		terminated_ = true;
 	}
+	bool alive() const{
+		return !terminated_;
+	}
 
 protected:
 	TableDescriptor info_;
