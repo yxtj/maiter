@@ -342,9 +342,9 @@ public:
 
 	TableIterator *get_iterator(TableHelper* helper, bool bfilter){
 		if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
-		helper->FlushUpdates();
-		std::this_thread::sleep_for(std::chrono::duration<double>(0.1) );
-		helper->HandlePutRequest();
+//		helper->FlushUpdates();
+//		std::this_thread::sleep_for(std::chrono::duration<double>(0.1) );
+//		helper->HandlePutRequest();
 //		DLOG_EVERY_N(INFO,100)<<getcallstack();
 
 		Iterator* iter = new Iterator(*this, true);
@@ -386,9 +386,9 @@ public:
 
 	TableIterator *schedule_iterator(TableHelper* helper, bool bfilter){
 		if(terminated_) return nullptr;
-		helper->FlushUpdates();
-		std::this_thread::sleep_for(std::chrono::duration<double>(0.1) );
-		helper->HandlePutRequest();
+//		helper->FlushUpdates();
+//		std::this_thread::sleep_for(std::chrono::duration<double>(0.1) );
+//		helper->HandlePutRequest();
 //		DLOG_EVERY_N(INFO,100)<<getcallstack();
 
 		ScheduledIterator* iter = new ScheduledIterator(*this, bfilter);

@@ -43,7 +43,7 @@ public:
 	typedef NetDecodeIterator<K, V1> NetUpdateDecoder;
 	virtual void Init(const TableDescriptor *tinfo){
 		GlobalTable::Init(tinfo);
-
+		// which is local cannot be known now
 		for(int i = 0; i < partitions_.size(); ++i){
 			partitions_[i] = create_deltaT(i);
 		}
@@ -121,6 +121,8 @@ public:
 		NetUpdateDecoder it;
 		partitions_[req.shard()]->deserializeFromNet(&c, &it);
 
+		//TODO: optimize.
+		//it had been guaranteed received shard is local by SendUpdates. But accumulateF1 check it each time
 		for(; !it.done(); it.Next()){
 			VLOG(2) << this->owner(req.shard()) << ":" << req.shard() << "read from remote "
 								<< it.key() << ";" << it.value1();
@@ -132,19 +134,24 @@ public:
 	}
 
 	void ProcessUpdates(){
-		//get the iterator of the local state table
-		Iterator *it2 = get_typed_iterator(helper_id(), true);
-		if(it2 == nullptr){
-			DLOG(INFO)<<"invalid iterator at ProcessUpdates";
-			return;
+		//handle multiple shards
+		for(int i=0;i<partitions_.size();++i){
+			if(!is_local_shard(i))
+				continue;
+			//get the iterator of the local state table
+			Iterator *it2 = get_typed_iterator(i, true);
+			if(it2 == nullptr){
+				DLOG(INFO)<<"invalid iterator at ProcessUpdates";
+				return;
+			}
+			//should not use for(;!it->done();it->Next()), that will skip some entry
+			while(!it2->done()){
+				bool cont = it2->Next();        //if we have more in the state table, we continue
+				if(!cont) break;
+				ProcessUpdatesSingle(it2->key(), it2->value1(), it2->value2(), it2->value3());
+			}
+			delete it2;
 		}
-		//should not use for(;!it->done();it->Next()), that will skip some entry
-		while(!it2->done()){
-			bool cont = it2->Next();        //if we have more in the state table, we continue
-			if(!cont) break;
-			ProcessUpdatesSingle(it2->key(), it2->value1(), it2->value2(), it2->value3());
-		}
-		delete it2;                         //delete the table iterator
 	}
 	void ProcessUpdatesSingle(const K& k, V1& v1, V2& v2, V3& v3){
 		IterateKernel<K, V1, V3>* kernel=

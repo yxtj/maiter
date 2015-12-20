@@ -209,76 +209,27 @@ public:
 	void set_maiter(MaiterKernel<K, V, D>* inmaiter){
 		maiter = inmaiter;
 	}
-	void run_iter(const K& k, V &v1, V &v2, D &v3){
-		//cout<<"delta:"<<v1<<endl;
-
-		maiter->iterkernel->process_delta_v(k, v1, v2, v3);
-
-		maiter->table->accumulateF2(k, v1);                               //perform v=v+delta_v
-																		  // process delta_v before accumulate
-		maiter->iterkernel->g_func(k, v1, v2, v3, &output); //invoke api, perform g(delta_v) and send messages to out-neighbors
-		//cout << " key " << k << endl;
-		maiter->table->updateF1(k, maiter->iterkernel->default_v()); //perform delta_v=0, reset delta_v after delta_v has been spread out
-
-		typename std::vector<std::pair<K, V> >::iterator iter;
-		for(iter = output.begin(); iter != output.end(); ++iter){	//send the buffered messages to remote state table
-			std::pair<K, V>& kvpair = *iter;
-			//cout << "accumulating " << kvpair.first << " with " <<kvpair.second << endl;
-			maiter->table->accumulateF1(kvpair.first, kvpair.second); //apply the output messages to remote state table
-		}
-		output.clear();                                                   //clear the output buffer
-
-	}
-
 	void run_loop(TypedGlobalTable<K, V, V, D>* tgt){
-		Timer timer;                        //for experiment, time recording
-		//double totalF1 = 0;                 //the sum of delta_v, it should be smaller and smaller as iterations go on
-		double totalF2 = 0;       //the sum of v, it should be larger and larger as iterations go on
-		long updates = 0;                   //for experiment, recording number of update operations
-//		output = new std::vector<std::pair<K, V> >;
-
-		//the main loop for iterative update
-		while(true){
-			//set false, no inteligient stop scheme, which can check whether there are changes in statetable
-
-			//get the iterator of the local state table
-			typename TypedGlobalTable<K, V, V, D>::Iterator *it2 =
-					tgt->get_typed_iterator(current_shard(), true);
-			if(it2 == nullptr) break;
-
-			//should not use for(;!it->done();it->Next()), that will skip some entry
-			while(!it2->done()){
-				bool cont = it2->Next();        //if we have more in the state table, we continue
-				if(!cont) break;
-				totalF2 += it2->value2();         //for experiment, recording the sum of v
-				updates++;                      //for experiment, recording the number of updates
-
-//                cout << "processing " << it2->key() << " " << it2->value1() << " " << it2->value2() << endl;
-//				run_iter(it2->key(), it2->value1(), it2->value2(), it2->value3());
-				maiter->table->ProcessUpdatesSingle(it2->key(), it2->value1(), it2->value2(), it2->value3());
-			}
-			delete it2;                         //delete the table iterator
-
-			//for experiment
-			//cout << "time " << timer.elapsed() << " worker " << current_shard() << " delta " << totalF1 <<
-			// " progress " << totalF2 << " updates " << updates <<
-			// " totalsent " << a->sent_bytes_ << " total " << endl;
+		tgt->ProcessUpdates();
+		std::vector<Table*> t;
+		for(int i = 0; i < tgt->num_shards(); ++i){
+			if(tgt->is_local_shard(i))
+				t.push_back(tgt->get_partition(i));
+		}
+		bool finish=false;
+		while(!finish){
+			finish=true;
+			for(Table* p : t)
+				if(p->alive())
+					finish=false;
+			tgt->BufSend();
+			std::this_thread::sleep_for(std::chrono::duration<double>(0.01));
 		}
 	}
 
 	void map(){
 		VLOG(0) << "start performing iterative update";
-//		run_loop(maiter->table);
-		maiter->table->ProcessUpdates();
-		Table* t=nullptr;
-		for(int i = 0; i < maiter->table->num_shards(); ++i){
-			if(maiter->table->is_local_shard(i))
-				t=maiter->table->get_partition(i);
-		}
-		while(t->alive()){
-			maiter->table->SendUpdates();
-			std::this_thread::sleep_for(std::chrono::duration<double>(0.01));
-		}
+		run_loop(maiter->table);
 	}
 };
 

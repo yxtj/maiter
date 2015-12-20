@@ -70,8 +70,8 @@ void Worker::HandlePutRequest2(const string& d, const RPCInfo& info){
 		return;
 	}
 
-	DVLOG(1) << "Read put request of size: " << put.kv_data_size() << " for "
-						<< MP(put.table(), put.shard());
+	DVLOG(1) << "Read put request of size: " << put.kv_data_size() << " for ("
+				<< put.table()<<","<<put.shard()<<")";
 
 	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
 	t->MergeUpdates(put);
@@ -178,24 +178,15 @@ void Worker::HandleTermNotification2(const string& d, const RPCInfo& rpc){
 	}
 	sendReply(rpc);
 }
+
 void Worker::HandleRunKernel2(const std::string& d, const RPCInfo& rpc){
 	kreq.ParseFromString(d);
 	running_kernel_=true;
 	sendReply(rpc);
-//	if(kreq.kernel()=="MaiterKernel2"){
-//		//temporary implementation of MaiterKernel2
-//		GlobalTableBase* t=TableRegistry::Get()->table(0);
-//		//start working
-//		dynamic_cast<MutableGlobalTableBase*>(t)->ProcessUpdates();
-//		while(t->alive()){
-//			this_thread::sleep_for(chrono::duration<double>(0.01));
-//		}
-//	}else
-	{
-		runKernel();
-	}
+	runKernel();
 	finishKernel();
 }
+
 void Worker::HandleShutdown2(const string& , const RPCInfo& rpc){
 	if(config_.master_id()==rpc.source){
 		VLOG(1) << "Shutting down worker " << config_.worker_id();

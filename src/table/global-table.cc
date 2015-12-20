@@ -204,7 +204,7 @@ void MutableGlobalTable::BufSend(){
 	if(pending_writes_ > FLAGS_bufmsg ||
 			(pending_writes_ != 0 && t.elapsed() > FLAGS_buftime))
 	{
-		VLOG(1) << "accumulate enought pending writes " << pending_writes_ << " we send them";
+		VLOG(2) << "accumulate pending writes " << pending_writes_ << ", in "<<t.elapsed();
 		t.Reset();
 		SendUpdates();
 	}
@@ -227,7 +227,8 @@ void MutableGlobalTable::SendUpdates(){
 
 				ProtoKVPairCoder c(&put);
 				t->serializeToNet(&c);
-				t->reset();
+//				t->reset();
+				t->clear();
 				put.set_done(true);
 
 				//VLOG(3) << "Sending update for " << MP(t->id(), t->shard()) << " to " << owner(i) << " size " << put.kv_data_size();
