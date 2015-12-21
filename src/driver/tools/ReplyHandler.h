@@ -40,17 +40,20 @@ public:
 		virtual bool update(const int source){return false;}
 		virtual ~Condition(){}
 	};
-	ReplyHandler();
 	//return whether this input is handled by this calling
 	bool input(const int type, const int source);
 
 	enum ConditionType{
 		ANY_ONE, EACH_ONE, GENERAL
 	};
-	Condition* conditionFactory(const ConditionType ct,
-			const int numSource=0, const std::vector<int>& expected={});
-	Condition* conditionFactory(const ConditionType ct,
-				const int numSource=0, std::vector<int>&& expected={});
+
+	static Condition* conditionFactory(const ConditionType ct);
+	static Condition* conditionFactory(
+			const ConditionType ct, const int numSource);
+	static Condition* conditionFactory(
+			const ConditionType ct, const std::vector<int>& expected);
+	static Condition* conditionFactory(
+			const ConditionType ct, std::vector<int>&& expected);
 
 	void addType(const int type, Condition* cond,
 			std::function<void()> fn, const bool spwanThread=false);
@@ -71,7 +74,11 @@ private:
 		Condition* cond;
 		bool spwanThread;
 		bool activated;
-		Item() = default;
+		Item():cond(nullptr),spwanThread(false),activated(false){}
+		Item(Item&& i):fn(move(i.fn)),cond(nullptr),
+				spwanThread(i.spwanThread),activated(i.activated){
+			std::swap(cond,i.cond);
+		}
 		Item(std::function<void()> f, Condition* c, const bool st):
 			fn(f), cond(c), spwanThread(st), activated(false){}
 		~Item(){

@@ -22,7 +22,6 @@ class NetworkThread;
 
 class MsgDriver{
 public:
-//	typedef google::protobuf::Message Message;
 	typedef Dispatcher<const std::string&, const RPCInfo&>::callback_t callback_t;
 	static callback_t GetDummyHandler();
 
@@ -33,6 +32,8 @@ public:
 
 	// Link an inputer source to read from.
 	void linkInputter(NetworkThread* input);
+	void readBlocked(std::string& data, RPCInfo& info);
+	bool readUnblocked(std::string& data, RPCInfo& info);
 	// Launch the Message Driver. Data flow is as below:
 	// data->immediateDispatcher--+-->queue->processDispatcher-+->end
 	//                            +-->processed->end           +->defaultHandle->end
@@ -55,9 +56,6 @@ public:
 	void resetDefaultOutHandler();
 	void resetWaitingQueue();
 	void clear();
-
-	void readBlocked(std::string& data, RPCInfo& info);
-	bool readUnblocked(std::string& data, RPCInfo& info);
 
 	// return whether the input bypasses the dispatcher (enqueue)
 	bool pushData(std::string& data, RPCInfo& info);

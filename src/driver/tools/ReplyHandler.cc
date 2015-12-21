@@ -5,7 +5,7 @@
  *      Author: tzhou
  */
 
-#include <driver/tools/ReplyHandler.h>
+#include "ReplyHandler.h"
 #include <algorithm>
 #include <thread>
 
@@ -35,9 +35,9 @@ private:
 };
 struct ConditionGeneral:public ReplyHandler::Condition{
 	ConditionGeneral(const vector<int>& expect):
-			state(expect.size()), expected(expect){}
+			expected(expect),state(expect){}
 	ConditionGeneral(vector<int>&& expect):
-			state(expect.size()), expected(expect){}
+			expected(expect),state(expected){}
 	bool update(const int source){
 		--state[source];
 		if(all_of(state.begin(), state.end(),[](const int v){return v<=0;})){
@@ -47,32 +47,37 @@ struct ConditionGeneral:public ReplyHandler::Condition{
 		return false;
 	}
 private:
-	vector<int> state;
 	vector<int> expected;
+	vector<int> state;
 };
 
-ReplyHandler::Condition* ReplyHandler::conditionFactory(const ConditionType ct,
-		const int numSource, const std::vector<int>& expected)
+ReplyHandler::Condition* ReplyHandler::conditionFactory(const ConditionType ct)
 {
-	switch(ct){
-	case ANY_ONE:
+	if(ct==ANY_ONE){
 		return new ConditionAny();
-	case EACH_ONE:
+	}
+	return new Condition();
+}
+ReplyHandler::Condition* ReplyHandler::conditionFactory(
+		const ConditionType ct, const int numSource)
+{
+	if(ct==EACH_ONE){
 		return new ConditionEachOne(numSource);
-	case GENERAL:
+	}
+	return new Condition();
+}
+ReplyHandler::Condition* ReplyHandler::conditionFactory(
+		const ConditionType ct, const std::vector<int>& expected)
+{
+	if(ct==GENERAL){
 		return new ConditionGeneral(expected);
 	}
 	return new Condition();
 }
-ReplyHandler::Condition* ReplyHandler::conditionFactory(const ConditionType ct,
-		const int numSource, std::vector<int>&& expected)
+ReplyHandler::Condition* ReplyHandler::conditionFactory(
+		const ConditionType ct, std::vector<int>&& expected)
 {
-	switch(ct){
-	case ANY_ONE:
-		return new ConditionAny();
-	case EACH_ONE:
-		return new ConditionEachOne(numSource);
-	case GENERAL:
+	if(ct==GENERAL){
 		return new ConditionGeneral(expected);
 	}
 	return new Condition();
@@ -84,7 +89,7 @@ ReplyHandler::Condition* ReplyHandler::conditionFactory(const ConditionType ct,
 
 bool ReplyHandler::input(const int type, const int source){
 	auto it=cont.find(type);
-	if(it==cont.end() || it->second.activated )	return false;
+	if(it==cont.end() && !it->second.activated )	return false;
 	if(it->second.cond->update(source)){
 		launch(it->second);
 	}
@@ -94,8 +99,8 @@ bool ReplyHandler::input(const int type, const int source){
 void ReplyHandler::addType(const int type, Condition* cond,
 		std::function<void()> fn, const bool spwanThread)
 {
-	cont[type]=Item(fn, cond, spwanThread);
-//	cont.insert(make_pair(type, Item(fn, cond, spwanThread)));
+//	cont[type]=Item(fn, cond, spwanThread);
+	cont.insert(make_pair(type, move(Item(fn, cond, spwanThread))));
 }
 void ReplyHandler::removeType(const int type){
 	auto it=cont.find(type);
