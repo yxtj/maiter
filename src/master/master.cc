@@ -3,7 +3,7 @@
 #include "table/local-table.h"
 #include "table/table.h"
 #include "table/global-table.h"
-#include "net/NetworkThread.h"
+//#include "net/NetworkThread2.h"
 #include "net/Task.h"
 
 #include <set>
@@ -50,19 +50,21 @@ Master::Master(const ConfigData &conf) :
 		sync_track_log.open("sync_track_log");
 		iter = 0;
 	}
+
 	CHECK_GT(network_->size(), 1)<< "At least one master and one worker required!";
 
 	for(int i = 0; i < config_.num_workers(); ++i){
 		workers_.push_back(new WorkerState(i));
 	}
 
-	for(int i = 0; i < config_.num_workers(); ++i){
-		RegisterWorkerRequest req;
-		int src = 0;
-		network_->Read(Task::ANY_SRC, MTYPE_REGISTER_WORKER, &req, &src);
-		VLOG(1) << "Registered worker " << src - 1 << "; " << config_.num_workers() - 1 - i
-							<< " remaining.";
-	}
+//	for(int i = 0; i < config_.num_workers(); ++i){
+//		RegisterWorkerRequest req;
+//		int src = 0;
+//		network_->Read(Task::ANY_SRC, MTYPE_REGISTER_WORKER, &req, &src);
+//		VLOG(1) << "Registered worker " << src - 1 << "; " << config_.num_workers() - 1 - i
+//							<< " remaining.";
+//	}
+	registerWorkers();
 
 	LOG(INFO)<< "All workers registered; starting up.";
 
@@ -95,111 +97,11 @@ Master::~Master(){
 	}
 
 	LOG(INFO)<< "Shutting down workers.";
-	EmptyMessage msg;
-	for(int i = 1; i < network_->size(); ++i){
-		network_->Send(i, MTYPE_WORKER_SHUTDOWN, msg);
-	}
-
-	delete barrier_timer;
-}
-
-void Master::SyncSwapRequest(const SwapTable& req){
-	network_->SyncBroadcast(MTYPE_SWAP_TABLE, req);
-}
-void Master::SyncClearRequest(const ClearTable& req){
-	network_->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
-}
-
-void Master::start_checkpoint(){
-	if(checkpointing_){
-		return;
-	}
-	LOG(INFO)<< "Starting new checkpoint: " << checkpoint_epoch_;
-
-	Timer cp_timer;
-	checkpoint_epoch_ += 1;
-	checkpointing_ = true;
-
-	File::Mkdirs(
-			StringPrintf("%s/epoch_%05d/", FLAGS_checkpoint_write_dir.c_str(), checkpoint_epoch_));
-
-	if(current_run_.checkpoint_type == CP_NONE){
-		current_run_.checkpoint_type = CP_MASTER_CONTROLLED;
-	}
-	for(int i = 0; i < workers_.size(); ++i){
-		start_worker_checkpoint(i, current_run_);
-	}
-	LOG(INFO)<< "Checkpoint finished in " << cp_timer.elapsed();
-}
-
-void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
-	start_checkpoint();
-
-	if(workers_[worker_id]->checkpointing){
-		return;
-	}
-
-	VLOG(1) << "Starting checkpoint on: " << worker_id;
-
-	workers_[worker_id]->checkpointing = true;
-
-	CheckpointRequest req;
-	req.set_epoch(checkpoint_epoch_);
-	req.set_checkpoint_type(r.checkpoint_type);
-
-	for(int i = 0; i < r.checkpoint_tables.size(); ++i){
-		req.add_table(r.checkpoint_tables[i]);
-	}
-
-	network_->Send(1 + worker_id, MTYPE_START_CHECKPOINT, req);
-}
-
-void Master::finish_worker_checkpoint(int worker_id, const RunDescriptor& r){
-	CHECK_EQ(workers_[worker_id]->checkpointing, true);
-
-	if(r.checkpoint_type == CP_MASTER_CONTROLLED){
-		EmptyMessage req;
-		network_->Send(1 + worker_id, MTYPE_FINISH_CHECKPOINT, req);
-	}
-
-	EmptyMessage resp;
-	network_->Read(1 + worker_id, MTYPE_CHECKPOINT_DONE, &resp);
-
-	VLOG(1) << worker_id << " finished checkpointing.";
-	workers_[worker_id]->checkpointing = false;
-}
-
-void Master::finish_checkpoint(){
-	for(int i = 0; i < workers_.size(); ++i){
-		finish_worker_checkpoint(i, current_run_);
-		CHECK_EQ(workers_[i]->checkpointing, false);
-	}
-
-	Args *params = current_run_.params.ToMessage();
-	Args *cp_vars = cp_vars_.ToMessage();
-
-	RecordFile rf(
-			StringPrintf("%s/epoch_%05d/checkpoint.finished", FLAGS_checkpoint_write_dir.c_str(),
-					checkpoint_epoch_), "w");
-
-	CheckpointInfo cinfo;
-	cinfo.set_checkpoint_epoch(checkpoint_epoch_);
-	cinfo.set_kernel_epoch(kernel_epoch_);
-
-	rf.write(cinfo);
-	rf.write(*params);
-	rf.write(*cp_vars);
-	rf.sync();
-
-	checkpointing_ = false;
-	last_checkpoint_ = Now();
-	delete params;
-	delete cp_vars;
-}
-
-void Master::checkpoint(){
-	start_checkpoint();
-	finish_checkpoint();
+//	EmptyMessage msg;
+//	for(int i = 1; i < network_->size(); ++i){
+//		network_->Send(i, MTYPE_WORKER_SHUTDOWN, msg);
+//	}
+	shutdownWorkers();
 }
 
 void Master::terminate_iteration(){
@@ -270,66 +172,15 @@ bool Master::termcheck(){
 		for(int i = 0; i < workers_.size(); ++i){
 			int worker_id = i;
 			workers_[worker_id]->termchecking = false;
-
-			//clear buffer
-			TermcheckDelta resp;
-			while(network_->TryRead(1 + worker_id, MTYPE_TERMCHECK_DONE, &resp)){
-				VLOG(1)<<"clear termcheck message from "<<worker_id<<" with "<<resp.delta();
-			}
+//
+//			//clear buffer
+//			TermcheckDelta resp;
+//			while(network_->TryRead(1 + worker_id, MTYPE_TERMCHECK_DONE, &resp)){
+//				VLOG(1)<<"clear termcheck message from "<<worker_id<<" with "<<resp.delta();
+//			}
 		}
 		return false;
 	}
-}
-
-bool Master::restore(){
-	if(!FLAGS_restore){
-		LOG(INFO)<< "Restore disabled by flag.";
-		return false;
-	}
-
-	if (!shards_assigned_){
-		assign_tables();
-		send_table_assignments();
-	}
-
-	Timer t;
-	vector<string> matches = File::MatchingFilenames(FLAGS_checkpoint_read_dir + "/*/checkpoint.finished");
-	if (matches.empty()){
-		return false;
-	}
-
-	// Glob returns results in sorted order, so our last checkpoint will be the last.
-	const char* fname = matches.back().c_str();
-	int epoch = -1;
-	CHECK_EQ(sscanf(fname, (FLAGS_checkpoint_read_dir + "/epoch_%05d/checkpoint.finished").c_str(), &epoch),
-			1) << "Unexpected filename: " << fname;
-
-	LOG(INFO) << "Restoring from file: " << matches.back();
-
-	RecordFile rf(matches.back(), "r");
-	CheckpointInfo info;
-	Args checkpoint_vars;
-	Args params;
-	CHECK(rf.read(&info));
-	CHECK(rf.read(&params));
-	CHECK(rf.read(&checkpoint_vars));
-
-	// XXX - RJP need to figure out how to properly handle rolling checkpoints.
-	current_run_.params.FromMessage(params);
-
-	cp_vars_.FromMessage(checkpoint_vars);
-
-	LOG(INFO) << "Restoring state from checkpoint " << MP(info.kernel_epoch(), info.checkpoint_epoch());
-
-	kernel_epoch_ = info.kernel_epoch();
-	checkpoint_epoch_ = info.checkpoint_epoch();
-
-	StartRestore req;
-	req.set_epoch(epoch);
-	network_->SyncBroadcast(MTYPE_RESTORE, req);
-
-	LOG(INFO) << "Checkpoint restored in " << t.elapsed() << " seconds.";
-	return true;
 }
 
 void Master::run_all(RunDescriptor r){
@@ -384,23 +235,6 @@ WorkerState* Master::assign_worker(int table, int shard){
 	return best;
 }
 
-void Master::send_table_assignments(){
-	ShardAssignmentRequest req;
-
-	for(int i = 0; i < workers_.size(); ++i){
-		WorkerState& w = *workers_[i];
-		for(ShardSet::iterator j = w.shards.begin(); j != w.shards.end(); ++j){
-			ShardAssignment* s = req.add_assign();
-			s->set_new_worker(i);
-			s->set_table(j->table);
-			s->set_shard(j->shard);
-//      s->set_old_worker(-1);
-		}
-	}
-
-	network_->SyncBroadcast(MTYPE_SHARD_ASSIGNMENT, req);
-}
-
 bool Master::steal_work(const RunDescriptor& r, int idle_worker, double avg_completion_time){
 	if(!FLAGS_work_stealing){
 		return false;
@@ -451,7 +285,7 @@ bool Master::steal_work(const RunDescriptor& r, int idle_worker, double avg_comp
 	task->stolen = true;
 
 	LOG(INFO)<< "Worker " << idle_worker << " is stealing task "
-	<< MP(tid.shard, task->size) << " from worker " << src.id;
+			<< MP(tid.shard, task->size) << " from worker " << src.id;
 	dst.assign_shard(tid.shard, true);
 	src.assign_shard(tid.shard, false);
 
@@ -556,7 +390,6 @@ int Master::reap_one_task(){
 		this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
 		return -1;
 	}
-
 }
 
 void Master::run(RunDescriptor r){
@@ -611,6 +444,7 @@ void Master::run(RunDescriptor r){
 //  if (r.barrier) {
 	barrier();
 //  }
+	finishKernel();
 }
 
 void Master::cp_barrier(){
@@ -695,23 +529,7 @@ void Master::barrier(){
 
 	}
 
-	EmptyMessage empty;
-	//1st round-trip to make sure all workers have flushed everything
-	network_->SyncBroadcast(MTYPE_WORKER_FLUSH, empty);
-
-	//2nd round-trip to make sure all workers have applied all updates
-	//XXX: incorrect if MPI does not guarantee remote delivery
-	network_->SyncBroadcast(MTYPE_WORKER_APPLY, empty);
-
-	if(current_run_.checkpoint_type == CP_MASTER_CONTROLLED){
-		if(!checkpointing_){
-			start_checkpoint();
-		}
-		finish_checkpoint();
-	}
-
-	mstats.set_total_time(mstats.total_time() + Now() - current_run_start_);
-	LOG(INFO)<< "Kernel '" << current_run_.method << "' finished in " << Now() - current_run_start_;
+	delete barrier_timer;
 }
 
 static void TestTaskSort(){

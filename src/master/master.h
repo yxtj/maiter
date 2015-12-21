@@ -7,155 +7,171 @@
 #include "table/TableHelper.h"
 #include "table/table-registry.h"
 #include "table/tbl_widget/sharder_impl.hpp"
+#include "net/NetworkThread.h"
 #include "master/run-descriptor.h"
+#include "driver/MsgDriver.h"
 
 namespace dsm {
 
 class WorkerState;
 class TaskState;
-class NetworkThread;
+//class NetworkThread2;
 
-class Master : public TableHelper {
+class Master: public TableHelper{
 public:
-  Master(const ConfigData &conf);
-  ~Master();
+	Master(const ConfigData &conf);
+	~Master();
 
-  //TableHelper methods
-  int id() const { return -1; }
-  int epoch() const { return kernel_epoch_; }
-  int peer_for_shard(int table, int shard) const {
-    return tables_[table]->owner(shard);
-  }
-  void SendPutRequest(int dstWorkerID, const KVPairData& put){}
-  void HandlePutRequest() {}
-  void FlushUpdates() {}
-  void SendTermcheck(int index, long updates, double current) {}
+	//TableHelper methods
+	int id() const{
+		return -1;
+	}
+	int epoch() const{
+		return kernel_epoch_;
+	}
+	int peer_for_shard(int table, int shard) const{
+		return tables_[table]->owner(shard);
+	}
+	void SendPutRequest(int dstWorkerID, const KVPairData& put){
+	}
+	void HandlePutRequest(){
+	}
+	void FlushUpdates(){
+	}
+	void SendTermcheck(int index, long updates, double current){
+	}
 
-  void SyncSwapRequest(const SwapTable& req);
-  void SyncClearRequest(const ClearTable& req);
+	void SyncSwapRequest(const SwapTable& req);
+	void SyncClearRequest(const ClearTable& req);
 
-  void run_all(RunDescriptor r);
-  void run_one(RunDescriptor r);
-  void run_range(RunDescriptor r, vector<int> shards);
+	void run_all(RunDescriptor r);
+	void run_one(RunDescriptor r);
+	void run_range(RunDescriptor r, vector<int> shards);
 
-  // N.B.  All run_* methods are blocking.
-  void run_all(const string& kernel, const string& method, GlobalTableBase* locality) {
-    run_all(RunDescriptor(kernel, method, locality));
-  }
+	// N.B.  All run_* methods are blocking.
+	void run_all(const string& kernel, const string& method, GlobalTableBase* locality){
+		run_all(RunDescriptor(kernel, method, locality));
+	}
 
-  //maiter program
-  template<class K, class V, class D>
-  void run_maiter(MaiterKernel<K, V, D>* maiter){
-      if(maiter->sharder == NULL){
-          maiter->sharder = new Sharders::Mod;
-      }
-      
-      run_all("MaiterKernel1", "run", maiter->table);
-        
-      if(maiter->iterkernel != NULL){
-          run_all("MaiterKernel2", "map", maiter->table);
-      }
+	//maiter program
+	template<class K, class V, class D>
+	void run_maiter(MaiterKernel<K, V, D>* maiter){
+		if(maiter->sharder == NULL){
+			maiter->sharder = new Sharders::Mod;
+		}
 
-      if(maiter->termchecker != NULL){
-          run_all("MaiterKernel3", "run", maiter->table);
-      }
-  }
-  
-  // Run the given kernel function on one (arbitrary) worker node.
-  void run_one(const string& kernel, const string& method, GlobalTableBase* locality) {
-    run_one(RunDescriptor(kernel, method, locality));
-  }
+		run_all("MaiterKernel1", "run", maiter->table);
 
-  // Run the kernel function on the given set of shards.
-  void run_range(const string& kernel, const string& method,
-                 GlobalTableBase* locality, vector<int> shards) {
-    run_range(RunDescriptor(kernel, method, locality), shards);
-  }
+		if(maiter->iterkernel != NULL){
+			run_all("MaiterKernel2", "map", maiter->table);
+		}
 
-  void enable_trigger(const TriggerID triggerid, int table,  bool enable);
+		if(maiter->termchecker != NULL){
+			run_all("MaiterKernel3", "run", maiter->table);
+		}
+	}
 
-  void run(RunDescriptor r);
+	// Run the given kernel function on one (arbitrary) worker node.
+	void run_one(const string& kernel, const string& method, GlobalTableBase* locality){
+		run_one(RunDescriptor(kernel, method, locality));
+	}
 
-  template <class T>
-  T& get_cp_var(const string& key, T defval=T()) {
-    if (!cp_vars_.contains(key)) {
-      cp_vars_.put(key, defval);
-    }
-    return cp_vars_.get<T>(key);
-  }
+	// Run the kernel function on the given set of shards.
+	void run_range(const string& kernel, const string& method,
+			GlobalTableBase* locality, vector<int> shards){
+		run_range(RunDescriptor(kernel, method, locality), shards);
+	}
 
+	void enable_trigger(const TriggerID triggerid, int table, bool enable);
 
-  void barrier();
-  void cp_barrier();
+	void run(RunDescriptor r);
 
-  // Blocking.  Instruct workers to save table and kernel state.
-  // When this call returns, all requested tables in the system will have been
-  // committed to disk.
-  void checkpoint();
+	template<class T>
+	T& get_cp_var(const string& key, T defval = T()){
+		if(!cp_vars_.contains(key)){
+			cp_vars_.put(key, defval);
+		}
+		return cp_vars_.get<T>(key);
+	}
 
-  //Non-Blocking, termination check
-  bool termcheck();
+	void barrier();
+	void cp_barrier();
 
-  // Attempt restore from a previous checkpoint for this job.  If none exists,
-  // the process is left in the original state, and this function returns false.
-  bool restore();
+	// Blocking.  Instruct workers to save table and kernel state.
+	// When this call returns, all requested tables in the system will have been
+	// committed to disk.
+	void checkpoint();
+
+	//Non-Blocking, termination check
+	bool termcheck();
+
+	// Attempt restore from a previous checkpoint for this job.  If none exists,
+	// the process is left in the original state, and this function returns false.
+	bool restore();
 
 private:
-  void start_checkpoint();
-  void start_worker_checkpoint(int worker_id, const RunDescriptor& r);
-  void finish_worker_checkpoint(int worker_id, const RunDescriptor& r);
-  void finish_checkpoint();
-  void terminate_iteration();
+	void start_checkpoint();
+	void start_worker_checkpoint(int worker_id, const RunDescriptor& r);
+	void finish_worker_checkpoint(int worker_id, const RunDescriptor& r);
+	void finish_checkpoint();
+	void terminate_iteration();
 
-  WorkerState* worker_for_shard(int table, int shard);
+	void registerWorkers();
+	void shutdownWorkers();
 
-  // Find a worker to run a kernel on the given table and shard.  If a worker
-  // already serves the given shard, return it.  Otherwise, find an eligible
-  // worker and assign it to them.
-  WorkerState* assign_worker(int table, int shard);
+	void finishKernel();
 
-  void send_table_assignments();
-  bool steal_work(const RunDescriptor& r, int idle_worker, double avg_time);
-  void assign_tables();
-  void assign_tasks(const RunDescriptor& r, vector<int> shards);
-  int dispatch_work(const RunDescriptor& r);
+	WorkerState* worker_for_shard(int table, int shard);
 
-  void dump_stats();
-  int reap_one_task();
+	// Find a worker to run a kernel on the given table and shard.  If a worker
+	// already serves the given shard, return it.  Otherwise, find an eligible
+	// worker and assign it to them.
+	WorkerState* assign_worker(int table, int shard);
 
-  ConfigData config_;
-  int checkpoint_epoch_;
-  int termcheck_epoch_;
-  int kernel_epoch_;
+	void send_table_assignments();
+	bool steal_work(const RunDescriptor& r, int idle_worker, double avg_time);
+	void assign_tables();
+	void assign_tasks(const RunDescriptor& r, vector<int> shards);
+	int dispatch_work(const RunDescriptor& r);
 
-  MarshalledMap cp_vars_;
+	void dump_stats();
+	int reap_one_task();
+	int reap_one_task2();
 
-  RunDescriptor current_run_;
-  double current_run_start_;
-  int dispatched_; //# of dispatched tasks
-  int finished_; //# of finished tasks
+	ConfigData config_;
+	int checkpoint_epoch_;
+	int termcheck_epoch_;
+	int kernel_epoch_;
 
-  bool shards_assigned_;
+	MarshalledMap cp_vars_;
 
-  bool checkpointing_;
-  bool terminated_;
+	RunDescriptor current_run_;
+	double current_run_start_;
+	int dispatched_; //# of dispatched tasks
+	int finished_; //# of finished tasks
 
-  // Used for interval checkpointing.
-  double last_checkpoint_;
-  double last_termcheck_;
-  Timer* barrier_timer;
-  ofstream conv_track_log;
-  ofstream sync_track_log;
-  int iter;
+	bool shards_assigned_;
 
-  vector<WorkerState*> workers_;
+	bool checkpointing_;
+	bool terminated_;
 
-  typedef map<string, MethodStats> MethodStatsMap;
-  MethodStatsMap method_stats_;
+	// Used for interval checkpointing.
+	double last_checkpoint_;
+	double last_termcheck_;
+	Timer* barrier_timer;
+	ofstream conv_track_log;
+	ofstream sync_track_log;
+	int iter;
 
-  TableRegistry::Map& tables_;
-  NetworkThread* network_;
-  Timer runtime_;
+	vector<WorkerState*> workers_;
+
+	typedef map<string, MethodStats> MethodStatsMap;
+	MethodStatsMap method_stats_;
+
+	TableRegistry::Map& tables_;
+	NetworkThread* network_;
+	MsgDriver driver_;
+	Timer runtime_;
 };
 }
 
