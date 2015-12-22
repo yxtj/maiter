@@ -18,6 +18,7 @@
 #include <iomanip>
 #include <thread>
 #include <chrono>
+//#include <functional>
 
 DECLARE_bool(restore);
 DECLARE_int32(termcheck_interval);
@@ -32,78 +33,40 @@ using namespace std;
 
 namespace dsm {
 
-void Master::registerWorkers(){
-	for(int i = 0; i < config_.num_workers(); ++i){
-		RegisterWorkerRequest req;
-		int src = 0;
-		network_->Read(Task::ANY_SRC, MTYPE_REGISTER_WORKER, &req, &src);
-		VLOG(1) << "Registered worker " << src - 1 << "; " << config_.num_workers() - 1 - i
-							<< " remaining.";
-	}
-}
-
 void Master::shutdownWorkers(){
 	EmptyMessage msg;
+//	for(int i = 0; i < config_.num_workers(); ++i){
 	for(int i = 1; i < network_->size(); ++i){
 		network_->Send(i, MTYPE_WORKER_SHUTDOWN, msg);
 	}
 }
 
-
 void Master::SyncSwapRequest(const SwapTable& req){
-	network_->SyncBroadcast(MTYPE_SWAP_TABLE, req);
+//	network_->SyncBroadcast(MTYPE_SWAP_TABLE, req);
+	network_->Broadcast(MTYPE_SWAP_TABLE, req);
+	su_swap.wait();
+}
+void Master::syncSwap(){
+	su_swap.notify();
 }
 void Master::SyncClearRequest(const ClearTable& req){
-	network_->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
+//	network_->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
+	network_->Broadcast(MTYPE_CLEAR_TABLE, req);
+	su_clear.wait();
 }
 
 
-int Master::reap_one_task2(){
-	MethodStats &mstats = method_stats_[current_run_.kernel + ":" + current_run_.method];
-	KernelDone done_msg;
-	int w_id = 0;
-
-	if(network_->TryRead(Task::ANY_SRC, MTYPE_KERNEL_DONE, &done_msg, &w_id)){
-
-		w_id -= 1;
-
-		WorkerState& w = *workers_[w_id];
-
-		Taskid task_id(done_msg.kernel().table(), done_msg.kernel().shard());
-		//      TaskState* task = w.work[task_id];
-		//
-		//      LOG(INFO) << "TASK_FINISHED "
-		//                << r.method << " "
-		//                << task_id.table << " " << task_id.shard << " on "
-		//                << w_id << " in "
-		//                << Now() - w.last_task_start << " size "
-		//                << task->size <<
-		//                " worker " << w.total_size();
-
-		for(int i = 0; i < done_msg.shards_size(); ++i){
-			const ShardInfo &si = done_msg.shards(i);
-			tables_[si.table()]->UpdatePartitions(si);
-		}
-
-		w.set_finished(task_id);
-
-		w.total_runtime += Now() - w.last_task_start;
-
-		if(FLAGS_sync_track){
-			sync_track_log << "iter " << iter << " worker_id " << w_id << " iter_time "
-					<< barrier_timer->elapsed() << " total_time " << w.total_runtime << "\n";
-			sync_track_log.flush();
-		}
-
-		mstats.set_shard_time(mstats.shard_time() + Now() - w.last_task_start);
-		mstats.set_shard_calls(mstats.shard_calls() + 1);
-		w.ping();
-		return w_id;
-	}else{
-		this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
-		return -1;
+void Master::enable_trigger(const TriggerID triggerid, int table, bool enable){
+	EnableTrigger trigreq;
+	for(int i = 0; i < workers_.size(); ++i){
+		WorkerState& w = *workers_[i];
+		trigreq.set_trigger_id(triggerid);
+		trigreq.set_table(table);
+		trigreq.set_enable(enable);
+		network_->Send(w.id + 1, MTYPE_ENABLE_TRIGGER, trigreq);
 	}
 }
+
 
 bool Master::restore(){
 	if(!FLAGS_restore){
@@ -150,7 +113,8 @@ bool Master::restore(){
 
 	StartRestore req;
 	req.set_epoch(epoch);
-	network_->SyncBroadcast(MTYPE_RESTORE, req);
+	network_->Broadcast(MTYPE_RESTORE, req);
+	su_restore.wait();
 
 	LOG(INFO) << "Checkpoint restored in " << t.elapsed() << " seconds.";
 	return true;
@@ -159,18 +123,23 @@ bool Master::restore(){
 void Master::finishKernel(){
 	EmptyMessage empty;
 	//1st round-trip to make sure all workers have flushed everything
-	network_->SyncBroadcast(MTYPE_WORKER_FLUSH, empty);
+//	network_->SyncBroadcast(MTYPE_WORKER_FLUSH, empty);
+	network_->Broadcast(MTYPE_WORKER_FLUSH, empty);
+	su_wflush.wait();
 
 	//2nd round-trip to make sure all workers have applied all updates
 	//XXX: incorrect if MPI does not guarantee remote delivery
-	network_->SyncBroadcast(MTYPE_WORKER_APPLY, empty);
+//	network_->SyncBroadcast(MTYPE_WORKER_APPLY, empty);
+	network_->Broadcast(MTYPE_WORKER_APPLY, empty);
+	su_wapply.wait();
 
-	if(current_run_.checkpoint_type == CP_MASTER_CONTROLLED){
-		if(!checkpointing_){
-			start_checkpoint();
-		}
-		finish_checkpoint();
-	}
+//	if(current_run_.checkpoint_type == CP_MASTER_CONTROLLED){
+//		if(!checkpointing_){
+//			start_checkpoint();
+//		}
+//		finish_checkpoint();
+//	}
+	cv_cp.notify_all();
 
 	MethodStats &mstats = method_stats_[current_run_.kernel + ":" + current_run_.method];
 	mstats.set_total_time(mstats.total_time() + Now() - current_run_start_);
@@ -191,7 +160,8 @@ void Master::send_table_assignments(){
 		}
 	}
 
-	network_->SyncBroadcast(MTYPE_SHARD_ASSIGNMENT, req);
+	network_->Broadcast(MTYPE_SHARD_ASSIGNMENT, req);
+	su_tassign.wait();
 }
 
 

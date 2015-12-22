@@ -204,9 +204,9 @@ void Init(int argc, char** argv) {
 //  NetworkThread::Init();
 
   //TODO: change back after message-driven is finished
-  if(NetworkImplMPI::GetInstance()->id()==0)
-	  NetworkThread::Init();
-  else
+//  if(NetworkImplMPI::GetInstance()->id()==0)
+//	  NetworkThread::Init();
+//  else
 	  NetworkThread2::Init();
 
   srandom(time(NULL));

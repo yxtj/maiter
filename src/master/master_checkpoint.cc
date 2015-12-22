@@ -67,21 +67,6 @@ void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
 	network_->Send(1 + worker_id, MTYPE_START_CHECKPOINT, req);
 }
 
-void Master::finish_worker_checkpoint(int worker_id, const RunDescriptor& r){
-	CHECK_EQ(workers_[worker_id]->checkpointing, true);
-
-	if(r.checkpoint_type == CP_MASTER_CONTROLLED){
-		EmptyMessage req;
-		network_->Send(1 + worker_id, MTYPE_FINISH_CHECKPOINT, req);
-	}
-
-	EmptyMessage resp;
-	network_->Read(1 + worker_id, MTYPE_CHECKPOINT_DONE, &resp);
-
-	VLOG(1) << worker_id << " finished checkpointing.";
-	workers_[worker_id]->checkpointing = false;
-}
-
 void Master::finish_checkpoint(){
 	for(int i = 0; i < workers_.size(); ++i){
 		finish_worker_checkpoint(i, current_run_);
@@ -110,9 +95,31 @@ void Master::finish_checkpoint(){
 	delete cp_vars;
 }
 
+void Master::finish_worker_checkpoint(int worker_id, const RunDescriptor& r){
+	CHECK_EQ(workers_[worker_id]->checkpointing, true);
+
+	if(r.checkpoint_type == CP_MASTER_CONTROLLED){
+		EmptyMessage req;
+		network_->Send(1 + worker_id, MTYPE_FINISH_CHECKPOINT, req);
+	}
+
+	EmptyMessage resp;
+//	network_->Read(1 + worker_id, MTYPE_CHECKPOINT_DONE, &resp);
+
+	VLOG(1) << worker_id << " finished checkpointing.";
+	workers_[worker_id]->checkpointing = false;
+}
+
 void Master::checkpoint(){
-	start_checkpoint();
-	finish_checkpoint();
+	mutex m;
+	unique_lock<mutex> ul(m);
+//	auto pred=[&](){return Now()-last_checkpoint_>current_run_.checkpoint_interval;}
+	cv_cp.wait_for(ul,chrono::duration<double>(current_run_.checkpoint_interval));
+	while(!terminated_){
+		start_checkpoint();
+		finish_checkpoint();
+		cv_cp.wait_for(ul,chrono::duration<double>(current_run_.checkpoint_interval));
+	}
 }
 
 } //namespace dsm

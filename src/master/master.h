@@ -6,10 +6,16 @@
 #include "kernel/kernel.h"
 #include "table/TableHelper.h"
 #include "table/table-registry.h"
-#include "table/tbl_widget/sharder_impl.hpp"
-#include "net/NetworkThread.h"
-#include "master/run-descriptor.h"
+#include "net/NetworkThread2.h"
+#include "net/RPCInfo.h"
+
+#include "run-descriptor.h"
+#include "SyncUnit.h"
 #include "driver/MsgDriver.h"
+#include "driver/tools/ReplyHandler.h"
+
+#include <mutex>
+#include <condition_variable>
 
 namespace dsm {
 
@@ -34,19 +40,16 @@ public:
 	}
 	void SendPutRequest(int dstWorkerID, const KVPairData& put){
 	}
-	void HandlePutRequest(){
-	}
-	void FlushUpdates(){
-	}
-	void SendTermcheck(int index, long updates, double current){
-	}
+	void HandlePutRequest(){}
+	void FlushUpdates(){}
+	void SendTermcheck(int index, long updates, double current){}
 
 	void SyncSwapRequest(const SwapTable& req);
 	void SyncClearRequest(const ClearTable& req);
 
 	void run_all(RunDescriptor r);
 	void run_one(RunDescriptor r);
-	void run_range(RunDescriptor r, vector<int> shards);
+	void run_range(RunDescriptor r, const vector<int>& shards);
 
 	// N.B.  All run_* methods are blocking.
 	void run_all(const string& kernel, const string& method, GlobalTableBase* locality){
@@ -57,7 +60,8 @@ public:
 	template<class K, class V, class D>
 	void run_maiter(MaiterKernel<K, V, D>* maiter){
 		if(maiter->sharder == NULL){
-			maiter->sharder = new Sharders::Mod;
+			LOG(FATAL)<<"sharder is not specified in current kernel";
+			return;
 		}
 
 		run_all("MaiterKernel1", "run", maiter->table);
@@ -78,7 +82,7 @@ public:
 
 	// Run the kernel function on the given set of shards.
 	void run_range(const string& kernel, const string& method,
-			GlobalTableBase* locality, vector<int> shards){
+			GlobalTableBase* locality, const vector<int>& shards){
 		run_range(RunDescriptor(kernel, method, locality), shards);
 	}
 
@@ -95,7 +99,6 @@ public:
 	}
 
 	void barrier();
-	void cp_barrier();
 
 	// Blocking.  Instruct workers to save table and kernel state.
 	// When this call returns, all requested tables in the system will have been
@@ -104,22 +107,54 @@ public:
 
 	//Non-Blocking, termination check
 	bool termcheck();
+	void termcheck2();
 
 	// Attempt restore from a previous checkpoint for this job.  If none exists,
 	// the process is left in the original state, and this function returns false.
 	bool restore();
 
 private:
+	void MsgLoop();
+	void registerHandlers();
+	void handleReply(const std::string&, const RPCInfo&);
+	void addReplyHandler(const int mtype, void (Master::*fp)(),const bool spwanThread=false);
+
+	//helpers for registering message handlers
+	typedef void (Master::*callback_t)(const string&, const RPCInfo&);
+	void RegDSPImmediate(const int type, callback_t fp, bool spawnThread=false);
+	void RegDSPProcess(const int type, callback_t fp, bool spawnThread=false);
+	void RegDSPDefault(callback_t fp);
+
+	SyncUnit su_swap;
+	void syncSwap();
+	SyncUnit su_clear;
+
+	void registerWorkers();
+	void handleRegisterWorker(const std::string& d, const RPCInfo& info);
+	SyncUnit su_regw;
+
+	SyncUnit su_wflush;
+	SyncUnit su_wapply;
+
+	void handleKernelDone(const std::string& d, const RPCInfo& info);
+	SyncUnit su_kerdone;
+
+	void finishKernel();
+
+	void shutdownWorkers();
+
+	std::condition_variable cv_cp; //for wait_for(), only be notified after termination
+//	std::vector<SyncUnit> su_cpdone;
+//	void handleCheckpointDone(const std::string& d, const RPCInfo& info);
 	void start_checkpoint();
 	void start_worker_checkpoint(int worker_id, const RunDescriptor& r);
 	void finish_worker_checkpoint(int worker_id, const RunDescriptor& r);
 	void finish_checkpoint();
+	SyncUnit su_restore;
+
+	void handleTermcheckDone(const std::string& d, const RPCInfo& info);
+	SyncUnit su_term;
 	void terminate_iteration();
-
-	void registerWorkers();
-	void shutdownWorkers();
-
-	void finishKernel();
 
 	WorkerState* worker_for_shard(int table, int shard);
 
@@ -129,6 +164,8 @@ private:
 	WorkerState* assign_worker(int table, int shard);
 
 	void send_table_assignments();
+	SyncUnit su_tassign;
+
 	bool steal_work(const RunDescriptor& r, int idle_worker, double avg_time);
 	void assign_tables();
 	void assign_tasks(const RunDescriptor& r, vector<int> shards);
@@ -136,7 +173,6 @@ private:
 
 	void dump_stats();
 	int reap_one_task();
-	int reap_one_task2();
 
 	ConfigData config_;
 	int checkpoint_epoch_;
@@ -169,10 +205,13 @@ private:
 	MethodStatsMap method_stats_;
 
 	TableRegistry::Map& tables_;
-	NetworkThread* network_;
+	NetworkThread2* network_;
 	MsgDriver driver_;
+	ReplyHandler rph_;
+
 	Timer runtime_;
 };
+
 }
 
 #endif /* MASTER_H_ */
