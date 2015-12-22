@@ -25,10 +25,13 @@ struct ConditionEachOne:public ReplyHandler::Condition{
 	bool update(const int source){
 		state[source]=true;
 		if(all_of(state.begin(), state.end(), [](const bool b){return b;})){
-			fill(state.begin(),state.end(),false);
+			reset();
 			return true;
 		}
 		return false;
+	}
+	void reset(){
+		fill(state.begin(),state.end(),false);
 	}
 private:
 	vector<bool> state;
@@ -41,24 +44,27 @@ struct ConditionGeneral:public ReplyHandler::Condition{
 	bool update(const int source){
 		--state[source];
 		if(all_of(state.begin(), state.end(),[](const int v){return v<=0;})){
-			state=expected;
+			reset();
 			return true;
 		}
 		return false;
+	}
+	void reset(){
+		state=expected;
 	}
 private:
 	vector<int> expected;
 	vector<int> state;
 };
 
-ReplyHandler::Condition* ReplyHandler::conditionFactory(const ConditionType ct)
+ReplyHandler::Condition* ReplyHandler::condFactory(const ConditionType ct)
 {
 	if(ct==ANY_ONE){
 		return new ConditionAny();
 	}
 	return new Condition();
 }
-ReplyHandler::Condition* ReplyHandler::conditionFactory(
+ReplyHandler::Condition* ReplyHandler::condFactory(
 		const ConditionType ct, const int numSource)
 {
 	if(ct==EACH_ONE){
@@ -66,7 +72,7 @@ ReplyHandler::Condition* ReplyHandler::conditionFactory(
 	}
 	return new Condition();
 }
-ReplyHandler::Condition* ReplyHandler::conditionFactory(
+ReplyHandler::Condition* ReplyHandler::condFactory(
 		const ConditionType ct, const std::vector<int>& expected)
 {
 	if(ct==GENERAL){
@@ -74,7 +80,7 @@ ReplyHandler::Condition* ReplyHandler::conditionFactory(
 	}
 	return new Condition();
 }
-ReplyHandler::Condition* ReplyHandler::conditionFactory(
+ReplyHandler::Condition* ReplyHandler::condFactory(
 		const ConditionType ct, std::vector<int>&& expected)
 {
 	if(ct==GENERAL){
@@ -82,6 +88,30 @@ ReplyHandler::Condition* ReplyHandler::conditionFactory(
 	}
 	return new Condition();
 }
+
+/*
+ * ReplyHandler::Item part:
+ */
+
+ReplyHandler::Item::Item():
+		cond(nullptr),spwanThread(false),activated(false){}
+ReplyHandler::Item::Item(const Item& i):fn(i.fn), cond(nullptr),
+		spwanThread(i.spwanThread),activated(i.activated)
+{
+	std::swap(cond,const_cast<Item&>(i).cond);
+}
+ReplyHandler::Item::Item(Item&& i):fn(move(i.fn)),cond(nullptr),
+		spwanThread(i.spwanThread),activated(i.activated)
+{
+	std::swap(cond,i.cond);
+}
+ReplyHandler::Item::Item(std::function<void()> f, Condition* c, const bool st):
+	fn(f), cond(c), spwanThread(st), activated(false){}
+
+ReplyHandler::Item::~Item(){
+	delete cond;
+}
+
 
 /*
  * ReplyHandler part:

@@ -23,7 +23,7 @@ namespace dsm {
  *  3, input the type and source of a reply message with input()
  * Condition:
  *  1, used to check when the handle should be handled
- *  2, three types of pre-defined Conditions in conditionFactory()
+ *  2, three types of pre-defined Conditions in condFactory()
  *  2.1, ANY_ONE: trigger handler after reply from any source.
  * 		constructed NO parameter.
  *  2.2, EACH_ONE: trigger handler after each source have replied AT LEAST once.
@@ -38,6 +38,7 @@ public:
 		//return whether condition is satisfied after receiving source.
 		//should be able to reset itself after last satisfaction
 		virtual bool update(const int source){return false;}
+		virtual void reset(){}
 		virtual ~Condition(){}
 	};
 	//return whether this input is handled by this calling
@@ -47,12 +48,12 @@ public:
 		ANY_ONE, EACH_ONE, GENERAL
 	};
 
-	static Condition* conditionFactory(const ConditionType ct);
-	static Condition* conditionFactory(
+	static Condition* condFactory(const ConditionType ct);
+	static Condition* condFactory(
 			const ConditionType ct, const int numSource);
-	static Condition* conditionFactory(
+	static Condition* condFactory(
 			const ConditionType ct, const std::vector<int>& expected);
-	static Condition* conditionFactory(
+	static Condition* condFactory(
 			const ConditionType ct, std::vector<int>&& expected);
 
 	void addType(const int type, Condition* cond,
@@ -64,6 +65,9 @@ public:
 	void pauseType(const int type){
 		cont.at(type).activated=false;
 	}
+	void resetType(const int type){
+		cont.at(type).cond->reset();
+	}
 
 	void clear(){ cont.clear(); }
 	size_t size() const{ return cont.size(); }
@@ -71,19 +75,14 @@ public:
 private:
 	struct Item{
 		std::function<void()> fn;
-		Condition* cond;
+		Condition* cond;	//its ownership is unique (only one object can hold it)
 		bool spwanThread;
 		bool activated;
-		Item():cond(nullptr),spwanThread(false),activated(false){}
-		Item(Item&& i):fn(move(i.fn)),cond(nullptr),
-				spwanThread(i.spwanThread),activated(i.activated){
-			std::swap(cond,i.cond);
-		}
-		Item(std::function<void()> f, Condition* c, const bool st):
-			fn(f), cond(c), spwanThread(st), activated(false){}
-		~Item(){
-			delete cond;
-		}
+		Item();
+		Item(const Item& i);
+		Item(Item&& i);
+		Item(std::function<void()> f, Condition* c, const bool st);
+		~Item();
 	};
 	std::unordered_map<int, Item> cont;
 
