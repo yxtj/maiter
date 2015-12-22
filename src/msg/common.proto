@@ -40,6 +40,7 @@ message ConfigData {
 
 message TermcheckDelta {
   required int32 index = 1;
-  required double delta = 2;
-  required int64 updates = 3;
+  required int32 wid = 2;
+  required double delta = 3;
+  required int64 updates = 4;
 }

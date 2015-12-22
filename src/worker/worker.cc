@@ -156,6 +156,7 @@ void Worker::runKernel(){
 void Worker::finishKernel(){
 	KernelDone kd;
 	kd.mutable_kernel()->CopyFrom(kreq);
+	kd.set_wid(id());
 	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 		GlobalTableBase* t = i->second;

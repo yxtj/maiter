@@ -55,7 +55,7 @@ message KernelRequest {
 
 message KernelDone {
   required KernelRequest kernel = 1;
-  
+  required int32 wid = 2;
   // updated information about the state of this workers
   // table shards.
   repeated ShardInfo shards = 5;
