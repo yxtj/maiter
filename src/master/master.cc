@@ -47,7 +47,7 @@ Master::Master(const ConfigData &conf) :
 	last_checkpoint_ = Now();
 	last_termcheck_ = Now();
 	checkpointing_ = false;
-	running_ = false;
+	running_ = true;
 	network_ = NetworkThread2::Get();
 	shards_assigned_ = false;
 	conv_track_log.open(FLAGS_track_log.c_str());
@@ -67,8 +67,7 @@ Master::Master(const ConfigData &conf) :
 
 	registerHandlers();
 
-	thread t(bind(&Master::MsgLoop,this));
-	t.detach();
+	tmsg=thread(bind(&Master::MsgLoop,this));
 
 	su_regw.wait();
 
@@ -108,6 +107,8 @@ Master::~Master(){
 //		network_->Send(i, MTYPE_WORKER_SHUTDOWN, msg);
 //	}
 	shutdownWorkers();
+	running_ = false;
+	tmsg.join();
 }
 
 void Master::MsgLoop(){
@@ -115,7 +116,7 @@ void Master::MsgLoop(){
 	string data;
 	RPCInfo info;
 	info.dest=network_->id();
-	while(!running_){
+	while(running_){
 		if(network_->TryReadAny(data,&info.source,&info.tag)){
 //			DVLOG(1)<<"Got a pkg from "<<info.source<<" to "<<info.dest<<", type "<<info.tag;
 			driver_.pushData(data,info);
@@ -135,7 +136,7 @@ void Master::terminate_iteration(){
 		req.set_epoch(0);
 		network_->Send(1 + worker_id, MTYPE_TERMINATION, req);
 	}
-	running_ = true;
+
 	VLOG(1) << "Sent termination notifications ";
 }
 
@@ -509,7 +510,7 @@ void Master::run(RunDescriptor r){
 	}
 	thread t_term(&Master::termcheck2, this);
 
-	barrier();
+	barrier2();
 
 	finishKernel();
 
@@ -524,37 +525,90 @@ void Master::run(RunDescriptor r){
 }
 
 void Master::barrier(){
-//	MethodStats &mstats = method_stats_[current_run_.kernel + ":" + current_run_.method];
+	MethodStats &mstats = method_stats_[current_run_.kernel + ":" + current_run_.method];
 
-//	bool bterm = false;
+	bool bterm = false;
 	barrier_timer = new Timer();
 	iter++;
 
 	//VLOG(1) << "finished " << finished_ << " current_run " << current_run_.shards.size();
-//	while(finished_ < current_run_.shards.size()){
-//		//VLOG(1) << "finished " << finished_ << "current_rund " << current_run_.shards.size();
-//		PERIODIC(10, {
-//			DumpProfile();
-//			dump_stats();
-//		});
-//
-//		if(!kernel_terminated_ && Now() - last_termcheck_ > FLAGS_termcheck_interval){
-//			bterm = termcheck();
-//			last_termcheck_ = Now();
-//			VLOG(2) << "term ? " << bterm;
-//
-//			if(bterm){
-//				terminate_iteration();
-//				kernel_terminated_ = true;
-//			}
-//		}
-//
-////		if(reap_one_task() >= 0){
-////			finished_++;
-////		...
-//	}
+	while(finished_ < current_run_.shards.size()){
+		//VLOG(1) << "finished " << finished_ << "current_rund " << current_run_.shards.size();
+		PERIODIC(10, {
+			DumpProfile();
+			dump_stats();
+		});
+
+		if(current_run_.checkpoint_type == CP_ROLLING &&
+				Now() - last_checkpoint_ > current_run_.checkpoint_interval){
+			checkpoint();
+		}
+
+		if(running_ && Now() - last_termcheck_ > FLAGS_termcheck_interval){
+			bterm = termcheck();
+			last_termcheck_ = Now();
+			VLOG(2) << "term ? " << bterm;
+
+			if(bterm){
+				terminate_iteration();
+				running_ = false;
+			}
+		}
+
+		if(reap_one_task() >= 0){
+			finished_++;
+
+			PERIODIC(0.1, {
+				double avg_completion_time =
+						mstats.shard_time() / mstats.shard_calls();
+
+				bool need_update = false;
+				for(int i = 0; i < workers_.size(); ++i){
+					WorkerState& w = *workers_[i];
+
+					// Don't try to steal tasks if the payoff is too small.
+					if(mstats.shard_calls() > 10 && avg_completion_time > 0.2 &&
+							!checkpointing_ && w.idle_time() > 0.5){
+						if(steal_work(current_run_, w.id, avg_completion_time)){
+							need_update = true;
+						}
+					}
+
+					if(current_run_.checkpoint_type == CP_MASTER_CONTROLLED &&
+							0.7 * current_run_.shards.size() < finished_ &&
+							w.idle_time() > 0 && !w.checkpointing){
+						start_worker_checkpoint(w.id, current_run_);
+					}
+
+				}
+
+				if(need_update){
+					// Update the table assignments.
+					send_table_assignments();
+				}
+
+			});
+
+			if(dispatched_ < current_run_.shards.size()){
+				dispatched_ += dispatch_work(current_run_);
+			}
+		}
+
+	}
+
+	finishKernel();
+}
+
+void Master::barrier2(){
+
+	barrier_timer = new Timer();
+	iter++;
+
+	//term check;
+	DVLOG(1)<<"wait for kernel done";
 	su_kerdone.wait();
 	su_kerdone.reset();
+	DVLOG(1)<<"finish waiting for kernel done";
 
 	delete barrier_timer;
 }

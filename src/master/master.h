@@ -15,6 +15,7 @@
 #include "driver/tools/SyncUnit.h"
 
 #include <unordered_map>
+#include <thread>
 #include <mutex>
 #include <condition_variable>
 
@@ -100,6 +101,7 @@ public:
 	}
 
 	void barrier();
+	void barrier2();
 
 	// Blocking.  Instruct workers to save table and kernel state.
 	// When this call returns, all requested tables in the system will have been
@@ -115,6 +117,7 @@ public:
 	bool restore();
 
 private:
+	std::thread tmsg;
 	void MsgLoop();
 	void registerHandlers();
 	void handleReply(const std::string&, const RPCInfo&);
