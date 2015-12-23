@@ -12,6 +12,14 @@
 
 namespace dsm{
 
+/*
+ * A Synchronization unit which focus on the shared variable's state.
+ * wait() -> wait for it to be ready
+ * notify() -> set it to be ready, at the same time wake up waiters
+ * reset() -> set it to be not ready
+ * NOTE:
+ * It is allowed to notify() before wait(). This will let wait() return directly.
+ */
 struct SyncUnit{
 	void wait(){
 		if(ready)	return;
