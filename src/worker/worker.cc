@@ -318,6 +318,7 @@ void Worker::SendTermcheck(int snapshot, long updates, double current){
 	lock_guard<recursive_mutex> sl(state_lock_);
 
 	TermcheckDelta req;
+	req.set_wid(id());
 	req.set_index(snapshot);
 	req.set_delta(current);
 	req.set_updates(updates);
