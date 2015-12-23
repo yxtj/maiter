@@ -5,8 +5,8 @@
  *      Author: tzhou
  */
 
-#ifndef MASTER_SYNCUNIT_H_
-#define MASTER_SYNCUNIT_H_
+#ifndef DRIVER_TOOLS_SYNCUNIT_H_
+#define DRIVER_TOOLS_SYNCUNIT_H_
 
 #include <condition_variable>
 
@@ -14,13 +14,17 @@ namespace dsm{
 
 struct SyncUnit{
 	void wait(){
-		ready=false;
+		if(ready)	return;
 		std::unique_lock<std::mutex> ul(m);
+		if(ready)	return;
 		cv.wait(ul,[&](){return ready;});
 	}
 	void notify(){
 		ready=true;
 		cv.notify_all();
+	}
+	void reset(){
+		ready=false;
 	}
 private:
 	std::mutex m;
@@ -31,4 +35,4 @@ private:
 } //namespace dsm;
 
 
-#endif /* MASTER_SYNCUNIT_H_ */
+#endif /* DRIVER_TOOLS_SYNCUNIT_H_ */

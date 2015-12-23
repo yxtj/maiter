@@ -10,9 +10,9 @@
 #include "net/RPCInfo.h"
 
 #include "run-descriptor.h"
-#include "SyncUnit.h"
 #include "driver/MsgDriver.h"
 #include "driver/tools/ReplyHandler.h"
+#include "driver/tools/SyncUnit.h"
 
 #include <mutex>
 #include <condition_variable>
