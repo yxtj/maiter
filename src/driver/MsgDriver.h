@@ -12,7 +12,6 @@
 #include "net/RPCInfo.h"
 #include <deque>
 #include <string>
-//#include <thread>
 #include <mutex>
 #include <functional>
 
@@ -56,6 +55,7 @@ public:
 	void resetDefaultOutHandler();
 	void resetWaitingQueue();
 	void clear();
+	size_t queSize() const {return que.size();}
 
 	// return whether the input bypasses the dispatcher (enqueue)
 	bool pushData(std::string& data, RPCInfo& info);
