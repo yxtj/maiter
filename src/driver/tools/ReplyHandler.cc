@@ -119,7 +119,7 @@ ReplyHandler::Item::~Item(){
 
 bool ReplyHandler::input(const int type, const int source){
 	auto it=cont.find(type);
-	if(it==cont.end() && !it->second.activated )	return false;
+	if(it==cont.end() || !it->second.activated )	return false;
 	if(it->second.cond->update(source)){
 		launch(it->second);
 	}
