@@ -115,7 +115,7 @@ void Master::checkpoint(){
 	unique_lock<mutex> ul(m);
 //	auto pred=[&](){return Now()-last_checkpoint_>current_run_.checkpoint_interval;}
 	cv_cp.wait_for(ul,chrono::duration<double>(current_run_.checkpoint_interval));
-	while(!terminated_){
+	while(!kernel_terminated_){
 		start_checkpoint();
 		finish_checkpoint();
 		cv_cp.wait_for(ul,chrono::duration<double>(current_run_.checkpoint_interval));

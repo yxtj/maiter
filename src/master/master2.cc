@@ -43,14 +43,14 @@ void Master::shutdownWorkers(){
 
 void Master::SyncSwapRequest(const SwapTable& req){
 //	network_->SyncBroadcast(MTYPE_SWAP_TABLE, req);
+	su_swap.reset();
 	network_->Broadcast(MTYPE_SWAP_TABLE, req);
 	su_swap.wait();
 }
-void Master::syncSwap(){
-	su_swap.notify();
-}
+
 void Master::SyncClearRequest(const ClearTable& req){
 //	network_->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
+	su_clear.reset();
 	network_->Broadcast(MTYPE_CLEAR_TABLE, req);
 	su_clear.wait();
 }
@@ -124,14 +124,18 @@ void Master::finishKernel(){
 	EmptyMessage empty;
 	//1st round-trip to make sure all workers have flushed everything
 //	network_->SyncBroadcast(MTYPE_WORKER_FLUSH, empty);
+	su_wflush.reset();
 	network_->Broadcast(MTYPE_WORKER_FLUSH, empty);
 	su_wflush.wait();
 
 	//2nd round-trip to make sure all workers have applied all updates
 	//XXX: incorrect if MPI does not guarantee remote delivery
 //	network_->SyncBroadcast(MTYPE_WORKER_APPLY, empty);
+	su_wapply.reset();
 	network_->Broadcast(MTYPE_WORKER_APPLY, empty);
 	su_wapply.wait();
+
+	kernel_terminated_=true;
 
 //	if(current_run_.checkpoint_type == CP_MASTER_CONTROLLED){
 //		if(!checkpointing_){
@@ -140,6 +144,7 @@ void Master::finishKernel(){
 //		finish_checkpoint();
 //	}
 	cv_cp.notify_all();
+	su_term.notify();
 
 	MethodStats &mstats = method_stats_[current_run_.kernel + ":" + current_run_.method];
 	mstats.set_total_time(mstats.total_time() + Now() - current_run_start_);
@@ -148,6 +153,7 @@ void Master::finishKernel(){
 
 void Master::send_table_assignments(){
 	ShardAssignmentRequest req;
+	DVLOG(1)<<"Send table assignment";
 
 	for(int i = 0; i < workers_.size(); ++i){
 		WorkerState& w = *workers_[i];
@@ -160,8 +166,11 @@ void Master::send_table_assignments(){
 		}
 	}
 
+	su_tassign.reset();
 	network_->Broadcast(MTYPE_SHARD_ASSIGNMENT, req);
+	DVLOG(1)<<"Wait for table assignment finish";
 	su_tassign.wait();
+	DVLOG(1)<<"table assignment finished";
 }
 
 

@@ -36,10 +36,16 @@ void Master::RegDSPProcess(const int type, callback_t fp, bool spawnThread){
 void Master::RegDSPDefault(callback_t fp){
 	driver_.registerDefaultOutHandler(bind(fp, this, _1, _2));
 }
-
+void Master::addReplyHandler(const int mtype, void (Master::*fp)(), const bool newThread){
+	rph_.addType(mtype,
+		ReplyHandler::condFactory(ReplyHandler::EACH_ONE, config_.num_workers()),
+		bind(fp,this),newThread);
+}
 
 void Master::registerHandlers(){
-	//normal handlers:
+	VLOG(1)<<"Master is registering handlers";
+	//message handlers:
+//	RegDSPImmediate(MTYPE_REGISTER_WORKER, &Master::handleRegisterWorker);
 	RegDSPProcess(MTYPE_REGISTER_WORKER, &Master::handleRegisterWorker);
 	RegDSPProcess(MTYPE_KERNEL_DONE, &Master::handleKernelDone);
 	RegDSPProcess(MTYPE_TERMCHECK_DONE, &Master::handleTermcheckDone);
@@ -50,17 +56,17 @@ void Master::registerHandlers(){
 	ReplyHandler::ConditionType EACH_ONE=ReplyHandler::EACH_ONE;
 	RegDSPProcess(MTYPE_REPLY, &Master::handleReply);
 	//type 1: called by handleReply()
-//	addReplyHandler(MTYPE_CLEAR_TABLE, &Master::syncClear
 	rph_.addType(MTYPE_CLEAR_TABLE, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_clear),false);
 	rph_.activateType(MTYPE_CLEAR_TABLE);
-	addReplyHandler(MTYPE_SWAP_TABLE, &Master::syncSwap);
+	rph_.addType(MTYPE_SWAP_TABLE, ReplyHandler::condFactory(EACH_ONE,nw),
+			bind(&SyncUnit::notify, &su_swap),false);
 	rph_.activateType(MTYPE_SWAP_TABLE);
 	rph_.addType(MTYPE_WORKER_FLUSH, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_wflush),false);
 	rph_.activateType(MTYPE_WORKER_FLUSH);
 	rph_.addType(MTYPE_WORKER_APPLY, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_wflush),false);
+			bind(&SyncUnit::notify, &su_wapply),false);
 	rph_.activateType(MTYPE_WORKER_APPLY);
 	rph_.addType(MTYPE_SHARD_ASSIGNMENT, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_tassign),false);
@@ -73,7 +79,7 @@ void Master::registerHandlers(){
 	// called by handlerRegisterWorker()
 //	addReplyHandler(MTYPE_REGISTER_WORKER, &Master::syncRegw);
 	rph_.addType(MTYPE_REGISTER_WORKER, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_clear),false);
+			bind(&SyncUnit::notify, &su_regw),false);
 	rph_.activateType(MTYPE_REGISTER_WORKER);
 	// called by handleKernelDone()
 	rph_.addType(MTYPE_KERNEL_DONE, ReplyHandler::condFactory(EACH_ONE,nw),
@@ -89,17 +95,16 @@ void Master::registerHandlers(){
 void Master::handleReply(const std::string& d, const RPCInfo& info){
 	ReplyMessage rep;
 	rep.ParseFromString(d);
-	rph_.input(rep.type(),info.source);
+	DVLOG(2)<<"process reply from "<<info.source<<", type "<<rep.type();
+	bool v=rph_.input(rep.type(),netId2worker_.at(info.source)->id);
+	DVLOG(2)<<"process reply from "<<info.source<<", type "<<rep.type()<<", res "<<v;
 }
 
-void Master::registerWorkers(){
-	su_regw.wait();
-}
-
-void Master::handleRegisterWorker(const string& d, const RPCInfo& info){
+void Master::handleRegisterWorker(const std::string& d, const RPCInfo& info){
 	RegisterWorkerRequest req;
 	req.ParseFromString(d);
 	VLOG(1)<<"Registered worker: " << req.id();
+	netId2worker_[info.source]=workers_[req.id()];
 	rph_.input(MTYPE_REGISTER_WORKER, req.id());
 }
 

@@ -14,6 +14,7 @@
 #include "driver/tools/ReplyHandler.h"
 #include "driver/tools/SyncUnit.h"
 
+#include <unordered_map>
 #include <mutex>
 #include <condition_variable>
 
@@ -49,7 +50,7 @@ public:
 
 	void run_all(RunDescriptor r);
 	void run_one(RunDescriptor r);
-	void run_range(RunDescriptor r, const vector<int>& shards);
+	void run_range(RunDescriptor r, const std::vector<int>& shards);
 
 	// N.B.  All run_* methods are blocking.
 	void run_all(const string& kernel, const string& method, GlobalTableBase* locality){
@@ -82,7 +83,7 @@ public:
 
 	// Run the kernel function on the given set of shards.
 	void run_range(const string& kernel, const string& method,
-			GlobalTableBase* locality, const vector<int>& shards){
+			GlobalTableBase* locality, const std::vector<int>& shards){
 		run_range(RunDescriptor(kernel, method, locality), shards);
 	}
 
@@ -126,10 +127,8 @@ private:
 	void RegDSPDefault(callback_t fp);
 
 	SyncUnit su_swap;
-	void syncSwap();
 	SyncUnit su_clear;
 
-	void registerWorkers();
 	void handleRegisterWorker(const std::string& d, const RPCInfo& info);
 	SyncUnit su_regw;
 
@@ -144,7 +143,7 @@ private:
 	void shutdownWorkers();
 
 	std::condition_variable cv_cp; //for wait_for(), only be notified after termination
-//	std::vector<SyncUnit> su_cpdone;
+//	std::std::vector<SyncUnit> su_cpdone;
 //	void handleCheckpointDone(const std::string& d, const RPCInfo& info);
 	void start_checkpoint();
 	void start_worker_checkpoint(int worker_id, const RunDescriptor& r);
@@ -168,7 +167,7 @@ private:
 
 	bool steal_work(const RunDescriptor& r, int idle_worker, double avg_time);
 	void assign_tables();
-	void assign_tasks(const RunDescriptor& r, vector<int> shards);
+	void assign_tasks(const RunDescriptor& r, std::vector<int> shards);
 	int dispatch_work(const RunDescriptor& r);
 
 	void dump_stats();
@@ -189,7 +188,8 @@ private:
 	bool shards_assigned_;
 
 	bool checkpointing_;
-	bool terminated_;
+	bool running_;
+	bool kernel_terminated_;
 
 	// Used for interval checkpointing.
 	double last_checkpoint_;
@@ -199,7 +199,8 @@ private:
 	ofstream sync_track_log;
 	int iter;
 
-	vector<WorkerState*> workers_;
+	std::vector<WorkerState*> workers_;
+	std::unordered_map<int, WorkerState*> netId2worker_;//map network id (rpc source) to worker
 
 	typedef map<string, MethodStats> MethodStatsMap;
 	MethodStatsMap method_stats_;

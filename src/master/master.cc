@@ -34,11 +34,6 @@ namespace dsm {
 static void Sleep(){
 	this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
 }
-void Master::addReplyHandler(const int mtype, void (Master::*fp)(), const bool newThread){
-	rph_.addType(mtype,
-		ReplyHandler::condFactory(ReplyHandler::EACH_ONE, config_.num_workers()),
-		bind(fp,this),newThread);
-}
 //static unordered_set<int> dead_workers;
 
 
@@ -52,7 +47,7 @@ Master::Master(const ConfigData &conf) :
 	last_checkpoint_ = Now();
 	last_termcheck_ = Now();
 	checkpointing_ = false;
-	terminated_ = false;
+	running_ = false;
 	network_ = NetworkThread2::Get();
 	shards_assigned_ = false;
 	conv_track_log.open(FLAGS_track_log.c_str());
@@ -61,17 +56,21 @@ Master::Master(const ConfigData &conf) :
 		iter = 0;
 	}
 
+	//initial workers_ before message loop because handleRegisterWorker will use it
+	for(int i = 0; i < config_.num_workers(); ++i){
+		workers_.push_back(new WorkerState(i));
+	}
+	netId2worker_.reserve(config_.num_workers());
+
 	CHECK_GT(network_->size(), 1)<< "At least one master and one worker required!";
+	LOG(INFO)<<"Master started";
+
 	registerHandlers();
 
 	thread t(bind(&Master::MsgLoop,this));
 	t.detach();
 
-	for(int i = 0; i < config_.num_workers(); ++i){
-		workers_.push_back(new WorkerState(i));
-	}
-
-	registerWorkers();
+	su_regw.wait();
 
 	LOG(INFO)<< "All workers registered; starting up.";
 
@@ -112,14 +111,17 @@ Master::~Master(){
 }
 
 void Master::MsgLoop(){
+	DLOG(INFO)<<"Message loop of master started";
 	string data;
 	RPCInfo info;
 	info.dest=network_->id();
-	while(!terminated_){
+	while(!running_){
 		if(network_->TryReadAny(data,&info.source,&info.tag)){
+//			DVLOG(1)<<"Got a pkg from "<<info.source<<" to "<<info.dest<<", type "<<info.tag;
 			driver_.pushData(data,info);
 		}
-		while(driver_.empty()){
+		while(!driver_.empty()){
+//			DVLOG(1)<<"pop a message. driver left "<<driver_.queSize()<<" , net left "<<network_->waiting_messages();
 			driver_.popData();
 		}
 		Sleep();
@@ -133,7 +135,7 @@ void Master::terminate_iteration(){
 		req.set_epoch(0);
 		network_->Send(1 + worker_id, MTYPE_TERMINATION, req);
 	}
-	terminated_ = true;
+	running_ = true;
 	VLOG(1) << "Sent termination notifications ";
 }
 
@@ -206,11 +208,14 @@ bool Master::termcheck(){
 }
 
 void Master::termcheck2(){
-	while(!terminated_){
+	while(!kernel_terminated_){
 		VLOG(2) << "Starting termination check: " << termcheck_epoch_;
 		Timer cp_timer;
 
 		su_term.wait();
+		su_term.reset();
+		if(kernel_terminated_)
+			break;
 
 		long total_updates = 0;
 		vector<double> partials;
@@ -232,6 +237,10 @@ void Master::termcheck2(){
 				<< " total updates " << total_updates << "\n";
 		conv_track_log.flush();
 
+		kernel_terminated_=bterm;
+		if(kernel_terminated_){
+			terminate_iteration();
+		}
 	}
 }
 
@@ -446,6 +455,7 @@ int Master::reap_one_task(){
 }
 
 void Master::run(RunDescriptor r){
+	kernel_terminated_=false;
 	if(!FLAGS_checkpoint && r.checkpoint_type != CP_NONE){
 		LOG(INFO)<< "Checkpoint is disabled by flag.";
 		r.checkpoint_type = CP_NONE;
@@ -456,7 +466,7 @@ void Master::run(RunDescriptor r){
 		i->second->set_helper(this);
 	}
 
-	CHECK_EQ(current_run_.shards.size(), finished_) << " Cannot start kernel before previous one is finished ";
+//	CHECK_EQ(current_run_.shards.size(), finished_) << " Cannot start kernel before previous one is finished ";
 	finished_ = dispatched_ = 0;
 
 	KernelInfo *k = KernelRegistry::Get()->kernel(r.kernel);
@@ -502,8 +512,15 @@ void Master::run(RunDescriptor r){
 	barrier();
 
 	finishKernel();
-	t_cp.join();
+
+	if(t_cp.joinable()){
+		LOG(INFO)<<"Waiting for checkpoint thread to stop";
+		t_cp.join();
+		LOG(INFO)<<"checkpoint thread to stopped";
+	}
+	LOG(INFO)<<"Waiting for termination checking thread to stop";
 	t_term.join();
+	LOG(INFO)<<"termination checking thread to stopped";
 }
 
 void Master::barrier(){
@@ -521,14 +538,14 @@ void Master::barrier(){
 //			dump_stats();
 //		});
 //
-//		if(!terminated_ && Now() - last_termcheck_ > FLAGS_termcheck_interval){
+//		if(!kernel_terminated_ && Now() - last_termcheck_ > FLAGS_termcheck_interval){
 //			bterm = termcheck();
 //			last_termcheck_ = Now();
 //			VLOG(2) << "term ? " << bterm;
 //
 //			if(bterm){
 //				terminate_iteration();
-//				terminated_ = true;
+//				kernel_terminated_ = true;
 //			}
 //		}
 //
@@ -537,7 +554,7 @@ void Master::barrier(){
 ////		...
 //	}
 	su_kerdone.wait();
-	terminated_ = true;
+	su_kerdone.reset();
 
 	delete barrier_timer;
 }
