@@ -326,18 +326,16 @@ public:
 				&MaiterKernel1<K, V, D>::run, this);
 
 		//iterative update job
-		if(iterkernel != nullptr){
+		if(iterkernel != nullptr && termchecker != nullptr){
 			KernelRegistrationHelper<MaiterKernel2<K, V, D>, K, V, D>("MaiterKernel2", this);
 			MethodRegistrationHelper<MaiterKernel2<K, V, D>, K, V, D>("MaiterKernel2", "map",
 					&MaiterKernel2<K, V, D>::map, this);
 		}
 
 		//dumping result to disk job
-		if(termchecker != nullptr){
-			KernelRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", this);
-			MethodRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", "run",
-					&MaiterKernel3<K, V, D>::run, this);
-		}
+		KernelRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", this);
+		MethodRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", "run",
+				&MaiterKernel3<K, V, D>::run, this);
 
 		return 0;
 	}

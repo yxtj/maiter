@@ -58,20 +58,18 @@ public:
 	//maiter program
 	template<class K, class V, class D>
 	void run_maiter(MaiterKernel<K, V, D>* maiter){
-		if(maiter->sharder == NULL){
+		if(maiter->sharder == nullptr){
 			LOG(FATAL)<<"sharder is not specified in current kernel";
 			return;
 		}
 
 		run_all("MaiterKernel1", "run", maiter->table);
 
-		if(maiter->iterkernel != NULL){
+		if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
 			run_all("MaiterKernel2", "map", maiter->table);
 		}
 
-		if(maiter->termchecker != NULL){
-			run_all("MaiterKernel3", "run", maiter->table);
-		}
+		run_all("MaiterKernel3", "run", maiter->table);
 	}
 
 	// Run the given kernel function on one (arbitrary) worker node.
