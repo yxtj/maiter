@@ -42,26 +42,26 @@ DECLARE_bool(log_prefix);
 
 
 
-int main(int argc, char** argv) {
-  FLAGS_log_prefix = false;
+int main(int argc, char** argv){
+	FLAGS_log_prefix = false;
 //  cout<<getcallstack()<<endl;
 
-  Init(argc, argv);
+	Init(argc, argv);
 
-  ConfigData conf;
-  //TODO: change back after message-driven is finished
+	ConfigData conf;
+	//TODO: change back after message-driven is finished
 //  conf.set_num_workers(MPI::COMM_WORLD.Get_size() - 1);
 //  conf.set_worker_id(MPI::COMM_WORLD.Get_rank() - 1);
-  conf.set_num_workers(NetworkThread::Get()->size() - 1);
-  conf.set_worker_id(NetworkThread::Get()->id() - 1);
+	conf.set_num_workers(NetworkThread::Get()->size() - 1);
+	conf.set_worker_id(NetworkThread::Get()->id() - 1);
 
 //  cout<<NetworkThread::Get()->id()<<":"<<getcallstack()<<endl;
 // return 0;
 //  LOG(INFO) << "Running: " << FLAGS_runner;
-  CHECK_NE(FLAGS_runner, "");
-  RunnerRegistry::KernelRunner k = RunnerRegistry::Get()->runner(FLAGS_runner);
-  LOG(INFO) << "kernel runner is " << FLAGS_runner;
-  CHECK(k != NULL) << "Could not find kernel runner " << FLAGS_runner;
-  k(conf);
-  LOG(INFO) << "Exiting.";
+	CHECK_NE(FLAGS_runner, "");
+	RunnerRegistry::KernelRunner k = RunnerRegistry::Get()->runner(FLAGS_runner);
+	LOG(INFO)<< "kernel runner is " << FLAGS_runner;
+	CHECK(k != NULL) << "Could not find kernel runner " << FLAGS_runner;
+	k(conf);
+	LOG(INFO)<< "Exiting.";
 }
