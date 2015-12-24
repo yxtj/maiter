@@ -129,112 +129,33 @@ void Master::MsgLoop(){
 	}
 }
 
-void Master::terminate_iteration(){
-	for(int i = 0; i < workers_.size(); ++i){
-		int worker_id = i;
-		TerminationNotification req;
-		req.set_epoch(0);
-		network_->Send(1 + worker_id, MTYPE_TERMINATION, req);
-	}
-
-	VLOG(1) << "Sent termination notifications ";
-}
-
-bool Master::termcheck(){
-	//check_1 (pre-condition), all workers have finished and sent partial termcheck on their own parts.
-	//check_2, using TermChecker
-	VLOG(2) << "Starting termination check: " << termcheck_epoch_;
-
-	Timer cp_timer;
-
-	//TODO: Move this check_1 part into a separate function.
-	//TODO: Optimize it by callback and condition variable.
-	int received_num = 0;
-	for(int i = 0; i < workers_.size(); ++i){
-		int worker_id = i;
-		VLOG(1) << "Starting termination checking on: " << worker_id;
-
-		TermcheckDelta resp;
-//		while(network_->TryRead(1 + worker_id, MTYPE_TERMCHECK_DONE, &resp)){ //read all the buffered information
-//			VLOG(1) << "receive from " << worker_id << " with " << resp.delta();
-//			workers_[worker_id]->current = resp.delta();
-//			workers_[worker_id]->updates = resp.updates();
-//			workers_[worker_id]->termchecking = true;
-//		}
-		if(workers_[worker_id]->termchecking==true)
-			received_num++;
-	}
-	VLOG(1) << "received " << received_num << " size " << workers_.size();
-	//if receive too less, ignore this termination check, need smaller snapshot_interval and longer termcheck_interval
-	if(received_num < workers_.size())
-		return false;
-
-	long total_updates = 0;
-	vector<double> partials;
-	for(int i = 0; i < workers_.size(); ++i){
-		total_updates += workers_[i]->updates;
-		partials.push_back(workers_[i]->current);
-	}
-
-	//we only have one table
-	bool bterm = ((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->terminate(partials);
-
-	VLOG(0) << "Termination check at " << barrier_timer->elapsed() << " finished in "
-						<< cp_timer.elapsed() << " total current "
-						<< StringPrintf("%.05f",
-								((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->get_curr())
-						<< " total updates " << total_updates << endl;
-	conv_track_log << "Termination check at " << barrier_timer->elapsed() << " finished in "
-			<< cp_timer.elapsed() << " total current "
-			<< StringPrintf("%.05f",
-					((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->get_curr())
-			<< " total updates " << total_updates << "\n";
-	conv_track_log.flush();
-
-	if(bterm){        //for pagerank termination
-		return true;
-	}else{	//reset
-		for(int i = 0; i < workers_.size(); ++i){
-			int worker_id = i;
-			workers_[worker_id]->termchecking = false;
-//
-//			//clear buffer
-//			TermcheckDelta resp;
-//			while(network_->TryRead(1 + worker_id, MTYPE_TERMCHECK_DONE, &resp)){
-//				VLOG(1)<<"clear termcheck message from "<<worker_id<<" with "<<resp.delta();
-//			}
-		}
-		return false;
-	}
-}
-
 void Master::termcheck2(){
 	while(!kernel_terminated_){
 		VLOG(2) << "Starting termination check: " << termcheck_epoch_;
-		Timer cp_timer;
 
 		su_term.wait();
 		su_term.reset();
 		if(kernel_terminated_)
 			break;
 
+		Timer cp_timer;
 		long total_updates = 0;
 		vector<double> partials;
+		partials.reserve(workers_.size());
 		for(int i = 0; i < workers_.size(); ++i){
 			total_updates += workers_[i]->updates;
 			partials.push_back(workers_[i]->current);
 		}
 
 		//we only have one table
-		bool bterm = ((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->terminate(partials);
+		TermChecker<int, double>* ptc=static_cast<TermChecker<int, double>*>(tables_[0]->info_.termchecker);
+		bool bterm = ptc->terminate(partials);
 
 		LOG(INFO) << "Termination check at " << barrier_timer->elapsed() << " finished in "
-				<< cp_timer.elapsed() << " total current "<< StringPrintf("%.05f",
-						((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->get_curr())
+				<< cp_timer.elapsed() << " total current "<< StringPrintf("%.05f",ptc->get_curr())
 				<< " total updates " << total_updates;
 		conv_track_log << "Termination check at " << barrier_timer->elapsed() << " finished in "
-				<< cp_timer.elapsed() << " total current "<< StringPrintf("%.05f",
-						((TermChecker<int, double>*)(tables_[0]->info_.termchecker))->get_curr())
+				<< cp_timer.elapsed() << " total current "<< StringPrintf("%.05f",ptc->get_curr())
 				<< " total updates " << total_updates << "\n";
 		conv_track_log.flush();
 
@@ -243,6 +164,7 @@ void Master::termcheck2(){
 			terminate_iteration();
 		}
 	}
+	VLOG(1)<<"termination checking thread finished";
 }
 
 void Master::run_all(RunDescriptor r){
@@ -379,7 +301,7 @@ void Master::assign_tasks(const RunDescriptor& r, vector<int> shards){
 	}
 }
 
-int Master::dispatch_work(const RunDescriptor& r){
+int Master::startWorkers(const RunDescriptor& r){
 	int num_dispatched = 0;
 	KernelRequest w_req;
 	for(int i = 0; i < workers_.size(); ++i){
@@ -502,10 +424,11 @@ void Master::run(RunDescriptor r){
 
 	assign_tasks(current_run_, shards);
 
-	dispatched_ = dispatch_work(current_run_);
+	su_term.reset();
+	dispatched_ = startWorkers(current_run_);
 
 	thread t_cp;
-	if(current_run_.checkpoint_type == CP_ROLLING){
+	if(current_run_.checkpoint_type != CP_NONE){
 		t_cp=thread(&Master::checkpoint,this);
 	}
 	thread t_term(&Master::termcheck2, this);
@@ -517,87 +440,87 @@ void Master::run(RunDescriptor r){
 	if(t_cp.joinable()){
 		LOG(INFO)<<"Waiting for checkpoint thread to stop";
 		t_cp.join();
-		LOG(INFO)<<"checkpoint thread to stopped";
+		LOG(INFO)<<"Found checkpoint thread stopped";
 	}
 	LOG(INFO)<<"Waiting for termination checking thread to stop";
 	t_term.join();
-	LOG(INFO)<<"termination checking thread to stopped";
+	LOG(INFO)<<"Found termination checking thread stopped";
 }
 
-void Master::barrier(){
-	MethodStats &mstats = method_stats_[current_run_.kernel + ":" + current_run_.method];
-
-	bool bterm = false;
-	barrier_timer = new Timer();
-	iter++;
-
-	//VLOG(1) << "finished " << finished_ << " current_run " << current_run_.shards.size();
-	while(finished_ < current_run_.shards.size()){
-		//VLOG(1) << "finished " << finished_ << "current_rund " << current_run_.shards.size();
-		PERIODIC(10, {
-			DumpProfile();
-			dump_stats();
-		});
-
-		if(current_run_.checkpoint_type == CP_ROLLING &&
-				Now() - last_checkpoint_ > current_run_.checkpoint_interval){
-			checkpoint();
-		}
-
-		if(running_ && Now() - last_termcheck_ > FLAGS_termcheck_interval){
-			bterm = termcheck();
-			last_termcheck_ = Now();
-			VLOG(2) << "term ? " << bterm;
-
-			if(bterm){
-				terminate_iteration();
-				running_ = false;
-			}
-		}
-
-		if(reap_one_task() >= 0){
-			finished_++;
-
-			PERIODIC(0.1, {
-				double avg_completion_time =
-						mstats.shard_time() / mstats.shard_calls();
-
-				bool need_update = false;
-				for(int i = 0; i < workers_.size(); ++i){
-					WorkerState& w = *workers_[i];
-
-					// Don't try to steal tasks if the payoff is too small.
-					if(mstats.shard_calls() > 10 && avg_completion_time > 0.2 &&
-							!checkpointing_ && w.idle_time() > 0.5){
-						if(steal_work(current_run_, w.id, avg_completion_time)){
-							need_update = true;
-						}
-					}
-
-					if(current_run_.checkpoint_type == CP_MASTER_CONTROLLED &&
-							0.7 * current_run_.shards.size() < finished_ &&
-							w.idle_time() > 0 && !w.checkpointing){
-						start_worker_checkpoint(w.id, current_run_);
-					}
-
-				}
-
-				if(need_update){
-					// Update the table assignments.
-					send_table_assignments();
-				}
-
-			});
-
-			if(dispatched_ < current_run_.shards.size()){
-				dispatched_ += dispatch_work(current_run_);
-			}
-		}
-
-	}
-
-	finishKernel();
-}
+//void Master::barrier(){
+//	MethodStats &mstats = method_stats_[current_run_.kernel + ":" + current_run_.method];
+//
+//	bool bterm = false;
+//	barrier_timer = new Timer();
+//	iter++;
+//
+//	//VLOG(1) << "finished " << finished_ << " current_run " << current_run_.shards.size();
+//	while(finished_ < current_run_.shards.size()){
+//		//VLOG(1) << "finished " << finished_ << "current_rund " << current_run_.shards.size();
+//		PERIODIC(10, {
+//			DumpProfile();
+//			dump_stats();
+//		});
+//
+//		if(current_run_.checkpoint_type == CP_ROLLING &&
+//				Now() - last_checkpoint_ > current_run_.checkpoint_interval){
+//			checkpoint();
+//		}
+//
+//		if(running_ && Now() - last_termcheck_ > FLAGS_termcheck_interval){
+//			bterm = termcheck();
+//			last_termcheck_ = Now();
+//			VLOG(2) << "term ? " << bterm;
+//
+//			if(bterm){
+//				terminate_iteration();
+//				running_ = false;
+//			}
+//		}
+//
+//		if(reap_one_task() >= 0){
+//			finished_++;
+//
+//			PERIODIC(0.1, {
+//				double avg_completion_time =
+//						mstats.shard_time() / mstats.shard_calls();
+//
+//				bool need_update = false;
+//				for(int i = 0; i < workers_.size(); ++i){
+//					WorkerState& w = *workers_[i];
+//
+//					// Don't try to steal tasks if the payoff is too small.
+//					if(mstats.shard_calls() > 10 && avg_completion_time > 0.2 &&
+//							!checkpointing_ && w.idle_time() > 0.5){
+//						if(steal_work(current_run_, w.id, avg_completion_time)){
+//							need_update = true;
+//						}
+//					}
+//
+//					if(current_run_.checkpoint_type == CP_MASTER_CONTROLLED &&
+//							0.7 * current_run_.shards.size() < finished_ &&
+//							w.idle_time() > 0 && !w.checkpointing){
+//						start_worker_checkpoint(w.id, current_run_);
+//					}
+//
+//				}
+//
+//				if(need_update){
+//					// Update the table assignments.
+//					send_table_assignments();
+//				}
+//
+//			});
+//
+//			if(dispatched_ < current_run_.shards.size()){
+//				dispatched_ += startWorkers(current_run_);
+//			}
+//		}
+//
+//	}
+//
+//	finishKernel();
+//}
 
 void Master::barrier2(){
 

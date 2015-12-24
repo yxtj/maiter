@@ -67,7 +67,7 @@ Worker::~Worker(){
 	}
 }
 
-int Worker::peer_for_shard(int table, int shard) const{
+int Worker::ownerOfShard(int table, int shard) const{
 	return TableRegistry::Get()->tables()[table]->owner(shard);
 }
 
@@ -120,7 +120,6 @@ void Worker::KernelLoop(){
 // HandleRunKernel2() and HandleShutdown2() can end this waiting
 void Worker::waitKernel(){
 	Timer idle;
-//	while(!network_->TryRead(config_.master_id(), MTYPE_RUN_KERNEL, &kreq)){
 	while(!running_kernel_){
 //		CheckNetwork();
 		Sleep();
@@ -130,9 +129,9 @@ void Worker::waitKernel(){
 	}
 	stats_["idle_time"] += idle.elapsed();
 	VLOG(1) << "Received run request for " << kreq;
-	if(peer_for_shard(kreq.table(), kreq.shard()) != config_.worker_id()){
+	if(ownerOfShard(kreq.table(), kreq.shard()) != config_.worker_id()){
 		LOG(FATAL)<< "Received a shard I can't work on! : " << kreq.shard()
-				<< " : " << peer_for_shard(kreq.table(), kreq.shard());
+				<< " : " << ownerOfShard(kreq.table(), kreq.shard());
 	}
 }
 void Worker::runKernel(){
@@ -145,12 +144,9 @@ void Worker::runKernel(){
 	args.FromMessage(kreq.args());
 	d->set_args(args);
 
-	if(this->id() == 1 && FLAGS_sleep_hack > 0){
-		this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_hack));
-	}
-
 	// Run the user kernel
 	helper->Run(d, kreq.method());
+
 	delete d;
 }
 void Worker::finishKernel(){
@@ -161,7 +157,6 @@ void Worker::finishKernel(){
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 		GlobalTableBase* t = i->second;
 		VLOG(1)<<"Kernel Done of table "<<i->first;
-		HandlePutRequest();
 		for(int j = 0; j < t->num_shards(); ++j){
 			if(t->is_local_shard(j)){
 				ShardInfo *si = kd.add_shards();
@@ -181,7 +176,6 @@ void Worker::finishKernel(){
 void Worker::CheckNetwork(){
 	Timer net;
 	CheckForMasterUpdates();
-	HandlePutRequest();
 
 	// Flush any tables we no longer own.
 	for(unordered_set<GlobalTableBase*>::iterator i = dirty_tables_.begin(); i != dirty_tables_.end();
@@ -215,7 +209,14 @@ bool Worker::network_idle() const{
 }
 
 bool Worker::has_incoming_data() const{
-	return true;
+	return !driver.empty();
+}
+
+void Worker::realSwap(const int tid1, const int tid2){
+	LOG(INFO)<<"Not implemented. (signal the master to perform this)";
+}
+void Worker::realClear(const int tid){
+	LOG(INFO)<<"Not implemented. (signal the master to perform this)";
 }
 
 void Worker::UpdateEpoch(int peer, int peer_epoch){
@@ -352,59 +353,17 @@ void Worker::SendPutRequest(int dstWorkerID, const KVPairData& put){
 	network_->Send(dstWorkerID + 1, MTYPE_PUT_REQUEST, put);
 }
 
-void Worker::HandlePutRequest(){
-	return;
-	if(!running_ || !running_kernel_){
-		//clear received buffer without processing its content
-		VLOG(1) << "Clearing data receiving buffer after work finished.";
-//		if(kreq.kernel()=="MaiterKernel2")
-//			VLOG(1)<<"\n"<<getcallstack();
-//		while(network_->TryRead(Task::ANY_SRC, MTYPE_PUT_REQUEST));
-		return;
-	}
-	lock_guard<recursive_mutex> sl(state_lock_);
-
-	KVPairData put;
-//	while(network_->TryRead(Task::ANY_SRC, MTYPE_PUT_REQUEST, &put)){
-	while(false){
-		if(put.marker() != -1){
-			UpdateEpoch(put.source(), put.marker());
-			continue;
-		}
-
-		VLOG(2) << "Read put request of size: " << put.kv_data_size() << " for "
-							<< MP(put.table(), put.shard());
-
-		MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
-		t->MergeUpdates(put);
-
-		// Record messages from our peer channel up until they checkpointed.
-		if(active_checkpoint_ == CP_MASTER_CONTROLLED
-				|| (active_checkpoint_ == CP_ROLLING && put.epoch() < epoch_)){
-			if(checkpoint_tables_.find(t->id()) != checkpoint_tables_.end()){
-				Checkpointable *ct = dynamic_cast<Checkpointable*>(t);
-				ct->write_delta(put);
-			}
-		}
-
-		if(put.done() && t->tainted(put.shard())){
-			VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());
-			t->get_partition_info(put.shard())->tainted = false;
-		}
-	}
-}
-
-void Worker::FlushUpdates(){
-	//VLOG(2) << "finish one pass";
-	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
-	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
-		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
-		if(t){
-			t->SendUpdates();
-			t->TermCheck();
-		}
-	}
-}
+//void Worker::FlushUpdates(){
+//	//VLOG(2) << "finish one pass";
+//	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+//	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+//		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+//		if(t){
+//			t->SendUpdates();
+//			t->TermCheck();
+//		}
+//	}
+//}
 
 void Worker::sendReply(const RPCInfo& rpc){
 	ReplyMessage rm;

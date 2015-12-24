@@ -14,6 +14,7 @@
 #include "driver/tools/ReplyHandler.h"
 #include "driver/tools/SyncUnit.h"
 
+#include <vector>
 #include <unordered_map>
 #include <thread>
 #include <mutex>
@@ -37,17 +38,14 @@ public:
 	int epoch() const{
 		return kernel_epoch_;
 	}
-	int peer_for_shard(int table, int shard) const{
+	int ownerOfShard(int table, int shard) const{
 		return tables_[table]->owner(shard);
 	}
-	void SendPutRequest(int dstWorkerID, const KVPairData& put){
-	}
-	void HandlePutRequest(){}
-	void FlushUpdates(){}
+	void SendPutRequest(int dstWorkerID, const KVPairData& put){}
 	void SendTermcheck(int index, long updates, double current){}
 
-	void SyncSwapRequest(const SwapTable& req);
-	void SyncClearRequest(const ClearTable& req);
+	void realSwap(const int tid1, const int tid2);
+	void realClear(const int tid);
 
 	void run_all(RunDescriptor r);
 	void run_one(RunDescriptor r);
@@ -171,7 +169,7 @@ private:
 	bool steal_work(const RunDescriptor& r, int idle_worker, double avg_time);
 	void assign_tables();
 	void assign_tasks(const RunDescriptor& r, std::vector<int> shards);
-	int dispatch_work(const RunDescriptor& r);
+	int startWorkers(const RunDescriptor& r);
 
 	void dump_stats();
 	int reap_one_task();

@@ -40,21 +40,25 @@ void Master::shutdownWorkers(){
 		network_->Send(i, MTYPE_WORKER_SHUTDOWN, msg);
 	}
 }
+void Master::realSwap(const int tid1, const int tid2){
+	SwapTable req;
+	req.set_table_a(tid1);
+	req.set_table_b(tid2);
+	VLOG(2) << StringPrintf("Sending swap request (%d <--> %d)", req.table_a(), req.table_b());
 
-void Master::SyncSwapRequest(const SwapTable& req){
-//	network_->SyncBroadcast(MTYPE_SWAP_TABLE, req);
 	su_swap.reset();
 	network_->Broadcast(MTYPE_SWAP_TABLE, req);
 	su_swap.wait();
 }
+void Master::realClear(const int tid){
+	ClearTable req;
+	req.set_table(tid);
+	VLOG(2) << StringPrintf("Sending clear request (%d)", req.table());
 
-void Master::SyncClearRequest(const ClearTable& req){
-//	network_->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
 	su_clear.reset();
 	network_->Broadcast(MTYPE_CLEAR_TABLE, req);
 	su_clear.wait();
 }
-
 
 void Master::enable_trigger(const TriggerID triggerid, int table, bool enable){
 	EnableTrigger trigreq;
@@ -66,7 +70,6 @@ void Master::enable_trigger(const TriggerID triggerid, int table, bool enable){
 		network_->Send(w.id + 1, MTYPE_ENABLE_TRIGGER, trigreq);
 	}
 }
-
 
 bool Master::restore(){
 	if(!FLAGS_restore){
@@ -118,6 +121,19 @@ bool Master::restore(){
 
 	LOG(INFO) << "Checkpoint restored in " << t.elapsed() << " seconds.";
 	return true;
+}
+
+void Master::terminate_iteration(){
+//	for(int i = 0; i < workers_.size(); ++i){
+//		int worker_id = i;
+//		TerminationNotification req;
+//		req.set_epoch(0);
+//		network_->Send(1 + worker_id, MTYPE_TERMINATION, req);
+//	}
+	TerminationNotification req;
+	req.set_epoch(0);
+	VLOG(1) << "Sent termination notifications ";
+	network_->Broadcast(MTYPE_TERMINATION, req);
 }
 
 void Master::finishKernel(){

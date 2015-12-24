@@ -129,8 +129,8 @@ public:
 			accumulateF1(it.key(), it.value1());
 		}
 
-		ProcessUpdates();
-		TermCheck();
+//		ProcessUpdates();
+//		TermCheck();
 	}
 
 	void ProcessUpdates(){
@@ -152,7 +152,9 @@ public:
 			}
 			delete it2;
 		}
+		TermCheck();
 	}
+	//Process with user provided functions
 	void ProcessUpdatesSingle(const K& k, V1& v1, V2& v2, V3& v3){
 		IterateKernel<K, V1, V3>* kernel=
 				static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);

@@ -66,7 +66,6 @@ struct WorkerState: private noncopyable{
 		last_task_start = 0.0;
 		total_runtime = 0.0;
 		checkpointing = false;
-		termchecking = false;
 		current = 0;
 		updates = 0;
 	}
@@ -86,7 +85,6 @@ struct WorkerState: private noncopyable{
 	double total_runtime;
 
 	bool checkpointing;
-	bool termchecking;
 	double current;
 	long updates;
 

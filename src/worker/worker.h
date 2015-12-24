@@ -38,6 +38,8 @@ public:
 	void CheckForMasterUpdates();
 	void CheckNetwork();
 
+	void realSwap(const int tid1, const int tid2);
+	void realClear(const int tid);
 	void HandleSwapRequest(const std::string& d, const RPCInfo& rpc);
 	void HandleClearRequest(const std::string& d, const RPCInfo& rpc);
 

@@ -59,24 +59,24 @@ void MutableGlobalTable::resize(int64_t new_size){
 }
 
 void MutableGlobalTable::swap(GlobalTableBase *b){
-	SwapTable req;
-
-	req.set_table_a(this->id());
-	req.set_table_b(b->id());
-	VLOG(2) << StringPrintf("Sending swap request (%d <--> %d)", req.table_a(), req.table_b());
-
-//	NetworkThread::Get()->SyncBroadcast(MTYPE_SWAP_TABLE, req);
-	helper()->SyncSwapRequest(req);
+	helper()->realSwap(this->id(), b->id());
+//	SwapTable req;
+//
+//	req.set_table_a(this->id());
+//	req.set_table_b(b->id());
+//	VLOG(2) << StringPrintf("Sending swap request (%d <--> %d)", req.table_a(), req.table_b());
+//
+//	helper()->SyncSwapRequest(req);
 }
 
 void MutableGlobalTable::clear(){
-	ClearTable req;
-
-	req.set_table(this->id());
-	VLOG(2) << StringPrintf("Sending clear request (%d)", req.table());
-
-//	NetworkThread::Get()->SyncBroadcast(MTYPE_CLEAR_TABLE, req);
-	helper()->SyncClearRequest(req);
+	helper()->realClear(this->id());
+//	ClearTable req;
+//
+//	req.set_table(this->id());
+//	VLOG(2) << StringPrintf("Sending clear request (%d)", req.table());
+//
+//	helper()->SyncClearRequest(req);
 }
 
 void MutableGlobalTable::start_checkpoint(const string& f){

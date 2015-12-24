@@ -162,7 +162,7 @@ void Master::handleKernelDone(const std::string& d, const RPCInfo& info){
 	});
 
 	if(dispatched_ < current_run_.shards.size()){
-		dispatched_ += dispatch_work(current_run_);
+		dispatched_ += startWorkers(current_run_);
 	}
 
 	finished_++;
@@ -176,7 +176,6 @@ void Master::handleTermcheckDone(const std::string& d, const RPCInfo& info){
 	VLOG(1) << "receive from " << resp.wid() << " with " << resp.delta();
 	workers_[worker_id]->current = resp.delta();
 	workers_[worker_id]->updates = resp.updates();
-	workers_[worker_id]->termchecking = true;
 
 	rph_.input(MTYPE_TERMCHECK_DONE, resp.wid());
 }

@@ -71,18 +71,15 @@ public:
 	virtual void SendUpdates() = 0;
 	virtual void MergeUpdates(const KVPairData& req) = 0;
 	virtual void ProcessUpdates() = 0;
-//	virtual void HandlePutRequests() = 0;
 	virtual void TermCheck() = 0;
 
 	virtual int pending_write_bytes() = 0;
 
-	virtual void clear() = 0;
 	virtual void resize(int64_t new_size) = 0;
 
+	virtual void clear() = 0;
 	// Exchange the content of this table with that of table 'b'.
 	virtual void swap(GlobalTableBase *b) = 0;
-protected:
-	friend class Worker;
 	virtual void local_swap(GlobalTableBase *b) = 0;
 };
 
@@ -157,7 +154,6 @@ public:
 	void SendUpdates();
 	virtual void MergeUpdates(const KVPairData& req) = 0;
 	virtual void ProcessUpdates() = 0;
-//	void HandlePutRequests();
 	void TermCheck();
 
 	int pending_write_bytes();
@@ -172,6 +168,7 @@ public:
 	void restore(const string& f);
 
 	void swap(GlobalTableBase *b);
+	void local_swap(GlobalTableBase *b);
 
 //	int64_t sent_bytes_;
 	Timer timer;
@@ -180,7 +177,6 @@ public:
 protected:
 	int64_t pending_writes_;
 	int snapshot_index;
-	void local_swap(GlobalTableBase *b);
 	void termcheck();
 
 	//double send_overhead;
