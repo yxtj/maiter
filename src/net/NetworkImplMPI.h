@@ -31,6 +31,7 @@ public:
 	void send(const Task* t);
 //	void send(const int dst, const int type, const std::string& data);
 //	void send(const int dst, const int type, std::string&& data);
+	void broadcast(const Task* t);
 
 	static NetworkImplMPI* GetInstance();
 	static int TransformSrc(int s_d){

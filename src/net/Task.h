@@ -58,7 +58,7 @@ struct TaskTimed : public Task{
 	TaskTimed(int s_d,int type,std::string&& s):Task(s_d,type,s){}
 	TaskTimed(int s_d,int type,const std::string& s):Task(s_d,type,s){}
 
-	TaskTimed(int s_d,int type,const google::protobuf::Message& msg,const MsgHeader& h):Task(s_d,type,msg,h){}
+	TaskTimed(int s_d,int type,const google::protobuf::Message& msg,const MsgHeader& h=MsgHeader(false)):Task(s_d,type,msg,h){}
 };
 
 //typedef std::shared_ptr<Task> Task_ptr;

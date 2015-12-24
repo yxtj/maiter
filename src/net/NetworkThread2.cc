@@ -8,11 +8,7 @@
 #include <thread>
 #include <chrono>
 
-#include "msg/message.pb.h"
-
-//DECLARE_bool(localtest);
 DECLARE_double(sleep_time);
-//DEFINE_bool(rpc_log, false, "");
 
 using namespace std;
 
@@ -25,9 +21,6 @@ static inline void Sleep(){
 NetworkThread2::NetworkThread2() :
 		running(false), net(NULL){
 	net = NetworkImplMPI::GetInstance();
-	for(int i = 0; i < kMaxMethods; ++i){
-		callbacks_[i] = NULL;
-	}
 
 	running = true;
 	t_ = thread(&NetworkThread2::Run, this);
@@ -44,7 +37,9 @@ int NetworkThread2::size() const{
 bool NetworkThread2::active() const{
 	return pending_sends_.size() > 0 || net->unconfirmedTaskNum() > 0;
 }
-
+size_t NetworkThread2::pending_pkgs() const{
+	return net->unconfirmedTaskNum()+pending_sends_.size();
+}
 int64_t NetworkThread2::pending_bytes() const{
 	int64_t t = net->unconfirmedBytes();
 
@@ -56,49 +51,23 @@ int64_t NetworkThread2::pending_bytes() const{
 	return t;
 }
 
-int NetworkThread2::waiting_messages() const{
+size_t NetworkThread2::unpicked_pkgs() const{
 	return receive_buffer.size();
 }
-
-void NetworkThread2::ProcessReceivedMsg(int source, int tag, string& data){
-	//Case 1: received a reply packet, put into reply buffer
-	//Case 2: received a RPC request, call related callback function
-	//Case 3: received a normal data packet, put into received buffer
-	//Case 1
-//	if(tag==MTYPE_REPLY){
-//		ReplyMessage rm;
-//		rm.ParseFromArray(data.data(),data.size());
-//		tag=rm.type();
-//		VLOG(2) << "Processing reply, type " << tag << ", from " << source << ", to " << id();
-//		lock_guard<recursive_mutex> sl(rep_lock[tag]);
-//		reply_buffer[tag][source].push_back(data);
-//	}else{
-//		if(callbacks_[tag] != NULL){
-//			//Case 2
-//			CallbackInfo *ci = callbacks_[tag];
-////			Task::Decode(*(ci->req),data);
-////			VLOG(2) << "Processing RPC, type " << tag << ", from " << source << ", to " << id()
-////								<< ", content:" << ci->req->ShortDebugString();
-//
-//			RPCInfo rpc = { source, id(), tag };
-//			if(ci->spawn_thread){
-//				thread t(bind(&NetworkThread2::InvokeCallback, this, ci, data, rpc));
-//				t.detach();	//without it, the function is terminated when t is deconstructed.
-//			}else{
-//				InvokeCallback(ci, data, rpc);
-//			}
-//		}else{
-			//Case 3
-//			lock_guard<recursive_mutex> sl(rec_lock[tag]);
-//			receive_buffer[tag][source].push_back(data);
-			lock_guard<recursive_mutex> sl(rec_lock);
-			receive_buffer.push_back(make_pair(move(data),TaskBase{source,tag}));
-//		}
-//	}
+int64_t NetworkThread2::unpicked_bytes() const{
+	int64_t t=0;
+	lock_guard<recursive_mutex> rl(rec_lock);
+	for(const auto& p: receive_buffer){
+		t+=p.first.size();
+	}
+	return t;
 }
 
+//void NetworkThread2::ProcessReceivedMsg(int source, int tag, string& data){
+//	receive_buffer.push_back(make_pair(move(data),TaskBase{source,tag}));
+//}
+
 void NetworkThread2::Run(){
-//	double t=Now();
 	while(running){
 		//receive
 		TaskHeader hdr;
@@ -107,25 +76,19 @@ void NetworkThread2::Run(){
 //			DLOG_IF(INFO,hdr.type!=4)<<"Receive(t) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
 			stats["received bytes"] += hdr.nBytes;
 			stats["received type." + to_string(hdr.type)] += 1;
-			CHECK_LT(hdr.src_dst, kMaxHosts);
 
-			ProcessReceivedMsg(hdr.src_dst, hdr.type, data);
-//			if(Now()-t>12. && hdr.type!=4){
-//				string s=receiveQueueOccupation();
-//				DLOG_IF(INFO,!s.empty())<<"on "<<id()<<" receive buffer:\n"<<s;
-//			}
+//			ProcessReceivedMsg(hdr.src_dst, hdr.type, data);
+			receive_buffer.push_back(make_pair(move(data),TaskBase{hdr.src_dst, hdr.type}));
 		}else{
 			Sleep();
 		}
 		//clear useless send buffer
 		net->collectFinishedSend();
 		//send
-//		Timer tt;
 		/* bunch send: */
 		if(!pending_sends_.empty()){
 			//TODO: use two-buffers-swapping to implement this for better performance
 			lock_guard<recursive_mutex> sl(ps_lock);
-//			DLOG_IF(INFO,Now()-t>12.)<<id()<<" pending # : "<<pending_sends_.size();
 			for(auto it = pending_sends_.begin(); it != pending_sends_.end(); ++it)
 				net->send(*it);
 			pending_sends_.clear();
@@ -177,14 +140,14 @@ inline int NetworkThread2::Send(Task *req){
 	int size = req->payload.size();
 	stats["sent bytes"] += size;
 	stats["sent type." + to_string(req->type)] += 1;
-	Timer t;
+//	Timer t;
 	lock_guard<recursive_mutex> sl(ps_lock);
 //	DLOG_IF(INFO,t.elapsed()>0.005)<<"Sending(l) from "<<id()<<" to "<<req->src_dst<<", type "<<req->type<<", lock time="<<t.elapsed();
 	pending_sends_.push_back(req);
 	return size;
 }
 int NetworkThread2::Send(int dst, int method, const Message &msg){
-	return Send(new Task(dst, method, msg, MsgHeader()));
+	return Send(new Task(dst, method, msg));
 }
 
 // Directly (Physically) send the request.
@@ -212,29 +175,11 @@ void NetworkThread2::Flush(){
 }
 
 void NetworkThread2::Broadcast(int method, const Message& msg){
-	int myid = id();
-	for(int i = 0; i < net->size(); ++i){
-		if(i != myid)
-			Send(i, method, msg);
-	}
-}
-
-void NetworkThread2::SyncBroadcast(int method, const Message& msg){
-	VLOG(2) << "Sending: " << msg.ShortDebugString();
-	Broadcast(method, msg);
-	WaitForSync(method, net->size() - 1);
-}
-
-void NetworkThread2::WaitForSync(int method, int count){
-//	vector<bool> replied(size(), false);
-//	while(count > 0){
-//		for(int i = 0; i < net->size(); ++i){
-//			if(replied[i] == false && checkReplyQueue(i, method, nullptr)){
-//				--count;
-//				replied[i] = true;
-//			}
-//		}
-//		Sleep();
+	net->broadcast(new Task(Task::ANY_SRC, method, msg));
+//	int myid = id();
+//	for(int i = 0; i < net->size(); ++i){
+//		if(i != myid)
+//			Send(i, method, msg);
 //	}
 }
 
@@ -254,5 +199,5 @@ void NetworkThread2::Init(){
 	atexit(&ShutdownImpl);
 }
 
-}
+} //namespace dsm
 

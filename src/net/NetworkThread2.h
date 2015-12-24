@@ -25,8 +25,10 @@ class NetworkImplMPI;
 class NetworkThread2{
 public:
 	bool active() const;
+	size_t pending_pkgs() const;
 	int64_t pending_bytes() const;
-	int waiting_messages() const;
+	size_t unpicked_pkgs() const;
+	int64_t unpicked_bytes() const;
 
 	// Blocking read for the given source and message type.
 	void ReadAny(string& data, int *sourcsrcRete=nullptr, int *typeRet=nullptr);
@@ -40,8 +42,6 @@ public:
 //  void ObjectCreate(int dst, int method);
 
 	void Broadcast(int method, const Message& msg);
-	void SyncBroadcast(int method, const Message& msg);
-	void WaitForSync(int method, int count);
 
 	void Flush();
 	void Shutdown();
@@ -53,32 +53,14 @@ public:
 	static void Init();
 
 	Stats stats;
-	// Register the given function with the RPC thread.  The function will be invoked
-	// from within the network thread whenever a message of the given type is received.
-	typedef std::function<void(const std::string&, const RPCInfo& rpc)> Callback;
-
-	struct CallbackInfo{
-		Callback call;
-		bool spawn_thread;
-	};
 
 //	static constexpr int ANY_SRC = TaskBase::ANY_SRC;
 //	static constexpr int ANY_TAG = TaskBase::ANY_TYPE;
 
-	// For debug purpose: get the length of receive buffer for all types and sources, display non-zero entries.
-	// i.e.: 2-4:1 means there is 1 received and unprocessed message of type 2 from 4.
-	std::string receiveQueueOccupation();
-
 private:
-	static const int kMaxHosts = 512;
-	static const int kMaxMethods = 64;
-
-
 	bool running;
 	NetworkImplMPI* net;
 	mutable std::thread t_;
-
-	CallbackInfo* callbacks_[kMaxMethods];
 
 	std::vector<Task*> pending_sends_;	//buffer for request to be sent
 	mutable std::recursive_mutex ps_lock;
@@ -86,10 +68,6 @@ private:
 	typedef std::deque<std::string> Queue;
 	std::deque<std::pair<std::string,TaskBase> > receive_buffer;
 	mutable std::recursive_mutex rec_lock;
-//	Queue receive_buffer[kMaxMethods][kMaxHosts];
-//	mutable std::recursive_mutex rec_lock[kMaxMethods];
-	Queue reply_buffer[kMaxMethods][kMaxHosts];
-	mutable std::recursive_mutex rep_lock[kMaxMethods];
 
 	// Enqueue the given request to pending buffer for transmission.
 	int Send(Task *req);

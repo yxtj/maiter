@@ -93,6 +93,20 @@ void NetworkImplMPI::send(const Task* t){
 //	send(new Task(dst,type,move(data)));
 //}
 
+void NetworkImplMPI::broadcast(const Task* t){
+	//MPI::IBcast does not support tag
+	int myid = id();
+	for(int i = 0; i < size(); ++i){
+		if(i != myid){
+			//make sure each pointer given to send() is unique
+			Task* t2=new Task(*t);
+			t2->src_dst=i;
+			send(t2);
+		}
+	}
+	delete t;
+}
+
 ////
 // State checking
 ////
