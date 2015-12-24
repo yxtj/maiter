@@ -1,7 +1,7 @@
 #include "client/client.h"
 //TODO: change back after message-driven is finished
-//#include "net/NetworkThread.h"
-#include <mpi.h>
+#include "net/NetworkThread.h"
+//#include <mpi.h>
 #include <iostream>
 
 using namespace dsm;
@@ -50,10 +50,10 @@ int main(int argc, char** argv) {
 
   ConfigData conf;
   //TODO: change back after message-driven is finished
-  conf.set_num_workers(MPI::COMM_WORLD.Get_size() - 1);
-  conf.set_worker_id(MPI::COMM_WORLD.Get_rank() - 1);
-//  conf.set_num_workers(NetworkThread::Get()->size() - 1);
-//  conf.set_worker_id(NetworkThread::Get()->id() - 1);
+//  conf.set_num_workers(MPI::COMM_WORLD.Get_size() - 1);
+//  conf.set_worker_id(MPI::COMM_WORLD.Get_rank() - 1);
+  conf.set_num_workers(NetworkThread::Get()->size() - 1);
+  conf.set_worker_id(NetworkThread::Get()->id() - 1);
 
 //  cout<<NetworkThread::Get()->id()<<":"<<getcallstack()<<endl;
 // return 0;

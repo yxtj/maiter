@@ -15,7 +15,7 @@
 
 namespace dsm {
 
-class NetworkThread2;
+class NetworkThread;
 
 // If this node is the master, return false immediately.  Otherwise
 // start a worker and exit when the computation is finished.
@@ -31,9 +31,6 @@ public:
 
 	void KernelLoop();
 	void MsgLoop();
-	Stats get_stats(){
-		return stats_;
-	}
 
 	void CheckForMasterUpdates();
 	void CheckNetwork();
@@ -76,6 +73,11 @@ public:
 
 	bool has_incoming_data() const;
 
+	void merge_net_stats();
+	Stats& get_stats(){
+		return stats_;
+	}
+
 private:
 	void registerHandlers();
 	void registerWorker();
@@ -117,7 +119,7 @@ private:
 	// The status of other workers.
 	vector<Stub*> peers_;
 
-	NetworkThread2 *network_;
+	NetworkThread *network_;
 	unordered_set<GlobalTableBase*> dirty_tables_;
 
 	Stats stats_;

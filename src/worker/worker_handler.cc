@@ -8,7 +8,7 @@
 #include "worker.h"
 #include "net/Task.h"
 #include "net/RPCInfo.h"
-#include "net/NetworkThread2.h"
+#include "net/NetworkThread.h"
 #include <string>
 #include <thread>
 #include <chrono>
@@ -32,17 +32,17 @@ void Worker::RegDSPDefault(callback_t fp){
 }
 
 void Worker::registerHandlers(){
-	RegDSPImmediate(MTYPE_SHARD_ASSIGNMENT, &Worker::HandleShardAssignment);
-	RegDSPImmediate(MTYPE_CLEAR_TABLE, &Worker::HandleClearRequest);
-	RegDSPImmediate(MTYPE_SWAP_TABLE, &Worker::HandleSwapRequest);
-	RegDSPImmediate(MTYPE_WORKER_FLUSH, &Worker::HandleFlush);
-	RegDSPImmediate(MTYPE_WORKER_APPLY, &Worker::HandleApply);
-	RegDSPImmediate(MTYPE_ENABLE_TRIGGER, &Worker::HandleEnableTrigger);
-	RegDSPImmediate(MTYPE_TERMINATION, &Worker::HandleTermNotification);
+	RegDSPProcess(MTYPE_SHARD_ASSIGNMENT, &Worker::HandleShardAssignment);
+	RegDSPProcess(MTYPE_CLEAR_TABLE, &Worker::HandleClearRequest);
+	RegDSPProcess(MTYPE_SWAP_TABLE, &Worker::HandleSwapRequest);
+	RegDSPProcess(MTYPE_WORKER_FLUSH, &Worker::HandleFlush);
+	RegDSPProcess(MTYPE_WORKER_APPLY, &Worker::HandleApply);
+	RegDSPProcess(MTYPE_ENABLE_TRIGGER, &Worker::HandleEnableTrigger);
+	RegDSPProcess(MTYPE_TERMINATION, &Worker::HandleTermNotification);
 
-	RegDSPImmediate(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel,true);
-	RegDSPImmediate(MTYPE_WORKER_SHUTDOWN, &Worker::HandleShutdown);
-	RegDSPImmediate(MTYPE_REPLY, &Worker::HandleReply);
+	RegDSPProcess(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel,true);
+	RegDSPProcess(MTYPE_WORKER_SHUTDOWN, &Worker::HandleShutdown);
+	RegDSPProcess(MTYPE_REPLY, &Worker::HandleReply);
 
 	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
 	return;
@@ -187,9 +187,6 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 	rm.ParseFromString(d);
 	int tag=rm.type();
 	DVLOG(2) << "Processing reply, type " << tag << ", from " << rpc.source << ", to " << rpc.dest;
-	//TODO: add a reply buffer for sync checking i.e. NetworkThread::WaitForSync()
-//	lock_guard<recursive_mutex> sl(rep_lock[tag]);
-//	reply_buffer[tag][source].push_back(data);
 }
 
 } //namespace dsm

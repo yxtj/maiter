@@ -3,7 +3,7 @@
 #include "util/common.h"
 #include "kernel/kernel.h"
 //TODO: change back after message-driven is finished
-#include "net/NetworkThread2.h"
+#include "net/NetworkThread.h"
 #include "net/NetworkImplMPI.h"
 #include "net/Task.h"
 #include <string>
@@ -37,7 +37,7 @@ Worker::Worker(const ConfigData &c){
 	epoch_ = 0;
 	active_checkpoint_ = CP_NONE;
 
-	network_ = NetworkThread2::Get();
+	network_ = NetworkThread::Get();
 
 	config_.CopyFrom(c);
 	config_.set_worker_id(network_->id() - 1);
@@ -210,6 +210,10 @@ bool Worker::network_idle() const{
 
 bool Worker::has_incoming_data() const{
 	return !driver.empty();
+}
+
+void Worker::merge_net_stats(){
+	stats_.Merge(network_->stats);
 }
 
 void Worker::realSwap(const int tid1, const int tid2){
@@ -407,8 +411,8 @@ bool StartWorker(const ConfigData& conf){
 
 	Worker w(conf);
 	w.Run();
+	w.merge_net_stats();
 	Stats s = w.get_stats();
-	s.Merge(NetworkThread2::Get()->stats);
 	VLOG(1) << "Worker stats: \n" << s.ToString("[W"+to_string(conf.worker_id())+"]");
 	return true;
 }

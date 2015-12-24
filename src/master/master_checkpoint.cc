@@ -10,7 +10,7 @@
 #include "table/local-table.h"
 #include "table/table.h"
 #include "table/global-table.h"
-#include "net/NetworkThread2.h"
+#include "net/NetworkThread.h"
 #include "net/Task.h"
 
 #include <set>

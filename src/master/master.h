@@ -6,7 +6,7 @@
 #include "kernel/kernel.h"
 #include "table/TableHelper.h"
 #include "table/table-registry.h"
-#include "net/NetworkThread2.h"
+#include "net/NetworkThread.h"
 #include "net/RPCInfo.h"
 
 #include "run-descriptor.h"
@@ -24,7 +24,6 @@ namespace dsm {
 
 class WorkerState;
 class TaskState;
-//class NetworkThread2;
 
 class Master: public TableHelper{
 public:
@@ -207,7 +206,7 @@ private:
 	MethodStatsMap method_stats_;
 
 	TableRegistry::Map& tables_;
-	NetworkThread2* network_;
+	NetworkThread* network_;
 	MsgDriver driver_;
 	ReplyHandler rph_;
 

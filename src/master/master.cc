@@ -3,7 +3,7 @@
 #include "table/local-table.h"
 #include "table/table.h"
 #include "table/global-table.h"
-//#include "net/NetworkThread2.h"
+//#include "net/NetworkThread.h"
 #include "net/Task.h"
 
 #include <set>
@@ -48,7 +48,7 @@ Master::Master(const ConfigData &conf) :
 	last_termcheck_ = Now();
 	checkpointing_ = false;
 	running_ = true;
-	network_ = NetworkThread2::Get();
+	network_ = NetworkThread::Get();
 	shards_assigned_ = false;
 	conv_track_log.open(FLAGS_track_log.c_str());
 	if(FLAGS_sync_track){
@@ -122,7 +122,7 @@ void Master::MsgLoop(){
 			driver_.pushData(data,info);
 		}
 		while(!driver_.empty()){
-//			DVLOG(1)<<"pop a message. driver left "<<driver_.queSize()<<" , net left "<<network_->waiting_messages();
+//			DVLOG(1)<<"pop a message. driver left "<<driver_.queSize()<<" , net left "<<network_->unpicked_pkgs();
 			driver_.popData();
 		}
 		Sleep();

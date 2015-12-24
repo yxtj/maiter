@@ -8,11 +8,7 @@
 #include <thread>
 #include <chrono>
 
-#include "msg/message.pb.h"
-
-//DECLARE_bool(localtest);
 DECLARE_double(sleep_time);
-//DEFINE_bool(rpc_log, false, "");
 
 using namespace std;
 
@@ -25,9 +21,6 @@ static inline void Sleep(){
 NetworkThread::NetworkThread() :
 		running(false), net(NULL){
 	net = NetworkImplMPI::GetInstance();
-	for(int i = 0; i < kMaxMethods; ++i){
-		callbacks_[i] = NULL;
-	}
 
 	running = true;
 	t_ = thread(&NetworkThread::Run, this);
@@ -44,7 +37,9 @@ int NetworkThread::size() const{
 bool NetworkThread::active() const{
 	return pending_sends_.size() > 0 || net->unconfirmedTaskNum() > 0;
 }
-
+size_t NetworkThread::pending_pkgs() const{
+	return net->unconfirmedTaskNum()+pending_sends_.size();
+}
 int64_t NetworkThread::pending_bytes() const{
 	int64_t t = net->unconfirmedBytes();
 
@@ -56,50 +51,23 @@ int64_t NetworkThread::pending_bytes() const{
 	return t;
 }
 
-void NetworkThread::InvokeCallback(CallbackInfo *ci, RPCInfo rpc){
-	ci->call(rpc);
-	MsgHeader reply_header(true);
-//	Send(new Task(rpc.source, rpc.tag, *ci->resp, reply_header));
-	ReplyMessage rm;
-	rm.set_type(static_cast<MessageTypes>(rpc.tag));
-	Send(new Task(rpc.source, MTYPE_REPLY, rm, reply_header));
+size_t NetworkThread::unpicked_pkgs() const{
+	return receive_buffer.size();
 }
-void NetworkThread::ProcessReceivedMsg(int source, int tag, string& data){
-	//Case 1: received a reply packet, put into reply buffer
-	//Case 2: received a RPC request, call related callback function
-	//Case 3: received a normal data packet, put into received buffer
-//	const MsgHeader *h = reinterpret_cast<const MsgHeader*>(data.data());
-//	if(h->is_reply){	//Case 1
-	if(tag==MTYPE_REPLY){
-		ReplyMessage rm;
-		rm.ParseFromArray(data.data(),data.size());
-		tag=rm.type();
-		VLOG(2) << "Processing reply, type " << tag << ", from " << source << ", to " << id();
-		lock_guard<recursive_mutex> sl(rep_lock[tag]);
-		reply_buffer[tag][source].push_back(data);
-	}else{
-		if(callbacks_[tag] != NULL){	//Case 2
-			CallbackInfo *ci = callbacks_[tag];
-			Task::Decode(*(ci->req),data);
-			VLOG(2) << "Processing RPC, type " << tag << ", from " << source << ", to " << id()
-								<< ", content:" << ci->req->ShortDebugString();
-
-			RPCInfo rpc = { source, id(), tag };
-			if(ci->spawn_thread){
-				thread t(bind(&NetworkThread::InvokeCallback, this, ci, rpc));
-				t.detach();	//without it, the function is terminated when t is deconstructed.
-			}else{
-				InvokeCallback(ci, rpc);
-			}
-		}else{	//Case 3
-			lock_guard<recursive_mutex> sl(rec_lock[tag]);
-			receive_buffer[tag][source].push_back(data);
-		}
+int64_t NetworkThread::unpicked_bytes() const{
+	int64_t t=0;
+	lock_guard<recursive_mutex> rl(rec_lock);
+	for(const auto& p: receive_buffer){
+		t+=p.first.size();
 	}
+	return t;
 }
+
+//void NetworkThread::ProcessReceivedMsg(int source, int tag, string& data){
+//	receive_buffer.push_back(make_pair(move(data),TaskBase{source,tag}));
+//}
 
 void NetworkThread::Run(){
-//	double t=Now();
 	while(running){
 		//receive
 		TaskHeader hdr;
@@ -108,24 +76,19 @@ void NetworkThread::Run(){
 //			DLOG_IF(INFO,hdr.type!=4)<<"Receive(t) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
 			stats["received bytes"] += hdr.nBytes;
 			stats["received type." + to_string(hdr.type)] += 1;
-			CHECK_LT(hdr.src_dst, kMaxHosts);
 
-			ProcessReceivedMsg(hdr.src_dst, hdr.type, data);
-//			if(Now()-t>12. && hdr.type!=4){
-//				string s=receiveQueueOccupation();
-//				DLOG_IF(INFO,!s.empty())<<"on "<<id()<<" receive buffer:\n"<<s;
-//			}
+//			ProcessReceivedMsg(hdr.src_dst, hdr.type, data);
+			receive_buffer.push_back(make_pair(move(data),TaskBase{hdr.src_dst, hdr.type}));
 		}else{
 			Sleep();
 		}
 		//clear useless send buffer
 		net->collectFinishedSend();
 		//send
-//		Timer tt;
 		/* bunch send: */
 		if(!pending_sends_.empty()){
+			//TODO: use two-buffers-swapping to implement this for better performance
 			lock_guard<recursive_mutex> sl(ps_lock);
-//			DLOG_IF(INFO,Now()-t>12.)<<id()<<" pending # : "<<pending_sends_.size();
 			for(auto it = pending_sends_.begin(); it != pending_sends_.end(); ++it)
 				net->send(*it);
 			pending_sends_.clear();
@@ -138,88 +101,22 @@ void NetworkThread::Run(){
 ////		sl.~lock_guard();
 //			net->send(s);
 //		}
-//		DLOG_IF(INFO,Now()-t>12. && tt.elapsed()>0.001)<<"send time on "<<id()<<" is "<<tt.elapsed();
-//		DLOG_IF(INFO,Now()-t>12. && !pending_sends_.empty())<<"on "<<id()<<" ps len="<<pending_sends_.size()<<", us len="<<net->unconfirmedTaskNum();
-//		PERIODIC(10., {
-//			DumpProfile()
-//			;
-//		});
 	}
 }
 
-bool NetworkThread::CheckQueue(NetworkThread::Queue& q, recursive_mutex& m, Message* data){
-	if(!q.empty()){
-		lock_guard<recursive_mutex> sl(m);
-		if(q.empty()) return false;
+bool NetworkThread::checkReceiveQueue(std::string& data, TaskBase& info){
+	if(!receive_buffer.empty()){
+		lock_guard<recursive_mutex> sl(rec_lock);
+		if(receive_buffer.empty()) return false;
 
-		if(data){
-			const string& s = q.front();
-			Task::Decode(*data,s);
-		}
+		tie(data,info)=receive_buffer.front();
 
-		q.pop_front();
+		receive_buffer.pop_front();
 		return true;
 	}
 	return false;
 }
 
-bool NetworkThread::checkReceiveQueue(int src, int type, Message* data){
-	CHECK_LT(src, kMaxHosts);
-	CHECK_LT(type, kMaxMethods);
-
-	Queue& q = receive_buffer[type][src];
-	VLOG_IF(2, q.size() != 0 && q.size() % 10 == 0)
-		<< "RECEIVE QUEUE SIZE for type "<< type << " src " << src << " is "<< q.size();
-	return CheckQueue(q, rec_lock[type], data);
-}
-
-bool NetworkThread::checkReplyQueue(int src, int type, Message* data){
-	CHECK_LT(src, kMaxHosts);
-	CHECK_LT(type, kMaxMethods);
-
-	Queue& q = reply_buffer[type][src];
-	VLOG_IF(2, q.size() != 0 && q.size() % 10 == 0)
-		<< "REPLY QUEUE SIZE for type " << type<<" src " << src << " is " << q.size();
-	return CheckQueue(q, rep_lock[type], data);
-}
-
-// Blocking read for the given source and message type.
-void NetworkThread::Read(int desired_src, int type, Message* data, int *srcRet, int *typeRet){
-	Timer t;
-	while(!TryRead(desired_src, type, data, srcRet, typeRet)){
-		Sleep();
-	}
-	stats["network_time"] += t.elapsed();
-}
-
-bool NetworkThread::TryRead(int src, int type, Message* data, int *srcRet, int *typeRet){
-	if(src != TaskBase::ANY_SRC){
-		if(checkReceiveQueue(src, type, data)){
-			if(srcRet)
-				*srcRet = src;
-			return true;
-		}
-	}else{			//any source
-		for(int i = 0; i < size(); ++i){
-			if(TryRead(i, type, data, srcRet))
-				return true;
-		}
-	}
-	return false;
-}
-
-bool NetworkThread::CheckQueueRaw(Queue& q, recursive_mutex& m, string& data){
-	if(!q.empty()){
-		lock_guard<recursive_mutex> sl(m);
-		if(q.empty()) return false;
-
-		data=q.front().substr(1);
-
-		q.pop_front();
-		return true;
-	}
-	return false;
-}
 void NetworkThread::ReadAny(string& data, int *srcRet, int *typeRet){
 	Timer t;
 	while(!TryReadAny(data, srcRet, typeRet)){
@@ -228,24 +125,13 @@ void NetworkThread::ReadAny(string& data, int *srcRet, int *typeRet){
 	stats["network_time"] += t.elapsed();
 }
 bool NetworkThread::TryReadAny(string& data, int *srcRet, int *typeRet){
-	for(int s = 0; s < size(); ++s){
-		for(int t = 0; t < kMaxMethods; ++t){
-			if(CheckQueueRaw(receive_buffer[t][s], rec_lock[t], data)){
-				if(srcRet) *srcRet = s;
-				if(typeRet) *typeRet = t;
-				return true;
-			}
-		}
+	TaskBase info;
+	if(checkReceiveQueue(data,info)){
+		if(srcRet) *srcRet = info.src_dst;
+		if(typeRet) *typeRet = info.type;
+		return true;
 	}
 	return false;
-}
-
-void NetworkThread::Call(int dst, int method, const Message &msg, Message *reply){
-	Send(dst, method, msg);
-//	Timer t;
-	while(!checkReplyQueue(dst, method, reply)){
-		Sleep();
-	}
 }
 
 // Enqueue the given request to pending buffer for transmission.
@@ -254,14 +140,14 @@ inline int NetworkThread::Send(Task *req){
 	int size = req->payload.size();
 	stats["sent bytes"] += size;
 	stats["sent type." + to_string(req->type)] += 1;
-	Timer t;
+//	Timer t;
 	lock_guard<recursive_mutex> sl(ps_lock);
 //	DLOG_IF(INFO,t.elapsed()>0.005)<<"Sending(l) from "<<id()<<" to "<<req->src_dst<<", type "<<req->type<<", lock time="<<t.elapsed();
 	pending_sends_.push_back(req);
 	return size;
 }
 int NetworkThread::Send(int dst, int method, const Message &msg){
-	return Send(new Task(dst, method, msg, MsgHeader()));
+	return Send(new Task(dst, method, msg));
 }
 
 // Directly (Physically) send the request.
@@ -289,46 +175,12 @@ void NetworkThread::Flush(){
 }
 
 void NetworkThread::Broadcast(int method, const Message& msg){
-	int myid = id();
-	for(int i = 0; i < net->size(); ++i){
-		if(i != myid)
-			Send(i, method, msg);
-	}
-}
-
-void NetworkThread::SyncBroadcast(int method, const Message& msg){
-	VLOG(2) << "Sending: " << msg.ShortDebugString();
-	Broadcast(method, msg);
-	WaitForSync(method, net->size() - 1);
-}
-
-void NetworkThread::WaitForSync(int method, int count){
-	vector<bool> replied(size(), false);
-	while(count > 0){
-		for(int i = 0; i < net->size(); ++i){
-			if(replied[i] == false && checkReplyQueue(i, method, nullptr)){
-				--count;
-				replied[i] = true;
-			}
-		}
-		Sleep();
-	}
-}
-
-void NetworkThread::_RegisterCallback(int message_type, Message *req, Message* resp, Callback cb){
-	CallbackInfo *cbinfo = new CallbackInfo;
-
-	cbinfo->spawn_thread = false;
-	cbinfo->req = req;
-	cbinfo->resp = resp;
-	cbinfo->call = cb;
-
-	CHECK_LT(message_type, kMaxMethods)<< "Message type: " << message_type << " over limit.";
-	callbacks_[message_type] = cbinfo;
-}
-
-void NetworkThread::SpawnThreadFor(int req_type){
-	callbacks_[req_type]->spawn_thread = true;
+	net->broadcast(new Task(Task::ANY_SRC, method, msg));
+//	int myid = id();
+//	for(int i = 0; i < net->size(); ++i){
+//		if(i != myid)
+//			Send(i, method, msg);
+//	}
 }
 
 static NetworkThread* self = NULL;
@@ -336,7 +188,7 @@ NetworkThread* NetworkThread::Get(){
 	return self;
 }
 
-static void ShutdownMPI(){
+static void ShutdownImpl(){
 	NetworkThread::Get()->Shutdown();
 }
 
@@ -344,20 +196,8 @@ void NetworkThread::Init(){
 	VLOG(1) << "Initializing network...";
 	CHECK(self == NULL);
 	self = new NetworkThread();
-	atexit(&ShutdownMPI);
+	atexit(&ShutdownImpl);
 }
 
-string NetworkThread::receiveQueueOccupation(){
-	string s;
-	for(int i = 0; i < kMaxMethods; ++i){
-		lock_guard<recursive_mutex> sl(rec_lock[i]);
-		for(int j = 0; j < kMaxHosts; ++j)
-			if(!receive_buffer[i][j].empty())
-				s += to_string(i) + "-" + to_string(j) + ":"
-						+ to_string(receive_buffer[i][j].size()) + "\n";
-	}
-	return s;
-}
-
-}
+} //namespace dsm
 
