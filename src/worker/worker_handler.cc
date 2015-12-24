@@ -32,37 +32,23 @@ void Worker::RegDSPDefault(callback_t fp){
 }
 
 void Worker::registerHandlers(){
-	RegDSPImmediate(MTYPE_SHARD_ASSIGNMENT, &Worker::HandleShardAssignment2);
-	RegDSPImmediate(MTYPE_CLEAR_TABLE, &Worker::HandleClearRequest2);
-	RegDSPImmediate(MTYPE_SWAP_TABLE, &Worker::HandleSwapRequest2);
-	RegDSPImmediate(MTYPE_WORKER_FLUSH, &Worker::HandleFlush2, true);
-	RegDSPImmediate(MTYPE_WORKER_APPLY, &Worker::HandleApply2);
-	RegDSPImmediate(MTYPE_ENABLE_TRIGGER, &Worker::HandleEnableTrigger2);
-	RegDSPImmediate(MTYPE_TERMINATION, &Worker::HandleTermNotification2);
+	RegDSPImmediate(MTYPE_SHARD_ASSIGNMENT, &Worker::HandleShardAssignment);
+	RegDSPImmediate(MTYPE_CLEAR_TABLE, &Worker::HandleClearRequest);
+	RegDSPImmediate(MTYPE_SWAP_TABLE, &Worker::HandleSwapRequest);
+	RegDSPImmediate(MTYPE_WORKER_FLUSH, &Worker::HandleFlush);
+	RegDSPImmediate(MTYPE_WORKER_APPLY, &Worker::HandleApply);
+	RegDSPImmediate(MTYPE_ENABLE_TRIGGER, &Worker::HandleEnableTrigger);
+	RegDSPImmediate(MTYPE_TERMINATION, &Worker::HandleTermNotification);
 
-	RegDSPImmediate(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel2,true);
-	RegDSPImmediate(MTYPE_WORKER_SHUTDOWN, &Worker::HandleShutdown2);
+	RegDSPImmediate(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel,true);
+	RegDSPImmediate(MTYPE_WORKER_SHUTDOWN, &Worker::HandleShutdown);
 	RegDSPImmediate(MTYPE_REPLY, &Worker::HandleReply);
 
-	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest2);
+	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
 	return;
-
-//	RegisterCallback2(MTYPE_SHARD_ASSIGNMENT, &Worker::HandleShardAssignment2, this);
-//	RegisterCallback2(MTYPE_CLEAR_TABLE, &Worker::HandleClearRequest2, this);
-//	RegisterCallback2(MTYPE_SWAP_TABLE, &Worker::HandleSwapRequest2, this);
-//	RegisterCallback2(MTYPE_WORKER_FLUSH, &Worker::HandleFlush2, this);
-//	network_->SpawnThreadFor(MTYPE_WORKER_FLUSH);
-//	RegisterCallback2(MTYPE_WORKER_APPLY, &Worker::HandleApply2, this);
-//	RegisterCallback2(MTYPE_ENABLE_TRIGGER, &Worker::HandleEnableTrigger2, this);
-//	RegisterCallback2(MTYPE_TERMINATION, &Worker::HandleTermNotification2, this);
-//
-//	RegisterCallback2(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel2,this);
-//	RegisterCallback2(MTYPE_WORKER_SHUTDOWN, &Worker::HandleShutdown2, this);
-//	RegisterCallback2(MTYPE_REPLY, &Worker::HandleReply, this);
-//	RegisterCallback2(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest2, this);
 }
 
-void Worker::HandlePutRequest2(const string& d, const RPCInfo& info){
+void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
 	KVPairData put;
 	put.ParseFromString(d);
 	if(put.marker() != -1){
@@ -70,11 +56,12 @@ void Worker::HandlePutRequest2(const string& d, const RPCInfo& info){
 		return;
 	}
 
-	DVLOG(1) << "Read put request of size: " << put.kv_data_size() << " for ("
+	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
 				<< put.table()<<","<<put.shard()<<")";
 
 	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
 	t->MergeUpdates(put);
+	t->ProcessUpdates();
 
 	if(put.done() && t->tainted(put.shard())){
 		VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());
@@ -83,7 +70,7 @@ void Worker::HandlePutRequest2(const string& d, const RPCInfo& info){
 }
 
 
-void Worker::HandleSwapRequest2(const string& d, const RPCInfo& rpc){
+void Worker::HandleSwapRequest(const string& d, const RPCInfo& rpc){
 	SwapTable req;
 	req.ParseFromString(d);
 	MutableGlobalTableBase *ta = TableRegistry::Get()->mutable_table(req.table_a());
@@ -93,7 +80,7 @@ void Worker::HandleSwapRequest2(const string& d, const RPCInfo& rpc){
 	sendReply(rpc);
 }
 
-void Worker::HandleClearRequest2(const string& d, const RPCInfo& rpc){
+void Worker::HandleClearRequest(const string& d, const RPCInfo& rpc){
 	ClearTable req;
 	req.ParseFromString(d);
 	MutableGlobalTableBase *ta = TableRegistry::Get()->mutable_table(req.table());
@@ -105,7 +92,7 @@ void Worker::HandleClearRequest2(const string& d, const RPCInfo& rpc){
 	sendReply(rpc);
 }
 
-void Worker::HandleShardAssignment2(const string& d,const RPCInfo& rpc){
+void Worker::HandleShardAssignment(const string& d,const RPCInfo& rpc){
 	ShardAssignmentRequest shard_req;
 	shard_req.ParseFromString(d);
 //  LOG(INFO) << "Shard assignment: " << shard_req.DebugString();
@@ -138,7 +125,7 @@ void Worker::HandleShardAssignment2(const string& d,const RPCInfo& rpc){
 	sendReply(rpc);
 }
 
-void Worker::HandleFlush2(const string& d, const RPCInfo& rpc){
+void Worker::HandleFlush(const string& d, const RPCInfo& rpc){
 	Timer net;
 	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
@@ -154,19 +141,18 @@ void Worker::HandleFlush2(const string& d, const RPCInfo& rpc){
 }
 
 
-void Worker::HandleApply2(const string& d, const RPCInfo& rpc){
-	HandlePutRequest();
+void Worker::HandleApply(const string& d, const RPCInfo& rpc){
 	sendReply(rpc);
 }
 
-void Worker::HandleEnableTrigger2(const string& d, const RPCInfo& rpc){
+void Worker::HandleEnableTrigger(const string& d, const RPCInfo& rpc){
 	EnableTrigger req;
 	req.ParseFromString(d);
 	TableRegistry::Get()->tables()[req.table()]->trigger(req.trigger_id())->enable(req.enable());
 	sendReply(rpc);
 }
 
-void Worker::HandleTermNotification2(const string& d, const RPCInfo& rpc){
+void Worker::HandleTermNotification(const string& d, const RPCInfo& rpc){
 	TerminationNotification req;
 	req.ParseFromString(d);
 	GlobalTableBase *ta = TableRegistry::Get()->table(0);	//we have only 1 table, index 0
@@ -179,7 +165,7 @@ void Worker::HandleTermNotification2(const string& d, const RPCInfo& rpc){
 	sendReply(rpc);
 }
 
-void Worker::HandleRunKernel2(const std::string& d, const RPCInfo& rpc){
+void Worker::HandleRunKernel(const std::string& d, const RPCInfo& rpc){
 	kreq.ParseFromString(d);
 	running_kernel_=true;
 	sendReply(rpc);
@@ -187,7 +173,7 @@ void Worker::HandleRunKernel2(const std::string& d, const RPCInfo& rpc){
 	finishKernel();
 }
 
-void Worker::HandleShutdown2(const string& , const RPCInfo& rpc){
+void Worker::HandleShutdown(const string& , const RPCInfo& rpc){
 	if(config_.master_id()==rpc.source){
 		VLOG(1) << "Shutting down worker " << config_.worker_id();
 		running_ = false;
@@ -200,7 +186,7 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 	ReplyMessage rm;
 	rm.ParseFromString(d);
 	int tag=rm.type();
-	VLOG(2) << "Processing reply, type " << tag << ", from " << rpc.source << ", to " << rpc.dest;
+	DVLOG(2) << "Processing reply, type " << tag << ", from " << rpc.source << ", to " << rpc.dest;
 	//TODO: add a reply buffer for sync checking i.e. NetworkThread::WaitForSync()
 //	lock_guard<recursive_mutex> sl(rep_lock[tag]);
 //	reply_buffer[tag][source].push_back(data);

@@ -38,48 +38,30 @@ public:
 	void CheckForMasterUpdates();
 	void CheckNetwork();
 
-	void HandleSwapRequest(const SwapTable& req, EmptyMessage *resp, const RPCInfo& rpc);
-	void HandleSwapRequest2(const std::string& d, const RPCInfo& rpc);
+	void HandleSwapRequest(const std::string& d, const RPCInfo& rpc);
+	void HandleClearRequest(const std::string& d, const RPCInfo& rpc);
 
-	void HandleClearRequest(const ClearTable& req, EmptyMessage *resp, const RPCInfo& rpc);
-	void HandleClearRequest2(const std::string& d, const RPCInfo& rpc);
-
-	void HandleShardAssignment(const ShardAssignmentRequest& req, EmptyMessage *resp,
-			const RPCInfo& rpc);
-	void HandleShardAssignment2(const std::string& d, const RPCInfo& rpc);
+	void HandleShardAssignment(const std::string& d, const RPCInfo& rpc);
 
 	void SendPutRequest(int dstWorkerID, const KVPairData& msg);
-	void HandlePutRequest();
-	void HandlePutRequest2(const std::string& data, const RPCInfo& info);
-
-	void SyncSwapRequest(const SwapTable& req){}
-	void SyncClearRequest(const ClearTable& req){}
-
+	void HandlePutRequest(const std::string& data, const RPCInfo& info);
 
 	// Barrier: wait until all table data is transmitted.
-	void HandleFlush(const EmptyMessage& req, EmptyMessage *resp, const RPCInfo& rpc);
-	void HandleFlush2(const std::string& d, const RPCInfo& rpc);
-
-	void HandleApply(const EmptyMessage& req, EmptyMessage *resp, const RPCInfo& rpc);
-	void HandleApply2(const std::string& d, const RPCInfo& rpc);
-
-	void FlushUpdates();
+	void HandleFlush(const std::string& d, const RPCInfo& rpc);
+	void HandleApply(const std::string& d, const RPCInfo& rpc);
 
 	// Enable or disable triggers
-	void HandleEnableTrigger(const EnableTrigger& req, EmptyMessage* resp, const RPCInfo& rpc);
-	void HandleEnableTrigger2(const std::string& d, const RPCInfo& rpc);
+	void HandleEnableTrigger(const std::string& d, const RPCInfo& rpc);
 
 	// terminate iteration
-	void HandleTermNotification(const TerminationNotification& req, EmptyMessage* resp,
-			const RPCInfo& rpc);
-	void HandleTermNotification2(const std::string& d, const RPCInfo& rpc);
+	void HandleTermNotification(const std::string& d, const RPCInfo& rpc);
 
 	//my new handlers:
-	void HandleRunKernel2(const std::string& d, const RPCInfo& rpc);
-	void HandleShutdown2(const std::string& d, const RPCInfo& rpc);
+	void HandleRunKernel(const std::string& d, const RPCInfo& rpc);
+	void HandleShutdown(const std::string& d, const RPCInfo& rpc);
 	void HandleReply(const std::string& d, const RPCInfo& rpc);
 
-	int peer_for_shard(int table_id, int shard) const;
+	int ownerOfShard(int table_id, int shard) const;
 	int id() const{
 		return config_.worker_id();
 	}
