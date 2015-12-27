@@ -104,8 +104,7 @@ public:
 	void checkpoint();
 
 	//Non-Blocking, termination check
-	bool termcheck();
-	void termcheck2();
+	void termcheck();
 
 	// Attempt restore from a previous checkpoint for this job.  If none exists,
 	// the process is left in the original state, and this function returns false.
@@ -140,14 +139,15 @@ private:
 
 	void shutdownWorkers();
 
-	std::condition_variable cv_cp; //for wait_for(), only be notified after termination
+	std::condition_variable cv_cp; //for shutdown cp thread, only be notified after kernel termination
 //	std::std::vector<SyncUnit> su_cpdone;
 //	void handleCheckpointDone(const std::string& d, const RPCInfo& info);
 	void start_checkpoint();
 	void start_worker_checkpoint(int worker_id, const RunDescriptor& r);
 	void finish_worker_checkpoint(int worker_id, const RunDescriptor& r);
 	void finish_checkpoint();
-	SyncUnit su_restore;
+	SyncUnit su_cp_start, su_cp_finish;
+	SyncUnit su_cp_restore;
 
 	void handleTermcheckDone(const std::string& d, const RPCInfo& info);
 	SyncUnit su_term;

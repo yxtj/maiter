@@ -71,9 +71,16 @@ void Master::registerHandlers(){
 	rph_.addType(MTYPE_SHARD_ASSIGNMENT, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_tassign),false);
 	rph_.activateType(MTYPE_SHARD_ASSIGNMENT);
+	rph_.addType(MTYPE_START_CHECKPOINT, ReplyHandler::condFactory(EACH_ONE,nw),
+			bind(&SyncUnit::notify, &su_cp_start),false);
+	rph_.activateType(MTYPE_START_CHECKPOINT);
+	rph_.addType(MTYPE_FINISH_CHECKPOINT, ReplyHandler::condFactory(EACH_ONE,nw),
+			bind(&SyncUnit::notify, &su_cp_finish),false);
+	rph_.activateType(MTYPE_FINISH_CHECKPOINT);
 	rph_.addType(MTYPE_RESTORE, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_restore),false);
+			bind(&SyncUnit::notify, &su_cp_restore),false);
 	rph_.activateType(MTYPE_RESTORE);
+
 
 	//type 2: called by specific functions (handlers) for synchronization
 	// called by handlerRegisterWorker()

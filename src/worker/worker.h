@@ -88,10 +88,13 @@ private:
 
 	void sendReply(const RPCInfo& rpc);
 
-	void StartCheckpoint(int epoch, CheckpointType type);
+	void HandleCheckpoint(const std::string& d, const RPCInfo& rpc);
+	void checkpoint(const int epoch, const CheckpointType type);
+	void StartCheckpoint(const int epoch, const CheckpointType type);
 	void FinishCheckpoint();
-	void SendTermcheck(int index, long updates, double current);
 	void Restore(int epoch);
+
+	void SendTermcheck(int index, long updates, double current);
 	void UpdateEpoch(int peer, int peer_epoch);
 
 	typedef void (Worker::*callback_t)(const string&, const RPCInfo&);
@@ -126,6 +129,16 @@ private:
 
 	MsgDriver driver;
 };
+
+struct Worker::Stub: private noncopyable{
+	int32_t id;
+	int32_t epoch;
+
+	Stub(int id) :
+			id(id), epoch(0){
+	}
+};
+
 
 }
 

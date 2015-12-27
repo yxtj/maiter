@@ -24,15 +24,6 @@ static void Sleep(){
 	this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
 }
 
-struct Worker::Stub: private noncopyable{
-	int32_t id;
-	int32_t epoch;
-
-	Stub(int id) :
-			id(id), epoch(0){
-	}
-};
-
 Worker::Worker(const ConfigData &c){
 	epoch_ = 0;
 	active_checkpoint_ = CP_NONE;
@@ -224,6 +215,8 @@ void Worker::realClear(const int tid){
 }
 
 void Worker::UpdateEpoch(int peer, int peer_epoch){
+	LOG(FATAL)<<"call a strange function";
+
 	lock_guard<recursive_mutex> sl(state_lock_);
 	VLOG(1) << "Got peer marker: " << MP(peer, MP(epoch_, peer_epoch));
 	if(epoch_ < peer_epoch){
@@ -253,72 +246,6 @@ void Worker::UpdateEpoch(int peer, int peer_epoch){
 	}
 }
 
-void Worker::StartCheckpoint(int epoch, CheckpointType type){
-	lock_guard<recursive_mutex> sl(state_lock_);
-
-	if(epoch_ >= epoch){
-		LOG(INFO)<< "Skipping checkpoint; " << MP(epoch_, epoch);
-		return;
-	}
-
-	epoch_ = epoch;
-
-	File::Mkdirs(StringPrintf("%s/epoch_%05d/", FLAGS_checkpoint_write_dir.c_str(), epoch_));
-
-	TableRegistry::Map &t = TableRegistry::Get()->tables();
-	for(TableRegistry::Map::iterator i = t.begin(); i != t.end(); ++i){
-		if(checkpoint_tables_.find(i->first) != checkpoint_tables_.end()){
-			VLOG(1) << "Starting checkpoint... " << MP(id(), epoch_, epoch) << " : " << i->first;
-			Checkpointable *t = dynamic_cast<Checkpointable*>(i->second);
-			CHECK(t != NULL) << "Tried to checkpoint a read-only table?";
-
-			t->start_checkpoint(
-					StringPrintf("%s/epoch_%05d/checkpoint.table-%d",
-							FLAGS_checkpoint_write_dir.c_str(), epoch_, i->first));
-		}
-	}
-
-	active_checkpoint_ = type;
-
-	// For rolling checkpoints, send out a marker to other workers indicating
-	// that we have switched epochs.
-	if(type == CP_ROLLING){
-		TableData epoch_marker;
-		epoch_marker.set_source(id());
-		epoch_marker.set_table(-1);
-		epoch_marker.set_shard(-1);
-		epoch_marker.set_done(true);
-		epoch_marker.set_marker(epoch_);
-		for(int i = 0; i < peers_.size(); ++i){
-			network_->Send(i + 1, MTYPE_PUT_REQUEST, epoch_marker);
-		}
-	}
-
-	VLOG(1) << "Starting delta logging... " << MP(id(), epoch_, epoch);
-}
-
-void Worker::FinishCheckpoint(){
-	VLOG(1) << "Worker " << id() << " flushing checkpoint.";
-	lock_guard<recursive_mutex> sl(state_lock_);
-
-	active_checkpoint_ = CP_NONE;
-	TableRegistry::Map &t = TableRegistry::Get()->tables();
-
-	for(int i = 0; i < peers_.size(); ++i){
-		peers_[i]->epoch = epoch_;
-	}
-
-	for(TableRegistry::Map::iterator i = t.begin(); i != t.end(); ++i){
-		Checkpointable *t = dynamic_cast<Checkpointable*>(i->second);
-		if(t){
-			t->finish_checkpoint();
-		}
-	}
-
-	EmptyMessage req;
-	network_->Send(config_.master_id(), MTYPE_CHECKPOINT_DONE, req);
-}
-
 void Worker::SendTermcheck(int snapshot, long updates, double current){
 	lock_guard<recursive_mutex> sl(state_lock_);
 
@@ -332,25 +259,6 @@ void Worker::SendTermcheck(int snapshot, long updates, double current){
 	VLOG(1) << "termination condition of subpass " << snapshot << " worker " << network_->id()
 						<< " sent to master... with total current "
 						<< StringPrintf("%.05f", current);
-}
-
-void Worker::Restore(int epoch){
-	lock_guard<recursive_mutex> sl(state_lock_);
-	LOG(INFO)<< "Worker restoring state from epoch: " << epoch;
-	epoch_ = epoch;
-
-	TableRegistry::Map &t = TableRegistry::Get()->tables();
-	for(TableRegistry::Map::iterator i = t.begin(); i != t.end(); ++i){
-		Checkpointable* t = dynamic_cast<Checkpointable*>(i->second);
-		if(t){
-			t->restore(
-					StringPrintf("%s/epoch_%05d/checkpoint.table-%d",
-							FLAGS_checkpoint_read_dir.c_str(), epoch_, i->first));
-		}
-	}
-
-	EmptyMessage req;
-	network_->Send(config_.master_id(), MTYPE_RESTORE_DONE, req);
 }
 
 void Worker::SendPutRequest(int dstWorkerID, const KVPairData& put){

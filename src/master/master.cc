@@ -18,12 +18,9 @@
 DEFINE_bool(work_stealing, true, "Enable work stealing to load-balance tasks between machines.");
 DEFINE_bool(checkpoint, false, "If true, enable checkpointing.");
 DEFINE_bool(restore, false, "If true, enable restore.");
-DEFINE_int32(termcheck_interval, 1, "");
 DEFINE_string(track_log, "track_log", "");
 DEFINE_bool(sync_track, false, "");
 
-DECLARE_string(checkpoint_write_dir);
-DECLARE_string(checkpoint_read_dir);
 DECLARE_double(sleep_time);
 
 using namespace std;
@@ -60,7 +57,7 @@ Master::Master(const ConfigData &conf) :
 	for(int i = 0; i < config_.num_workers(); ++i){
 		workers_.push_back(new WorkerState(i));
 	}
-	netId2worker_.reserve(config_.num_workers());
+	netId2worker_.reserve(network_->size());
 
 	CHECK_GT(network_->size(), 1)<< "At least one master and one worker required!";
 	LOG(INFO)<<"Master started";
@@ -129,7 +126,7 @@ void Master::MsgLoop(){
 	}
 }
 
-void Master::termcheck2(){
+void Master::termcheck(){
 	while(!kernel_terminated_){
 		VLOG(2) << "Starting termination check: " << termcheck_epoch_;
 
@@ -425,13 +422,15 @@ void Master::run(RunDescriptor r){
 	assign_tasks(current_run_, shards);
 
 	su_term.reset();
+	su_kerdone.reset();
 	dispatched_ = startWorkers(current_run_);
 
 	thread t_cp;
 	if(current_run_.checkpoint_type != CP_NONE){
 		t_cp=thread(&Master::checkpoint,this);
 	}
-	thread t_term(&Master::termcheck2, this);
+//	if(this kernel has a term_checker)
+	thread t_term(&Master::termcheck, this);
 
 	barrier2();
 
@@ -442,9 +441,11 @@ void Master::run(RunDescriptor r){
 		t_cp.join();
 		LOG(INFO)<<"Found checkpoint thread stopped";
 	}
-	LOG(INFO)<<"Waiting for termination checking thread to stop";
-	t_term.join();
-	LOG(INFO)<<"Found termination checking thread stopped";
+	if(t_term.joinable()){
+		LOG(INFO)<<"Waiting for termination checking thread to stop";
+		t_term.join();
+		LOG(INFO)<<"Found termination checking thread stopped";
+	}
 }
 
 //void Master::barrier(){

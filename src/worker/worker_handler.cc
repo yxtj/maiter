@@ -45,6 +45,10 @@ void Worker::registerHandlers(){
 	RegDSPProcess(MTYPE_REPLY, &Worker::HandleReply);
 
 	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
+
+	RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandlePutRequest);
+	RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandlePutRequest);
+
 	return;
 }
 
@@ -182,11 +186,19 @@ void Worker::HandleShutdown(const string& , const RPCInfo& rpc){
 	}
 	sendReply(rpc);
 }
+
 void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 	ReplyMessage rm;
 	rm.ParseFromString(d);
 	int tag=rm.type();
 	DVLOG(2) << "Processing reply, type " << tag << ", from " << rpc.source << ", to " << rpc.dest;
+}
+
+void Worker::HandleCheckpoint(const string& d, const RPCInfo& rpc){
+	CheckpointRequest req;
+	req.ParseFromString(d);
+	checkpoint(req.epoch(), CheckpointType(req.checkpoint_type()));
+	sendReply(rpc);
 }
 
 } //namespace dsm

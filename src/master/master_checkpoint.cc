@@ -19,7 +19,7 @@
 
 DECLARE_string(checkpoint_write_dir);
 DECLARE_string(checkpoint_read_dir);
-DECLARE_double(sleep_time);
+DECLARE_bool(restore);
 
 namespace dsm{
 
@@ -46,8 +46,6 @@ void Master::start_checkpoint(){
 }
 
 void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
-	start_checkpoint();
-
 	if(workers_[worker_id]->checkpointing){
 		return;
 	}
@@ -112,14 +110,71 @@ void Master::finish_worker_checkpoint(int worker_id, const RunDescriptor& r){
 
 void Master::checkpoint(){
 	mutex m;
+	chrono::duration<double> wt=chrono::duration<double>(current_run_.checkpoint_interval);
 	unique_lock<mutex> ul(m);
 //	auto pred=[&](){return Now()-last_checkpoint_>current_run_.checkpoint_interval;}
-	cv_cp.wait_for(ul,chrono::duration<double>(current_run_.checkpoint_interval));
+	cv_cp.wait_for(ul,wt);
 	while(!kernel_terminated_){
 		start_checkpoint();
+		su_cp_start.wait();
 		finish_checkpoint();
-		cv_cp.wait_for(ul,chrono::duration<double>(current_run_.checkpoint_interval));
+		su_cp_finish.wait();
+		cv_cp.wait_for(ul,wt);
 	}
 }
+
+
+bool Master::restore(){
+	if(!FLAGS_restore){
+		LOG(INFO)<< "Restore disabled by flag.";
+		return false;
+	}
+
+	if (!shards_assigned_){
+		assign_tables();
+		send_table_assignments();
+	}
+
+	Timer t;
+	vector<string> matches = File::MatchingFilenames(FLAGS_checkpoint_read_dir + "/*/checkpoint.finished");
+	if (matches.empty()){
+		return false;
+	}
+
+	// Glob returns results in sorted order, so our last checkpoint will be the last.
+	const char* fname = matches.back().c_str();
+	int epoch = -1;
+	CHECK_EQ(sscanf(fname, (FLAGS_checkpoint_read_dir + "/epoch_%05d/checkpoint.finished").c_str(), &epoch),
+			1) << "Unexpected filename: " << fname;
+
+	LOG(INFO) << "Restoring from file: " << matches.back();
+
+	RecordFile rf(matches.back(), "r");
+	CheckpointInfo info;
+	Args checkpoint_vars;
+	Args params;
+	CHECK(rf.read(&info));
+	CHECK(rf.read(&params));
+	CHECK(rf.read(&checkpoint_vars));
+
+	// XXX - RJP need to figure out how to properly handle rolling checkpoints.
+	current_run_.params.FromMessage(params);
+
+	cp_vars_.FromMessage(checkpoint_vars);
+
+	LOG(INFO) << "Restoring state from checkpoint " << MP(info.kernel_epoch(), info.checkpoint_epoch());
+
+	kernel_epoch_ = info.kernel_epoch();
+	checkpoint_epoch_ = info.checkpoint_epoch();
+
+	StartRestore req;
+	req.set_epoch(epoch);
+	network_->Broadcast(MTYPE_RESTORE, req);
+	su_cp_restore.wait();
+
+	LOG(INFO) << "Checkpoint restored in " << t.elapsed() << " seconds.";
+	return true;
+}
+
 
 } //namespace dsm
