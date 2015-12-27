@@ -35,17 +35,19 @@ int NetworkThread::size() const{
 }
 
 bool NetworkThread::active() const{
-	return pending_sends_.size() > 0 || net->unconfirmedTaskNum() > 0;
+	return net->unconfirmedTaskNum() > 0 ||
+			ps_buffer_[0].size() > 0 || ps_buffer_[1].size() > 0;
 }
 size_t NetworkThread::pending_pkgs() const{
-	return net->unconfirmedTaskNum()+pending_sends_.size();
+	return net->unconfirmedTaskNum()+ps_buffer_[0].size()+ps_buffer_[1].size();
 }
 int64_t NetworkThread::pending_bytes() const{
 	int64_t t = net->unconfirmedBytes();
 
 	lock_guard<recursive_mutex> sl(ps_lock);
-	for(size_t i = 0; i < pending_sends_.size(); ++i){
-		t += pending_sends_[i]->payload.size();
+	for(const vector<Task*>& vec:ps_buffer_){
+		for(Task* p:vec)
+			t+=p->payload.size();
 	}
 
 	return t;
@@ -86,21 +88,19 @@ void NetworkThread::Run(){
 		net->collectFinishedSend();
 		//send
 		/* bunch send: */
-		if(!pending_sends_.empty()){
-			//TODO: use two-buffers-swapping to implement this for better performance
-			lock_guard<recursive_mutex> sl(ps_lock);
-			for(auto it = pending_sends_.begin(); it != pending_sends_.end(); ++it)
+		if(!pending_sends_->empty()){
+			//two-buffers-swapping implementation for better performance
+			vector<Task*>* pv=pending_sends_;
+			{
+				lock_guard<recursive_mutex> sl(ps_lock);
+				pending_sends_=&ps_buffer_[ps_idx_++%2];
+
+			}
+			auto end_it=pv->end();
+			for(auto it = pv->begin(); it != end_it; ++it)
 				net->send(*it);
-			pending_sends_.clear();
+			pv->clear();
 		}
-		/* single send: */
-//		while(!pending_sends_.empty()){
-//			lock_guard<recursive_mutex> sl(ps_lock);
-//			Task* s = pending_sends_.back();
-//			pending_sends_.pop_back();
-////		sl.~lock_guard();
-//			net->send(s);
-//		}
 	}
 }
 
@@ -143,7 +143,7 @@ inline int NetworkThread::Send(Task *req){
 //	Timer t;
 	lock_guard<recursive_mutex> sl(ps_lock);
 //	DLOG_IF(INFO,t.elapsed()>0.005)<<"Sending(l) from "<<id()<<" to "<<req->src_dst<<", type "<<req->type<<", lock time="<<t.elapsed();
-	pending_sends_.push_back(req);
+	pending_sends_->push_back(req);
 	return size;
 }
 int NetworkThread::Send(int dst, int method, const Message &msg){

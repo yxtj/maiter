@@ -62,10 +62,12 @@ private:
 	NetworkImplMPI* net;
 	mutable std::thread t_;
 
-	std::vector<Task*> pending_sends_;	//buffer for request to be sent
+	//buffer for request to be sent, double buffer design for performance
+	std::vector<Task*> ps_buffer_[2];
+	std::vector<Task*>* pending_sends_=&ps_buffer_[0];
+	int ps_idx_=0;
 	mutable std::recursive_mutex ps_lock;
 
-	typedef std::deque<std::string> Queue;
 	std::deque<std::pair<std::string,TaskBase> > receive_buffer;
 	mutable std::recursive_mutex rec_lock;
 
