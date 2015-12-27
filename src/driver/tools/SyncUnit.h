@@ -27,6 +27,16 @@ struct SyncUnit{
 		if(ready)	return;
 		cv.wait(ul,[&](){return ready;});
 	}
+	bool wait_for(const std::chrono::duration<double>& dur){
+		if(ready)	return true;
+		std::unique_lock<std::mutex> ul(m);
+		if(ready)	return true;
+		return cv.wait_for(ul,dur,[&](){return ready;});
+	}
+	template<class rep, class period>
+	bool wait_for(const std::chrono::duration<rep,period>& dur){
+		return wait_for(std::chrono::duration_cast<double>(dur));
+	}
 	void notify(){
 		ready=true;
 		cv.notify_all();
