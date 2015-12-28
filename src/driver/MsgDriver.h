@@ -18,7 +18,11 @@
 namespace dsm {
 
 class NetworkThread;
-
+/*
+ * The data flow is as below:
+ * data->immediateDispatcher-+-> queue-> processDispatcher-+-> end
+ *                           +-> processed-> end           +-> defaultHandle-> end
+ */
 class MsgDriver{
 public:
 	typedef Dispatcher<const std::string&, const RPCInfo&>::callback_t callback_t;
@@ -29,17 +33,6 @@ public:
 	bool empty() const;
 	bool busy() const;
 
-	// Link an inputer source to read from.
-	void linkInputter(NetworkThread* input);
-	void readBlocked(std::string& data, RPCInfo& info);
-	bool readUnblocked(std::string& data, RPCInfo& info);
-	// Launch the Message Driver. Data flow is as below:
-	// data->immediateDispatcher--+-->queue->processDispatcher-+->end
-	//                            +-->processed->end           +->defaultHandle->end
-	void delegated_run();
-	//TODO: change run() to be a launcher of next 2 thread.
-//	void inputThread();
-//	void outputThread();
 
 	// For message should be handled at receiving time (i.e. alive check)
 	void registerImmediateHandler(const int type, callback_t cb, bool spawnThread=false);

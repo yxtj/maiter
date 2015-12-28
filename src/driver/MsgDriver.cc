@@ -41,9 +41,6 @@ bool MsgDriver::busy() const{
 }
 
 //Register
-void MsgDriver::linkInputter(NetworkThread* inputter){
-	net=inputter;
-}
 void MsgDriver::registerImmediateHandler(const int type, callback_t cb, bool spawnThread){
 	inDisper.registerDispFun(type,cb,spawnThread);
 }
@@ -80,18 +77,6 @@ void MsgDriver::clear(){
 	resetDefaultOutHandler();
 }
 
-//Read data
-void MsgDriver::readBlocked(string& msg, RPCInfo& info){
-	info.dest=net->id();
-//	net->Read(Task::ANY_SRC, Task::ANY_TYPE, &msg, &info.source, &info.tag);
-	net->ReadAny(msg, &info.source, &info.tag);
-}
-bool MsgDriver::readUnblocked(string& msg, RPCInfo& info){
-	info.dest=net->id();
-//	net->TryRead(Task::ANY_SRC, Task::ANY_TYPE, &msg, &info.source, &info.tag);
-	return net->TryReadAny(msg, &info.source, &info.tag);
-}
-
 //Process
 bool MsgDriver::processInput(string& data, RPCInfo& info){
 	if(!inDisper.receiveData(info.tag, data, info)){
@@ -118,34 +103,6 @@ bool MsgDriver::popData(){
 	pair<string, RPCInfo> t=move(que.front());
 	que.pop_front();
 	return processOutput(t.first, t.second);
-}
-
-void MsgDriver::delegated_run(){
-	if(net==nullptr){
-		LOG(FATAL)<<"input source has not been set.";
-	}
-	running_=true;
-	//TODO: use 2 thread to handle input and output
-	string data;
-	RPCInfo info;
-	while(running_){
-		bool idled=true;
-		//input
-		while(readUnblocked(data,info)){
-			pushData(data,info);
-			idled=false;
-		}
-		//output
-		while(!que.empty()){
-			pair<string, RPCInfo>& t=que.front();
-			processOutput(t.first, t.second);
-			que.pop_front();
-			idled=false;
-		}
-		//sleep
-		if(idled)
-			Sleep();
-	}
 }
 
 } /* namespace dsm */
