@@ -48,8 +48,16 @@ void Worker::registerHandlers(){
 
 	RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandlePutRequest);
 	RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandlePutRequest);
+	RegDSPProcess(MTYPE_RESTORE, &Worker::HandleRestore);
 
 	return;
+}
+
+void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
+	ReplyMessage rm;
+	rm.ParseFromString(d);
+	int tag=rm.type();
+	DVLOG(2) << "Processing reply, type " << tag << ", from " << rpc.source << ", to " << rpc.dest;
 }
 
 void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
@@ -187,17 +195,17 @@ void Worker::HandleShutdown(const string& , const RPCInfo& rpc){
 	sendReply(rpc);
 }
 
-void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
-	ReplyMessage rm;
-	rm.ParseFromString(d);
-	int tag=rm.type();
-	DVLOG(2) << "Processing reply, type " << tag << ", from " << rpc.source << ", to " << rpc.dest;
-}
-
 void Worker::HandleCheckpoint(const string& d, const RPCInfo& rpc){
 	CheckpointRequest req;
 	req.ParseFromString(d);
 	checkpoint(req.epoch(), CheckpointType(req.checkpoint_type()));
+	sendReply(rpc);
+}
+
+void Worker::HandleRestore(const string& d, const RPCInfo& rpc){
+	RestoreRequest req;
+	req.ParseFromString(d);
+	restore(req.epoch());
 	sendReply(rpc);
 }
 

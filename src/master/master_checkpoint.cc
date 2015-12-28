@@ -12,6 +12,7 @@
 #include "table/global-table.h"
 #include "net/NetworkThread.h"
 #include "net/Task.h"
+#include "util/file.h"
 
 #include <set>
 #include <thread>
@@ -36,9 +37,9 @@ void Master::start_checkpoint(){
 	File::Mkdirs(
 			StringPrintf("%s/epoch_%05d/", FLAGS_checkpoint_write_dir.c_str(), checkpoint_epoch_));
 
-	if(current_run_.checkpoint_type == CP_NONE){
-		current_run_.checkpoint_type = CP_MASTER_CONTROLLED;
-	}
+//	if(current_run_.checkpoint_type == CP_NONE){
+//		current_run_.checkpoint_type = CP_MASTER_CONTROLLED;
+//	}
 	for(int i = 0; i < workers_.size(); ++i){
 		start_worker_checkpoint(i, current_run_);
 	}
@@ -167,7 +168,7 @@ bool Master::restore(){
 	kernel_epoch_ = info.kernel_epoch();
 	checkpoint_epoch_ = info.checkpoint_epoch();
 
-	StartRestore req;
+	RestoreRequest req;
 	req.set_epoch(epoch);
 	network_->Broadcast(MTYPE_RESTORE, req);
 	su_cp_restore.wait();

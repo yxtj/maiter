@@ -42,6 +42,8 @@ Worker::Worker(const ConfigData &c){
 	running_ = true;
 	running_kernel_=false;
 
+	driver_paused_=false;
+
 	// HACKHACKHACK - register ourselves with any existing tables
 	TableRegistry::Map &t = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator i = t.begin(); i != t.end(); ++i){
@@ -87,7 +89,7 @@ void Worker::MsgLoop(){
 			driver.pushData(data,info);
 		}
 		Sleep();
-		while(!driver.empty()){
+		while(!driver_paused_ && !driver.empty()){
 			driver.popData();
 		}
 	}

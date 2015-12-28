@@ -16,8 +16,10 @@
 //DEFINE_string(dead_workers, "",
 //		"For failure testing; comma delimited list of workers to pretend have died.");
 DEFINE_bool(work_stealing, true, "Enable work stealing to load-balance tasks between machines.");
+
 DEFINE_bool(checkpoint, false, "If true, enable checkpointing.");
 DEFINE_bool(restore, false, "If true, enable restore.");
+
 DEFINE_string(track_log, "track_log", "");
 DEFINE_bool(sync_track, false, "");
 
@@ -376,10 +378,10 @@ int Master::reap_one_task(){
 
 void Master::run(RunDescriptor r){
 	kernel_terminated_=false;
-	if(!FLAGS_checkpoint && r.checkpoint_type != CP_NONE){
-		LOG(INFO)<< "Checkpoint is disabled by flag.";
-		r.checkpoint_type = CP_NONE;
-	}
+//	if(!FLAGS_checkpoint && r.checkpoint_type != CP_NONE){
+//		LOG(INFO)<< "Checkpoint is disabled by flag.";
+//		r.checkpoint_type = CP_NONE;
+//	}
 
 	// HACKHACKHACK - register ourselves with any existing tables
 	for (TableRegistry::Map::iterator i = tables_.begin(); i != tables_.end(); ++i){
@@ -426,7 +428,7 @@ void Master::run(RunDescriptor r){
 	dispatched_ = startWorkers(current_run_);
 
 	thread t_cp;
-	if(current_run_.checkpoint_type != CP_NONE){
+	if(FLAGS_checkpoint && current_run_.checkpoint_type != CP_NONE){
 		t_cp=thread(&Master::checkpoint,this);
 	}
 //	if(this kernel has a term_checker)

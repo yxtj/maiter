@@ -9,12 +9,14 @@
 #include "net/Task.h"
 #include "net/RPCInfo.h"
 #include "net/NetworkThread.h"
+#include "util/file.h"
+
+#include <glog/logging.h>
+
 #include <string>
 #include <thread>
 #include <chrono>
 #include <functional>
-
-#include <glog/logging.h>
 
 using namespace std;
 
@@ -94,8 +96,10 @@ void Worker::checkpoint(const int epoch, const CheckpointType type){
 	for (TableRegistry::Map::iterator i = t.begin(); i != t.end(); ++i){
 		checkpoint_tables_.insert(make_pair(i->first, true));
 	}
+	driver_paused_=true;
 	StartCheckpoint(epoch, type);
 	FinishCheckpoint();
+	driver_paused_=false;
 
 //	UpdateEpoch(int peer, int peer_epoch):
 //	VLOG(1) << "Got peer marker: " << MP(peer, MP(epoch_, peer_epoch));
@@ -121,7 +125,7 @@ void Worker::checkpoint(const int epoch, const CheckpointType type){
 //	}
 }
 
-void Worker::Restore(int epoch){
+void Worker::restore(int epoch){
 	lock_guard<recursive_mutex> sl(state_lock_);
 	LOG(INFO)<< "Worker restoring state from epoch: " << epoch;
 	epoch_ = epoch;
@@ -135,9 +139,6 @@ void Worker::Restore(int epoch){
 							FLAGS_checkpoint_read_dir.c_str(), epoch_, i->first));
 		}
 	}
-
-	EmptyMessage req;
-	network_->Send(config_.master_id(), MTYPE_RESTORE_DONE, req);
 }
 
 

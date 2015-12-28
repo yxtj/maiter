@@ -53,8 +53,9 @@ struct RunDescriptor{
 			const std::vector<int>& cp_tables = std::vector<int>()){
 		barrier = true;
 //		checkpoint_type = CP_NONE;
-		checkpoint_type = CP_MASTER_CONTROLLED
-		checkpoint_interval = -1;
+//		checkpoint_interval = -1;
+		checkpoint_type = CP_MASTER_CONTROLLED;
+		checkpoint_interval = 5;
 		checkpoint_tables = cp_tables;
 
 		if(!checkpoint_tables.empty()){
