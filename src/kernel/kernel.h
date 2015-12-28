@@ -255,12 +255,13 @@ public:
 		typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_entirepass_iterator(current_shard());
 
 		while(!it->done()){
-			bool cont = it->Next();
-			if(!cont) break;
+//			bool cont = it->Next();
+//			if(!cont) break;
 
 			totalF1 += it->value1();
 			totalF2 += it->value2();
 			File << it->key() << "\t" << it->value1() << ":" << it->value2() << "\n";
+			it->Next();
 		}
 		delete it;
 

@@ -146,9 +146,10 @@ public:
 			}
 			//should not use for(;!it->done();it->Next()), that will skip some entry
 			while(!it2->done()){
-				bool cont = it2->Next();        //if we have more in the state table, we continue
-				if(!cont) break;
+//				bool cont = it2->Next();        //if we have more in the state table, we continue
+//				if(!cont) break;
 				ProcessUpdatesSingle(it2->key(), it2->value1(), it2->value2(), it2->value3());
+				it2->Next();
 			}
 			delete it2;
 		}

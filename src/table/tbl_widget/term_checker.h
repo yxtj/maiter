@@ -37,13 +37,11 @@ double TermChecker<K,V>::estimate_prog(LocalTableIterator<K, V>* statetable){
 	double partial_curr = 0;
 	V defaultv = statetable->defaultV();
 	while(!statetable->done()){
-		bool cont = statetable->Next();
-		if(!cont) break;
-		//statetable->Next();
 		//cout << statetable->key() << "\t" << statetable->value2() << endl;
 		if(statetable->value2() != defaultv){
 			partial_curr += static_cast<double>(statetable->value2());
 		}
+		statetable->Next();
 	}
 	return partial_curr;
 }

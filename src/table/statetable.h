@@ -69,7 +69,7 @@ public:
 				b_no_change = false;
 			}
 			//TODO: fix behavior of initial iterator
-			//Next();
+			Next();
 		}
 		Marshal<K>* kmarshal(){ return parent_.kmarshal(); }
 		Marshal<V1>* v1marshal(){ return parent_.v1marshal(); }
@@ -87,7 +87,7 @@ public:
 
 		bool done(){
 			//cout<< "pos " << pos << "\tsize" << parent_.size_ << endl;
-			return pos + 1 >= parent_.size_;
+			return pos >= parent_.size_;
 		}
 
 		const K& key(){ return parent_.buckets_[pos].k; }
@@ -188,7 +188,7 @@ public:
 
 			VLOG(2) << "table size " << parent_.buckets_.size() << " workerid " << parent_.id()
 								<< " scheduled " << scheduled_pos.size();
-			//Next();
+			Next();
 		}
 
 		Marshal<K>* kmarshal(){ return parent_.kmarshal(); }
@@ -202,7 +202,7 @@ public:
 		}
 
 		bool done(){
-			return pos + 1 == scheduled_pos.size();
+			return pos >= scheduled_pos.size();
 		}
 
 		const K& key(){
@@ -249,6 +249,7 @@ public:
 			total = 0;
 			pos = -1;
 			defaultv = ((IterateKernel<K, V1, V3>*)parent_.info_.iterkernel)->default_v();
+			Next();
 		}
 
 		Marshal<K>* kmarshal(){ return parent_.kmarshal(); }
@@ -272,7 +273,7 @@ public:
 
 		bool done(){
 			//cout<< "entire pos " << pos << "\tsize" << parent_.size_ << endl;
-			return pos + 1 == parent_.size_;
+			return pos >= parent_.size_;
 		}
 
 		V1 defaultV(){
