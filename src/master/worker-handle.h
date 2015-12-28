@@ -61,6 +61,7 @@ typedef std::set<Taskid> ShardSet;
 struct WorkerState: private noncopyable{
 	WorkerState(int w_id) :
 			id(w_id){
+		net_id=-1;
 		last_ping_time = Now();
 		is_alive=true;
 		last_task_start = 0.0;
@@ -79,6 +80,7 @@ struct WorkerState: private noncopyable{
 
 	int status;
 	int id;
+	int net_id;
 	bool is_alive;
 
 	double last_task_start;

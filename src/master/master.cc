@@ -17,7 +17,6 @@
 //		"For failure testing; comma delimited list of workers to pretend have died.");
 DEFINE_bool(work_stealing, true, "Enable work stealing to load-balance tasks between machines.");
 
-DEFINE_bool(checkpoint, false, "If true, enable checkpointing.");
 DEFINE_bool(restore, false, "If true, enable restore.");
 
 DEFINE_string(track_log, "track_log", "");
@@ -130,7 +129,7 @@ void Master::MsgLoop(){
 
 void Master::termcheck(){
 	while(!kernel_terminated_){
-		VLOG(2) << "Starting termination check: " << termcheck_epoch_;
+		VLOG(1) << "Starting termination check: " << termcheck_epoch_++;
 
 		su_term.wait();
 		su_term.reset();
@@ -428,7 +427,7 @@ void Master::run(RunDescriptor r){
 	dispatched_ = startWorkers(current_run_);
 
 	thread t_cp;
-	if(FLAGS_checkpoint && current_run_.checkpoint_type != CP_NONE){
+	if(current_run_.checkpoint_type != CP_NONE){
 		t_cp=thread(&Master::checkpoint,this);
 	}
 //	if(this kernel has a term_checker)

@@ -25,7 +25,7 @@ struct RunDescriptor{
 	bool barrier;
 
 	CheckpointType checkpoint_type;
-	int checkpoint_interval;
+	double checkpoint_interval;
 
 	// Tables to checkpoint.  If empty, commit all tables.
 	std::vector<int> checkpoint_tables;
@@ -50,22 +50,7 @@ struct RunDescriptor{
 	void Init(const std::string& kernel,
 			const std::string& method,
 			GlobalTableBase *table,
-			const std::vector<int>& cp_tables = std::vector<int>()){
-		barrier = true;
-//		checkpoint_type = CP_NONE;
-//		checkpoint_interval = -1;
-		checkpoint_type = CP_MASTER_CONTROLLED;
-		checkpoint_interval = 5;
-		checkpoint_tables = cp_tables;
-
-		if(!checkpoint_tables.empty()){
-			checkpoint_type = CP_MASTER_CONTROLLED;
-		}
-
-		this->kernel = kernel;
-		this->method = method;
-		this->table = table;
-	}
+			const std::vector<int>& cp_tables = std::vector<int>());
 };
 
 }

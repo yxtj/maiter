@@ -112,6 +112,7 @@ void Master::handleRegisterWorker(const std::string& d, const RPCInfo& info){
 	req.ParseFromString(d);
 	VLOG(1)<<"Registered worker: " << req.id();
 	netId2worker_[info.source]=workers_[req.id()];
+	workers_[req.id()]->net_id=info.source;
 	rph_.input(MTYPE_REGISTER_WORKER, req.id());
 }
 
@@ -157,7 +158,7 @@ void Master::handleKernelDone(const std::string& d, const RPCInfo& info){
 				}
 			}
 
-			if(current_run_.checkpoint_type == CP_MASTER_CONTROLLED
+			if(current_run_.checkpoint_type == CP_SYNC
 					&& 0.7 * current_run_.shards.size() < finished_ && w.idle_time() > 0
 					&& !w.checkpointing){
 				start_worker_checkpoint(w.id, current_run_);

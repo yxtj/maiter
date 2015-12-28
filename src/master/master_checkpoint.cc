@@ -30,7 +30,6 @@ void Master::start_checkpoint(){
 	}
 	LOG(INFO)<< "Starting new checkpoint: " << checkpoint_epoch_;
 
-	Timer cp_timer;
 	checkpoint_epoch_ += 1;
 	checkpointing_ = true;
 
@@ -43,7 +42,6 @@ void Master::start_checkpoint(){
 	for(int i = 0; i < workers_.size(); ++i){
 		start_worker_checkpoint(i, current_run_);
 	}
-	LOG(INFO)<< "Checkpoint finished in " << cp_timer.elapsed();
 }
 
 void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
@@ -62,8 +60,8 @@ void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
 	for(int i = 0; i < r.checkpoint_tables.size(); ++i){
 		req.add_table(r.checkpoint_tables[i]);
 	}
-
-	network_->Send(1 + worker_id, MTYPE_START_CHECKPOINT, req);
+	VLOG(1)<<req.ShortDebugString();
+	network_->Send(workers_[worker_id]->net_id, MTYPE_START_CHECKPOINT, req);
 }
 
 void Master::finish_checkpoint(){
@@ -97,12 +95,12 @@ void Master::finish_checkpoint(){
 void Master::finish_worker_checkpoint(int worker_id, const RunDescriptor& r){
 	CHECK_EQ(workers_[worker_id]->checkpointing, true);
 
-	if(r.checkpoint_type == CP_MASTER_CONTROLLED){
-		EmptyMessage req;
-		network_->Send(1 + worker_id, MTYPE_FINISH_CHECKPOINT, req);
-	}
+//	if(r.checkpoint_type == CP_SYNC){
+//		EmptyMessage req;
+//		network_->Send(1 + worker_id, MTYPE_FINISH_CHECKPOINT, req);
+//	}
 
-	EmptyMessage resp;
+//	EmptyMessage resp;
 //	network_->Read(1 + worker_id, MTYPE_CHECKPOINT_DONE, &resp);
 
 	VLOG(1) << worker_id << " finished checkpointing.";
@@ -116,10 +114,12 @@ void Master::checkpoint(){
 //	auto pred=[&](){return Now()-last_checkpoint_>current_run_.checkpoint_interval;}
 	cv_cp.wait_for(ul,wt);
 	while(!kernel_terminated_){
+		Timer cp_timer;
 		start_checkpoint();
 		su_cp_start.wait();
 		finish_checkpoint();
-		su_cp_finish.wait();
+//		su_cp_finish.wait();
+		LOG(INFO)<< "Checkpoint finished in " << cp_timer.elapsed();
 		cv_cp.wait_for(ul,wt);
 	}
 }

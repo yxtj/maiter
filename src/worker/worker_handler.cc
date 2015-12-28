@@ -46,8 +46,8 @@ void Worker::registerHandlers(){
 
 	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
 
-	RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandlePutRequest);
-	RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandlePutRequest);
+	RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleCheckpoint);
+//	RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandlePutRequest);
 	RegDSPProcess(MTYPE_RESTORE, &Worker::HandleRestore);
 
 	return;

@@ -12,8 +12,8 @@ message ReplyMessage {
 
 enum CheckpointType {
   CP_NONE = 0;
-  CP_MASTER_CONTROLLED = 1;
-  CP_ROLLING = 2;
+  CP_SYNC = 1;
+  CP_ASYNC = 2;
 };
 
 message RegisterWorkerRequest {

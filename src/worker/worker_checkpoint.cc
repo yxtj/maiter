@@ -54,17 +54,17 @@ void Worker::StartCheckpoint(const int epoch, const CheckpointType type){
 
 	// For rolling checkpoints, send out a marker to other workers indicating
 	// that we have switched epochs.
-	if(type == CP_ROLLING){
-		TableData epoch_marker;
-		epoch_marker.set_source(id());
-		epoch_marker.set_table(-1);
-		epoch_marker.set_shard(-1);
-		epoch_marker.set_done(true);
-		epoch_marker.set_marker(epoch_);
-		for(int i = 0; i < peers_.size(); ++i){
-			network_->Send(i + 1, MTYPE_PUT_REQUEST, epoch_marker);
-		}
-	}
+//	if(type == CP_ROLLING){
+//		TableData epoch_marker;
+//		epoch_marker.set_source(id());
+//		epoch_marker.set_table(-1);
+//		epoch_marker.set_shard(-1);
+//		epoch_marker.set_done(true);
+//		epoch_marker.set_marker(epoch_);
+//		for(int i = 0; i < peers_.size(); ++i){
+//			network_->Send(i + 1, MTYPE_PUT_REQUEST, epoch_marker);
+//		}
+//	}
 
 	VLOG(1) << "Starting delta logging... " << MP(id(), epoch_, epoch);
 }

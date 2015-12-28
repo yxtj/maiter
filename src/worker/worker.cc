@@ -219,33 +219,33 @@ void Worker::realClear(const int tid){
 void Worker::UpdateEpoch(int peer, int peer_epoch){
 	LOG(FATAL)<<"call a strange function";
 
-	lock_guard<recursive_mutex> sl(state_lock_);
-	VLOG(1) << "Got peer marker: " << MP(peer, MP(epoch_, peer_epoch));
-	if(epoch_ < peer_epoch){
-		LOG(INFO)<< "Received new epoch marker from peer:" << MP(epoch_, peer_epoch);
-
-		checkpoint_tables_.clear();
-		TableRegistry::Map &t = TableRegistry::Get()->tables();
-		for (TableRegistry::Map::iterator i = t.begin(); i != t.end(); ++i){
-			checkpoint_tables_.insert(make_pair(i->first, true));
-		}
-
-		StartCheckpoint(peer_epoch, CP_ROLLING);
-	}
-
-	peers_[peer]->epoch = peer_epoch;
-
-	bool checkpoint_done = true;
-	for(int i = 0; i < peers_.size(); ++i){
-		if(peers_[i]->epoch != epoch_){
-			checkpoint_done = false;
-			VLOG(1) << "Channel is out of date: " << i << " : " << MP(peers_[i]->epoch, epoch_);
-		}
-	}
-
-	if(checkpoint_done){
-		FinishCheckpoint();
-	}
+//	lock_guard<recursive_mutex> sl(state_lock_);
+//	VLOG(1) << "Got peer marker: " << MP(peer, MP(epoch_, peer_epoch));
+//	if(epoch_ < peer_epoch){
+//		LOG(INFO)<< "Received new epoch marker from peer:" << MP(epoch_, peer_epoch);
+//
+//		checkpoint_tables_.clear();
+//		TableRegistry::Map &t = TableRegistry::Get()->tables();
+//		for (TableRegistry::Map::iterator i = t.begin(); i != t.end(); ++i){
+//			checkpoint_tables_.insert(make_pair(i->first, true));
+//		}
+//
+////		StartCheckpoint(peer_epoch, CP_ROLLING);
+//	}
+//
+//	peers_[peer]->epoch = peer_epoch;
+//
+//	bool checkpoint_done = true;
+//	for(int i = 0; i < peers_.size(); ++i){
+//		if(peers_[i]->epoch != epoch_){
+//			checkpoint_done = false;
+//			VLOG(1) << "Channel is out of date: " << i << " : " << MP(peers_[i]->epoch, epoch_);
+//		}
+//	}
+//
+//	if(checkpoint_done){
+//		FinishCheckpoint();
+//	}
 }
 
 void Worker::SendTermcheck(int snapshot, long updates, double current){
