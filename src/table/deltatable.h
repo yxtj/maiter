@@ -250,7 +250,7 @@ void DeltaTable<K, V1, D>::resize(int64_t size){
 	std::vector<Bucket> old_b = buckets_;
 	int old_entries = entries_;
 
-	VLOG(1) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
+	DVLOG(2) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
 
 	buckets_.resize(size);
 	size_ = size;

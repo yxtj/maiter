@@ -1,9 +1,7 @@
 #ifndef TABLE_TABLE_H_
 #define TABLE_TABLE_H_
 
-#include <table/TableDescriptor.h>
-#include "util/file.h"
-#include "msg/common.pb.h"
+#include "TableDescriptor.h"
 #include "msg/message.pb.h"
 
 #include "TableHelper.h"
@@ -11,6 +9,8 @@
 #include "tbl_widget/trigger.h"
 //#include "tbl_widget/sharder.h"
 //#include "tbl_widget/term_checker.h"
+
+#include <glog/logging.h>
 
 #include <string>
 #include <vector>

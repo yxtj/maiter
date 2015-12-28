@@ -12,6 +12,8 @@
 
 namespace dsm{
 
+class KVPairData;
+
 // This interface is used by global tables to communicate with the outside
 // world and determine the current state of a computation.
 struct TableHelper{
