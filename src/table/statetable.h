@@ -68,7 +68,7 @@ public:
 			}else{
 				b_no_change = false;
 			}
-
+			//TODO: fix behavior of initial iterator
 			//Next();
 		}
 		Marshal<K>* kmarshal(){ return parent_.kmarshal(); }
@@ -87,7 +87,7 @@ public:
 
 		bool done(){
 			//cout<< "pos " << pos << "\tsize" << parent_.size_ << endl;
-			return pos + 1 == parent_.size_;
+			return pos + 1 >= parent_.size_;
 		}
 
 		const K& key(){ return parent_.buckets_[pos].k; }
@@ -488,16 +488,24 @@ StateTable<K, V1, V2, V3>::StateTable(int size) :
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeToFile(TableCoder *out){
 	Iterator *i = (Iterator*)get_iterator(nullptr, false);
+	i->Next();
 	string k, v1, v2, v3;
+	VLOG(1)<<"s2f of stateT";
+	int count=0;
 	while(!i->done()){
 		k.clear();
 		v1.clear();
 		v2.clear();
 		v3.clear();
+		VLOG(1)<<count++<<","<<i->pos<<": k="<<i->key()<<" v1="<<i->value1()<<" v2="<<i->value2();
 		((Marshal<K>*)info_.key_marshal)->marshal(i->key(), &k);
+//		VLOG(1)<<"k="<<i->key()<<" - "<<k;
 		((Marshal<V1>*)info_.value1_marshal)->marshal(i->value1(), &v1);
+//		VLOG(1)<<"v1="<<i->value1()<<" - "<<v1;
 		((Marshal<V2>*)info_.value2_marshal)->marshal(i->value2(), &v2);
-		((Marshal<V3>*)info_.value3_marshal)->marshal(i->value3(), &v3);
+//		VLOG(1)<<"v2="<<i->value2()<<" - "<<v3;
+//		((Marshal<V3>*)info_.value3_marshal)->marshal(i->value3(), &v3);
+//		VLOG(1)<<"v3="<<i->value3()<<" - "<<v3;
 		out->WriteEntryToFile(k, v1, v2, v3);
 		i->Next();
 	}
