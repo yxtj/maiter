@@ -48,6 +48,10 @@ public:
 	void resetDefaultOutHandler();
 	void resetWaitingQueue();
 	void clear();
+
+	const std::deque<std::pair<std::string, RPCInfo> >& getQue() const{
+		return que;
+	}
 	size_t queSize() const {return que.size();}
 
 	// return whether the input bypasses the dispatcher (enqueue)
