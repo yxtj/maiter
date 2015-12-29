@@ -37,19 +37,21 @@ struct RunDescriptor{
 	MarshalledMap params;
 
 	RunDescriptor(){
-		Init("bogus", "bogus", nullptr);
+		Init("bogus", "bogus", nullptr, false);
 	}
 
 	RunDescriptor(const std::string& kernel,
 			const std::string& method,
 			GlobalTableBase *table,
+			const bool checkpoint,
 			std::vector<int> cp_tables = std::vector<int>()){
-		Init(kernel, method, table, cp_tables);
+		Init(kernel, method, table, checkpoint, cp_tables);
 	}
 
 	void Init(const std::string& kernel,
 			const std::string& method,
 			GlobalTableBase *table,
+			const bool checkpoint,
 			const std::vector<int>& cp_tables = std::vector<int>());
 };
 

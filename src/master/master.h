@@ -46,14 +46,25 @@ public:
 	void realSwap(const int tid1, const int tid2);
 	void realClear(const int tid);
 
-	void run_all(RunDescriptor r);
-	void run_one(RunDescriptor r);
-	void run_range(RunDescriptor r, const std::vector<int>& shards);
+	void run_all(RunDescriptor&& r);
+	void run_one(RunDescriptor&& r);
+	void run_range(RunDescriptor&& r, const std::vector<int>& shards);
 
 	// N.B.  All run_* methods are blocking.
-	void run_all(const string& kernel, const string& method, GlobalTableBase* locality){
-		run_all(RunDescriptor(kernel, method, locality));
+	void run_all(const string& kernel, const string& method, GlobalTableBase* locality, bool checkpoint){
+		run_all(RunDescriptor(kernel, method, locality, checkpoint));
 	}
+	// Run the given kernel function on one (arbitrary) worker node.
+	void run_one(const string& kernel, const string& method, GlobalTableBase* locality, bool checkpoint=false){
+		run_one(RunDescriptor(kernel, method, locality, checkpoint));
+	}
+	// Run the kernel function on the given set of shards.
+	void run_range(const string& kernel, const string& method,
+			GlobalTableBase* locality, bool checkpoint, const std::vector<int>& shards){
+		run_range(RunDescriptor(kernel, method, locality, checkpoint), shards);
+	}
+
+	void run(RunDescriptor&& r);
 
 	//maiter program
 	template<class K, class V, class D>
@@ -63,29 +74,16 @@ public:
 			return;
 		}
 
-		run_all("MaiterKernel1", "run", maiter->table);
+		run_all("MaiterKernel1", "run", maiter->table, false);
 
 		if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
-			run_all("MaiterKernel2", "map", maiter->table);
+			run_all("MaiterKernel2", "map", maiter->table, true);
 		}
 
-		run_all("MaiterKernel3", "run", maiter->table);
-	}
-
-	// Run the given kernel function on one (arbitrary) worker node.
-	void run_one(const string& kernel, const string& method, GlobalTableBase* locality){
-		run_one(RunDescriptor(kernel, method, locality));
-	}
-
-	// Run the kernel function on the given set of shards.
-	void run_range(const string& kernel, const string& method,
-			GlobalTableBase* locality, const std::vector<int>& shards){
-		run_range(RunDescriptor(kernel, method, locality), shards);
+		run_all("MaiterKernel3", "run", maiter->table, false);
 	}
 
 	void enable_trigger(const TriggerID triggerid, int table, bool enable);
-
-	void run(RunDescriptor r);
 
 	template<class T>
 	T& get_cp_var(const string& key, T defval = T()){

@@ -19,15 +19,19 @@ namespace dsm{
 void RunDescriptor::Init(const std::string& kernel,
 		const std::string& method,
 		GlobalTableBase *table,
+		const bool checkpoint,
 		const std::vector<int>& cp_tables)
 {
 	barrier = true;
 	checkpoint_type = CP_NONE;
-	if(!FLAGS_checkpoint_type.empty() &&
-			!CheckpointType_Parse(FLAGS_checkpoint_type,&checkpoint_type)){
-		LOG(ERROR)<<"Cannot understand given checkpoint type: "<<FLAGS_checkpoint_type;
+	if(checkpoint){
+		if(checkpoint && !FLAGS_checkpoint_type.empty() &&
+				!CheckpointType_Parse(FLAGS_checkpoint_type,&checkpoint_type)){
+			LOG(ERROR)<<"Cannot understand given checkpoint type: "<<FLAGS_checkpoint_type;
+		}
+		checkpoint_interval = FLAGS_checkpoint_interval;
 	}
-	checkpoint_interval = FLAGS_checkpoint_interval;
+
 	if(checkpoint_type != CP_NONE && checkpoint_interval<=0){
 		LOG(ERROR)<<"Checkpoint interval is not given or is not positive.";
 	}

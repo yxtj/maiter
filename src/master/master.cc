@@ -166,19 +166,6 @@ void Master::termcheck(){
 	VLOG(1)<<"termination checking thread finished";
 }
 
-void Master::run_all(RunDescriptor r){
-	run_range(r, range(r.table->num_shards()));
-}
-
-void Master::run_one(RunDescriptor r){
-	run_range(r, range(1));
-}
-
-void Master::run_range(RunDescriptor r, const vector<int>& shards){
-	r.shards = shards;
-	run(r);
-}
-
 WorkerState* Master::worker_for_shard(int table, int shard){
 	for(int i = 0; i < workers_.size(); ++i){
 		if(workers_[i]->serves(Taskid(table, shard))){
@@ -376,7 +363,20 @@ int Master::reap_one_task(){
 	}
 }
 
-void Master::run(RunDescriptor r){
+void Master::run_all(RunDescriptor&& r){
+	run_range(move(r), range(r.table->num_shards()));
+}
+
+void Master::run_one(RunDescriptor&& r){
+	run_range(move(r), range(1));
+}
+
+void Master::run_range(RunDescriptor&& r, const vector<int>& shards){
+	r.shards = shards;
+	run(move(r));
+}
+
+void Master::run(RunDescriptor&& r){
 	kernel_terminated_=false;
 //	if(!FLAGS_checkpoint && r.checkpoint_type != CP_NONE){
 //		LOG(INFO)<< "Checkpoint is disabled by flag.";
