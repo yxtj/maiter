@@ -23,7 +23,8 @@ struct ConditionAny:public ReplyHandler::Condition{
 struct ConditionEachOne:public ReplyHandler::Condition{
 	ConditionEachOne(const int num):state(num,false){}
 	bool update(const int source){
-		state[source]=true;
+		state.at(source)=true;
+//		state[source]=true;
 		if(all_of(state.begin(), state.end(), [](const bool b){return b;})){
 			reset();
 			return true;
