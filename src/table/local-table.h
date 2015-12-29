@@ -26,7 +26,7 @@ public:
 	}
 
 	void start_checkpoint(const std::string& f);
-	void write_delta(const KVPairData& put);
+	void write_message(const KVPairData& put);
 	void finish_checkpoint();
 	void restore(const std::string& f);
 

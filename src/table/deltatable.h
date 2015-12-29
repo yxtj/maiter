@@ -51,12 +51,12 @@ public:
 				++pos;
 			}while(pos < parent_.size_ && !parent_.buckets_[pos].in_use);
 
-			if(pos >= parent_.size_){
-				return false;
-			}else{
-				return true;
-			}
-
+			return pos<parent_.size_;
+//			if(pos >= parent_.size_){
+//				return false;
+//			}else{
+//				return true;
+//			}
 		}
 
 		bool done(){
@@ -181,16 +181,14 @@ template<class K, class V1, class D>
 void DeltaTable<K, V1, D>::serializeToFile(TableCoder *out){
 	Iterator *i = (Iterator*)get_iterator(nullptr, false);
 	string k, v1;
-	VLOG(1)<<"s2f of deltaT";
-	int count=0;
 	while(!i->done()){
 		k.clear();
 		v1.clear();
-		VLOG(1)<<count++<<": k="<<i->key()<<" v1="<<i->value1();
+		DVLOG(1)<<i->pos<<": k="<<i->key()<<" v1="<<i->value1();
 		((Marshal<K>*)info_.key_marshal)->marshal(i->key(), &k);
-//		VLOG(1)<<"k="<<i->key()<<" - "<<k;
+//		DVLOG(1)<<"k="<<i->key()<<" - "<<k;
 		((Marshal<V1>*)info_.value1_marshal)->marshal(i->value1(), &v1);
-//		VLOG(1)<<"v1="<<i->value1()<<" - "<<v1;
+//		DVLOG(1)<<"v1="<<i->value1()<<" - "<<v1;
 		out->WriteEntryToFile(k, v1, "", "");
 		i->Next();
 	}
@@ -200,7 +198,6 @@ void DeltaTable<K, V1, D>::serializeToFile(TableCoder *out){
 template<class K, class V1, class D>
 void DeltaTable<K, V1, D>::serializeToNet(KVPairCoder *out){
 	Iterator *i = (Iterator*)get_iterator(nullptr, false);
-	i->Next();
 	string k, v1;
 	while(!i->done()){
 		k.clear();

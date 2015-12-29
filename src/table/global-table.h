@@ -163,7 +163,7 @@ public:
 
 	//override from Checkpointable
 	void start_checkpoint(const string& f);
-	void write_delta(const KVPairData& d);
+	void write_message(const KVPairData& d);
 	void finish_checkpoint();
 	void restore(const string& f);
 

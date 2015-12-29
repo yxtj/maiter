@@ -68,6 +68,7 @@ Master::Master(const ConfigData &conf) :
 	tmsg=thread(bind(&Master::MsgLoop,this));
 
 	su_regw.wait();
+	su_regw.reset();
 
 	LOG(INFO)<< "All workers registered; starting up.";
 

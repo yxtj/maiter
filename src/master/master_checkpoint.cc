@@ -28,13 +28,12 @@ void Master::start_checkpoint(){
 	if(checkpointing_){
 		return;
 	}
-	LOG(INFO)<< "Starting new checkpoint: " << checkpoint_epoch_;
+	LOG(INFO)<< "Starting new checkpoint: " << checkpoint_epoch_<<" at "<<runtime_.elapsed();
 
-	checkpoint_epoch_ += 1;
+//	checkpoint_epoch_ += 1;
 	checkpointing_ = true;
 
-	File::Mkdirs(
-			StringPrintf("%s/epoch_%05d/", FLAGS_checkpoint_write_dir.c_str(), checkpoint_epoch_));
+	File::Mkdirs(FLAGS_checkpoint_write_dir+StringPrintf("/epoch_%04d/", checkpoint_epoch_));
 
 //	if(current_run_.checkpoint_type == CP_NONE){
 //		current_run_.checkpoint_type = CP_MASTER_CONTROLLED;
@@ -49,8 +48,6 @@ void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
 		return;
 	}
 
-	VLOG(1) << "Starting checkpoint on: " << worker_id;
-
 	workers_[worker_id]->checkpointing = true;
 
 	CheckpointRequest req;
@@ -60,7 +57,8 @@ void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
 	for(int i = 0; i < r.checkpoint_tables.size(); ++i){
 		req.add_table(r.checkpoint_tables[i]);
 	}
-	VLOG(1)<<req.ShortDebugString();
+
+	VLOG(1)<<"Send checkpoint to: " << worker_id<<" with "<<req.ShortDebugString();
 	network_->Send(workers_[worker_id]->net_id, MTYPE_START_CHECKPOINT, req);
 }
 
@@ -73,9 +71,8 @@ void Master::finish_checkpoint(){
 	Args *params = current_run_.params.ToMessage();
 	Args *cp_vars = cp_vars_.ToMessage();
 
-	RecordFile rf(
-			StringPrintf("%s/epoch_%05d/checkpoint.finished", FLAGS_checkpoint_write_dir.c_str(),
-					checkpoint_epoch_), "w");
+	RecordFile rf(FLAGS_checkpoint_write_dir +
+			StringPrintf("/epoch_%04d/checkpoint.finished", checkpoint_epoch_), "w");
 
 	CheckpointInfo cinfo;
 	cinfo.set_checkpoint_epoch(checkpoint_epoch_);
@@ -86,24 +83,24 @@ void Master::finish_checkpoint(){
 	rf.write(*cp_vars);
 	rf.sync();
 
-	checkpointing_ = false;
-	last_checkpoint_ = Now();
 	delete params;
 	delete cp_vars;
+	checkpointing_ = false;
+	last_checkpoint_ = Now();
 }
 
 void Master::finish_worker_checkpoint(int worker_id, const RunDescriptor& r){
 	CHECK_EQ(workers_[worker_id]->checkpointing, true);
 
 //	if(r.checkpoint_type == CP_SYNC){
-//		EmptyMessage req;
-//		network_->Send(1 + worker_id, MTYPE_FINISH_CHECKPOINT, req);
+		EmptyMessage req;
+		network_->Send(workers_[worker_id]->net_id, MTYPE_FINISH_CHECKPOINT, req);
 //	}
 
 //	EmptyMessage resp;
-//	network_->Read(1 + worker_id, MTYPE_CHECKPOINT_DONE, &resp);
+//	network_->Read(workers_[worker_id]->net_id, MTYPE_CHECKPOINT_DONE, &resp);
 
-	VLOG(1) << worker_id << " finished checkpointing.";
+	VLOG(1) <<"Worker "<< worker_id << " finished checkpointing.";
 	workers_[worker_id]->checkpointing = false;
 }
 
@@ -117,9 +114,12 @@ void Master::checkpoint(){
 		Timer cp_timer;
 		start_checkpoint();
 		su_cp_start.wait();
+		su_cp_start.reset();
 		finish_checkpoint();
-//		su_cp_finish.wait();
-		LOG(INFO)<< "Checkpoint finished in " << cp_timer.elapsed();
+		su_cp_finish.wait();
+		su_cp_finish.reset();
+		LOG(INFO)<< "Checkpoint "<<checkpoint_epoch_<<" finished in " << cp_timer.elapsed();
+		checkpoint_epoch_++;
 		cv_cp.wait_for(ul,wt);
 	}
 }

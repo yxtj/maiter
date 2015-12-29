@@ -88,16 +88,26 @@ private:
 
 	void sendReply(const RPCInfo& rpc);
 
-	void HandleCheckpoint(const std::string& d, const RPCInfo& rpc);
+	void SendTermcheck(int index, long updates, double current);
+	void UpdateEpoch(int peer, int peer_epoch);
+
+//functions for checkpoint
+	void HandleStartCheckpoint(const std::string& d, const RPCInfo& rpc);
+	void HandleFinishCheckpoint(const std::string& d, const RPCInfo& rpc);
 	void HandleRestore(const std::string& d, const RPCInfo& rpc);
 
 	void checkpoint(const int epoch, const CheckpointType type);
-	void StartCheckpoint(const int epoch, const CheckpointType type);
-	void FinishCheckpoint();
+	void startCheckpoint(const int epoch, const CheckpointType type);
+	void finishCheckpoint();
 	void restore(int epoch);
 
-	void SendTermcheck(int index, long updates, double current);
-	void UpdateEpoch(int peer, int peer_epoch);
+	void _startCP_Sync();
+	void _finishCP_Sync();
+	void _startCP_SyncSig();
+	void _finishCP_SyncSig();
+	void _startCP_Async();
+	void _finishCP_Async();
+//end functions for checkpoint
 
 	typedef void (Worker::*callback_t)(const string&, const RPCInfo&);
 	void RegDSPImmediate(const int type, callback_t fp, bool spawnThread=false);
@@ -116,8 +126,8 @@ private:
 	KernelRequest kreq;	//the kernel running row
 
 	CheckpointType active_checkpoint_;
-	typedef unordered_map<int, bool> CheckpointMap;
-	CheckpointMap checkpoint_tables_;
+//	typedef unordered_map<int, bool> CheckpointMap;
+//	CheckpointMap checkpoint_tables_;
 
 	ConfigData config_;
 

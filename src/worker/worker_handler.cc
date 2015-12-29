@@ -46,8 +46,8 @@ void Worker::registerHandlers(){
 
 	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
 
-	RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleCheckpoint);
-//	RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandlePutRequest);
+	RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint);
+	RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
 	RegDSPProcess(MTYPE_RESTORE, &Worker::HandleRestore);
 
 	return;
@@ -195,10 +195,17 @@ void Worker::HandleShutdown(const string& , const RPCInfo& rpc){
 	sendReply(rpc);
 }
 
-void Worker::HandleCheckpoint(const string& d, const RPCInfo& rpc){
+void Worker::HandleStartCheckpoint(const string& d, const RPCInfo& rpc){
 	CheckpointRequest req;
 	req.ParseFromString(d);
-	checkpoint(req.epoch(), CheckpointType(req.checkpoint_type()));
+	startCheckpoint(req.epoch(), CheckpointType(req.checkpoint_type()));
+	sendReply(rpc);
+}
+
+void Worker::HandleFinishCheckpoint(const string& d, const RPCInfo& rpc){
+	EmptyMessage req;
+//	req.ParseFromString(d);
+	finishCheckpoint();
 	sendReply(rpc);
 }
 

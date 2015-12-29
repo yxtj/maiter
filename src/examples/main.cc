@@ -26,20 +26,16 @@ DEFINE_int64(num_nodes, 100, "");
 DEFINE_double(portion, 1, "");
 DEFINE_double(termcheck_threshold, 1000000000, "");
 DEFINE_double(sleep_time, 0.001, "");
+
 DEFINE_string(checkpoint_write_dir, "/tmp/maiter/checkpoints", "");
 DEFINE_string(checkpoint_read_dir, "/tmp/maiter/checkpoints", "");
-
+DEFINE_double(flush_time,0.2,"waiting time for flushing out all network message");
 
 DEFINE_int32(adsorption_starts, 100, "");
 DEFINE_double(adsorption_damping, 0.1, "");
 DEFINE_int64(shortestpath_source, 0, "");
 DEFINE_int64(katz_source, 0, "");
 DEFINE_double(katz_beta, 0.1, "");
-
-
-
-DECLARE_bool(log_prefix);
-
 
 
 int main(int argc, char** argv){

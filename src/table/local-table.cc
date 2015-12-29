@@ -75,9 +75,9 @@ void LocalTable::start_checkpoint(const string& f){
 	//  LOG(INFO) << "Flushed " << file << " to disk in: " << t.elapsed();
 }
 
-void LocalTable::write_delta(const KVPairData& put){
+void LocalTable::write_message(const KVPairData& put){
 	for(int i = 0; i < put.kv_data_size(); ++i){
-		delta_file_->WriteEntryToFile(put.kv_data(i).key(), put.kv_data(i).value(), "0", "0");
+		delta_file_->WriteEntryToFile(put.kv_data(i).key(), put.kv_data(i).value(), "", "");
 	}
 }
 

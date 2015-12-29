@@ -49,7 +49,8 @@ public:
 			 * It will degrading the performance a lot
 			 */
 			if(bfilter){
-				std::mt19937 gen(time(0));
+				std::mt19937 gen(std::chrono::system_clock::now().time_since_epoch().count());
+//				DVLOG(1)<<"bunket size="<<parent_.buckets_.size();
 				std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
 				auto rand_num = [&](){return dist(gen);};
 
@@ -489,24 +490,21 @@ StateTable<K, V1, V2, V3>::StateTable(int size) :
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeToFile(TableCoder *out){
 	Iterator *i = (Iterator*)get_iterator(nullptr, false);
-	i->Next();
 	string k, v1, v2, v3;
-	VLOG(1)<<"s2f of stateT";
-	int count=0;
 	while(!i->done()){
 		k.clear();
 		v1.clear();
 		v2.clear();
 		v3.clear();
-		VLOG(1)<<count++<<","<<i->pos<<": k="<<i->key()<<" v1="<<i->value1()<<" v2="<<i->value2();
+		DVLOG(1)<<i->pos<<": k="<<i->key()<<" v1="<<i->value1()<<" v2="<<i->value2();
 		((Marshal<K>*)info_.key_marshal)->marshal(i->key(), &k);
-//		VLOG(1)<<"k="<<i->key()<<" - "<<k;
+//		DVLOG(1)<<"k="<<i->key()<<" - "<<k;
 		((Marshal<V1>*)info_.value1_marshal)->marshal(i->value1(), &v1);
-//		VLOG(1)<<"v1="<<i->value1()<<" - "<<v1;
+//		DVLOG(1)<<"v1="<<i->value1()<<" - "<<v1;
 		((Marshal<V2>*)info_.value2_marshal)->marshal(i->value2(), &v2);
-//		VLOG(1)<<"v2="<<i->value2()<<" - "<<v3;
+//		DVLOG(1)<<"v2="<<i->value2()<<" - "<<v3;
 //		((Marshal<V3>*)info_.value3_marshal)->marshal(i->value3(), &v3);
-//		VLOG(1)<<"v3="<<i->value3()<<" - "<<v3;
+//		DVLOG(1)<<"v3="<<i->value3()<<" - "<<v3;
 		out->WriteEntryToFile(k, v1, v2, v3);
 		i->Next();
 	}

@@ -15,8 +15,6 @@
 
 DECLARE_double(sleep_time);
 DEFINE_double(sleep_hack, 0.0, "");
-DECLARE_string(checkpoint_write_dir);
-DECLARE_string(checkpoint_read_dir);
 
 namespace dsm {
 
@@ -25,7 +23,7 @@ static void Sleep(){
 }
 
 Worker::Worker(const ConfigData &c){
-	epoch_ = 0;
+	epoch_ = -1;
 	active_checkpoint_ = CP_NONE;
 
 	network_ = NetworkThread::Get();
@@ -136,6 +134,9 @@ void Worker::runKernel(){
 	MarshalledMap args;
 	args.FromMessage(kreq.args());
 	d->set_args(args);
+
+//	if(id()==0)	//hack for strange synchronization problem
+//		Sleep();
 
 	// Run the user kernel
 	helper->Run(d, kreq.method());
@@ -258,7 +259,7 @@ void Worker::SendTermcheck(int snapshot, long updates, double current){
 	req.set_updates(updates);
 	network_->Send(config_.master_id(), MTYPE_TERMCHECK_DONE, req);
 
-	VLOG(1) << "termination condition of subpass " << snapshot << " worker " << network_->id()
+	VLOG(1) << "termination condition of subpass " << snapshot << " worker " << id()
 						<< " sent to master... with total current "
 						<< StringPrintf("%.05f", current);
 }

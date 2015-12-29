@@ -83,18 +83,18 @@ void MutableGlobalTable::start_checkpoint(const string& f){
 	for(int i = 0; i < partitions_.size(); ++i){
 		if(is_local_shard(i)){
 			LocalTable *t = partitions_[i];
-			t->start_checkpoint(f + StringPrintf(".%05d-of-%05d", i, partitions_.size()));
+			t->start_checkpoint(f + StringPrintf("-%04d-of-%04d", i, partitions_.size()));
 		}
 	}
 }
 
-void MutableGlobalTable::write_delta(const KVPairData& d){
+void MutableGlobalTable::write_message(const KVPairData& d){
 	if(!is_local_shard(d.shard())){
-		LOG_EVERY_N(INFO, 1000) << "Ignoring delta write for forwarded data";
+		LOG(INFO) << "Ignoring delta write for forwarded data";
 		return;
 	}
 
-	partitions_[d.shard()]->write_delta(d);
+	partitions_[d.shard()]->write_message(d);
 }
 
 void MutableGlobalTable::finish_checkpoint(){
@@ -112,7 +112,7 @@ void MutableGlobalTable::restore(const string& f){
 		LocalTable *t = partitions_[i];
 
 		if(is_local_shard(i)){
-			t->restore(f + StringPrintf(".%05d-of-%05d", i, partitions_.size()));
+			t->restore(f + StringPrintf("-%04d-of-%04d", i, partitions_.size()));
 		}else{
 			t->clear();
 		}

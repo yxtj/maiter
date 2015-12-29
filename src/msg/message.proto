@@ -13,7 +13,8 @@ message ReplyMessage {
 enum CheckpointType {
   CP_NONE = 0;
   CP_SYNC = 1;
-  CP_ASYNC = 2;
+  CP_SYNC_SIG = 2;
+  CP_ASYNC = 3;
 };
 
 message RegisterWorkerRequest {
