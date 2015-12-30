@@ -41,6 +41,9 @@ void Master::start_checkpoint(){
 	for(int i = 0; i < workers_.size(); ++i){
 		start_worker_checkpoint(i, current_run_);
 	}
+
+	su_cp_start.wait();
+	su_cp_start.reset();
 }
 
 void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
@@ -65,8 +68,10 @@ void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
 void Master::finish_checkpoint(){
 	for(int i = 0; i < workers_.size(); ++i){
 		finish_worker_checkpoint(i, current_run_);
-		CHECK_EQ(workers_[i]->checkpointing, false);
 	}
+
+	su_cp_finish.wait();
+	su_cp_finish.reset();
 
 	Args *params = current_run_.params.ToMessage();
 	Args *cp_vars = cp_vars_.ToMessage();
@@ -93,7 +98,10 @@ void Master::finish_worker_checkpoint(int worker_id, const RunDescriptor& r){
 	CHECK_EQ(workers_[worker_id]->checkpointing, true);
 
 //	if(r.checkpoint_type == CP_SYNC){
-		EmptyMessage req;
+		CheckpointRequest req;
+		req.set_epoch(checkpoint_epoch_);
+		req.set_checkpoint_type(r.checkpoint_type);
+
 		network_->Send(workers_[worker_id]->net_id, MTYPE_FINISH_CHECKPOINT, req);
 //	}
 
@@ -111,13 +119,10 @@ void Master::checkpoint(){
 //	auto pred=[&](){return Now()-last_checkpoint_>current_run_.checkpoint_interval;}
 	cv_cp.wait_for(ul,wt);
 	while(!kernel_terminated_){
+		//TODO: add mechanism for existing and abandoning unfinished cp when the kernel is done.
 		Timer cp_timer;
 		start_checkpoint();
-		su_cp_start.wait();
-		su_cp_start.reset();
 		finish_checkpoint();
-		su_cp_finish.wait();
-		su_cp_finish.reset();
 		LOG(INFO)<< "Checkpoint "<<checkpoint_epoch_<<" finished in " << cp_timer.elapsed();
 		checkpoint_epoch_++;
 		cv_cp.wait_for(ul,wt);

@@ -40,16 +40,27 @@ void Worker::registerHandlers(){
 	RegDSPProcess(MTYPE_ENABLE_TRIGGER, &Worker::HandleEnableTrigger);
 	RegDSPProcess(MTYPE_TERMINATION, &Worker::HandleTermNotification);
 
-	RegDSPProcess(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel,true);
+	RegDSPProcess(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel, true);
 	RegDSPProcess(MTYPE_WORKER_SHUTDOWN, &Worker::HandleShutdown);
 	RegDSPProcess(MTYPE_REPLY, &Worker::HandleReply);
 
 	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
 
-	RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint);
-	RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
+	bool new_thread_for_cp=true;	//SYNC: false, SYNC_SIG: true, ASYNC: false
+	RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, new_thread_for_cp);
+	RegDSPImmediate(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);	//SYNC, SYNC_SIG
+//	RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);	//ASUNC
+	RegDSPImmediate(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);	//SYNC_SIG
+//	RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);	//ASYNC
+
 	RegDSPProcess(MTYPE_RESTORE, &Worker::HandleRestore);
 
+	//Synchronization control:
+	int nw=config_.num_workers();
+	ReplyHandler::ConditionType EACH_ONE=ReplyHandler::EACH_ONE;
+	rph.addType(MTYPE_CHECKPOINT_SIG,ReplyHandler::condFactory(EACH_ONE,nw),
+			bind(&SyncUnit::notify,&su_cp_sig),false);
+	rph.activateType(MTYPE_CHECKPOINT_SIG);
 	return;
 }
 
@@ -181,8 +192,10 @@ void Worker::HandleRunKernel(const std::string& d, const RPCInfo& rpc){
 	kreq.ParseFromString(d);
 	running_kernel_=true;
 	sendReply(rpc);
+	stats_["idle_time"]+=tmr_.elapsed();
 	runKernel();
 	finishKernel();
+	tmr_.Reset();
 }
 
 void Worker::HandleShutdown(const string& , const RPCInfo& rpc){
@@ -203,9 +216,16 @@ void Worker::HandleStartCheckpoint(const string& d, const RPCInfo& rpc){
 }
 
 void Worker::HandleFinishCheckpoint(const string& d, const RPCInfo& rpc){
-	EmptyMessage req;
-//	req.ParseFromString(d);
-	finishCheckpoint();
+	CheckpointRequest req;
+	req.ParseFromString(d);
+	finishCheckpoint(req.epoch());
+	sendReply(rpc);
+}
+
+void Worker::HandleCheckpointSig(const string& d, const RPCInfo& rpc){
+	CheckpointSyncSig req;
+	req.ParseFromString(d);
+	processCPSig(req.wid(),req.epoch());
 	sendReply(rpc);
 }
 

@@ -17,10 +17,7 @@ enum MessageTypes {
   MTYPE_FINISH_CHECKPOINT = 11;
   MTYPE_CHECKPOINT_DONE = 12;
   
-  MTYPE_CHECKPOINT_ASYN_INIT=40;	//master tell all workers to start asynchronous checkpoint (ACP)
-  MTYPE_CHECKPOINT_ASYN_REPORT=41;	//worker report its success to all the others
-  MTYPE_CHECKPOINT_ASYN_REPORT_FAIL=42;	//worker report its failure to all the others
-  MTYPE_CHECKPOINT_ASYN_SUCC=43;	//master tell all workers to commit this ACP
+  MTYPE_CHECKPOINT_SIG=39;	//signal of last message while taking checkpoint
   MTYPE_CHECKPOINT_ASYN_FAIL=44;	//master tell all workers to cancel this ACP and rollback
   
   MTYPE_RESTORE = 13;

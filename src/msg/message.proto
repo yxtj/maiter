@@ -120,6 +120,12 @@ message CheckpointRequest {
   repeated int32 table = 3;
 }
 
+message CheckpointSyncSig {
+  required int32 wid = 1;
+  required int32 epoch = 2;
+//  required CheckpointType type = 3;
+}
+
 message TerminationNotification {
   required int32 epoch = 1;
 }

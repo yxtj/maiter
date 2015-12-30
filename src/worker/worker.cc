@@ -84,6 +84,8 @@ void Worker::MsgLoop(){
 	info.dest=network_->id();
 	while(running_){
 		while(network_->TryReadAny(data, &info.source, &info.tag)){
+			DLOG_IF(INFO,info.tag!=4)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
+					<<", queue length "<<driver.queSize()<<", current paused="<<driver_paused_;
 			driver.pushData(data,info);
 		}
 		Sleep();
@@ -93,38 +95,38 @@ void Worker::MsgLoop(){
 	}
 }
 
-void Worker::KernelLoop(){
-	while(running_){
-		waitKernel();
-		if(!running_){
-			return;
-		}
-
-		runKernel();
-
-		finishKernel();
-
-		DumpProfile();
-	}
-}
-
-// HandleRunKernel2() and HandleShutdown2() can end this waiting
-void Worker::waitKernel(){
-	Timer idle;
-	while(!running_kernel_){
-//		CheckNetwork();
-		Sleep();
-		if(!running_){
-			return;
-		}
-	}
-	stats_["idle_time"] += idle.elapsed();
-	VLOG(1) << "Received run request for " << kreq;
-	if(ownerOfShard(kreq.table(), kreq.shard()) != config_.worker_id()){
-		LOG(FATAL)<< "Received a shard I can't work on! : " << kreq.shard()
-				<< " : " << ownerOfShard(kreq.table(), kreq.shard());
-	}
-}
+//void Worker::KernelLoop(){
+//	while(running_){
+//		waitKernel();
+//		if(!running_){
+//			return;
+//		}
+//
+//		runKernel();
+//
+//		finishKernel();
+//
+//		DumpProfile();
+//	}
+//}
+//
+//// HandleRunKernel2() and HandleShutdown2() can end this waiting
+//void Worker::waitKernel(){
+//	Timer idle;
+//	while(!running_kernel_){
+////		CheckNetwork();
+//		Sleep();
+//		if(!running_){
+//			return;
+//		}
+//	}
+//	stats_["idle_time"] += idle.elapsed();
+//	VLOG(1) << "Received run request for " << kreq;
+//	if(ownerOfShard(kreq.table(), kreq.shard()) != config_.worker_id()){
+//		LOG(FATAL)<< "Received a shard I can't work on! : " << kreq.shard()
+//				<< " : " << ownerOfShard(kreq.table(), kreq.shard());
+//	}
+//}
 void Worker::runKernel(){
 	KernelInfo *helper = KernelRegistry::Get()->kernel(kreq.kernel());
 	DSMKernel* d = helper->create();
@@ -135,6 +137,7 @@ void Worker::runKernel(){
 	args.FromMessage(kreq.args());
 	d->set_args(args);
 
+	checkpointing_=false;
 //	if(id()==0)	//hack for strange synchronization problem
 //		Sleep();
 

@@ -10,6 +10,8 @@
 #include "msg/message.pb.h"
 #include "net/RPCInfo.h"
 #include "driver/MsgDriver.h"
+#include "driver/tools/ReplyHandler.h"
+#include "driver/tools/SyncUnit.h"
 
 #include <mutex>
 
@@ -29,7 +31,7 @@ public:
 
 	void Run();
 
-	void KernelLoop();
+//	void KernelLoop();
 	void MsgLoop();
 
 	void CheckForMasterUpdates();
@@ -82,7 +84,7 @@ private:
 	void registerHandlers();
 	void registerWorker();
 
-	void waitKernel();
+//	void waitKernel();
 	void runKernel();
 	void finishKernel();
 
@@ -95,18 +97,26 @@ private:
 	void HandleStartCheckpoint(const std::string& d, const RPCInfo& rpc);
 	void HandleFinishCheckpoint(const std::string& d, const RPCInfo& rpc);
 	void HandleRestore(const std::string& d, const RPCInfo& rpc);
+	void HandleCheckpointSig(const std::string& d, const RPCInfo& rpc);
 
 	void checkpoint(const int epoch, const CheckpointType type);
-	void startCheckpoint(const int epoch, const CheckpointType type);
-	void finishCheckpoint();
+	bool startCheckpoint(const int epoch, const CheckpointType type);
+	void processCPSig(const int wid, const int epoch);
+	bool finishCheckpoint(const int epoch);
 	void restore(int epoch);
+
+	void _startCP_common();
+	void _finishCP_common();
 
 	void _startCP_Sync();
 	void _finishCP_Sync();
+	SyncUnit su_cp_sig;
 	void _startCP_SyncSig();
 	void _finishCP_SyncSig();
+	void _processCPSig_SyncSig(const int wid);
 	void _startCP_Async();
 	void _finishCP_Async();
+	void _processCPSig_Async(const int wid);
 //end functions for checkpoint
 
 	typedef void (Worker::*callback_t)(const string&, const RPCInfo&);
@@ -118,16 +128,18 @@ private:
 
 	// The current epoch this worker is running within.
 	int epoch_;
-
 	int num_peers_;
-	bool running_;	//whether this worker is running
 
+	Timer tmr_;
+	bool running_;	//whether this worker is running
 	bool running_kernel_;	//whether this kernel is running
 	KernelRequest kreq;	//the kernel running row
 
 	CheckpointType active_checkpoint_;
+	bool checkpointing_;
 //	typedef unordered_map<int, bool> CheckpointMap;
 //	CheckpointMap checkpoint_tables_;
+	Timer tmr_cp_block_;
 
 	ConfigData config_;
 
@@ -141,9 +153,10 @@ private:
 
 	MsgDriver driver;
 	bool driver_paused_;
+	ReplyHandler rph;
 };
 
-struct Worker::Stub: private noncopyable{
+struct Worker::Stub{
 	int32_t id;
 	int32_t epoch;
 

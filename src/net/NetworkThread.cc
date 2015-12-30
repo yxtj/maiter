@@ -75,7 +75,7 @@ void NetworkThread::Run(){
 		TaskHeader hdr;
 		if(net->probe(&hdr)){
 			string data = net->receive(&hdr);
-//			DLOG_IF(INFO,hdr.type!=4)<<"Receive(t) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
+//			DLOG_IF(INFO,hdr.type!=4)<<"Receive(t0) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
 			stats["received bytes"] += hdr.nBytes;
 			stats["received type." + to_string(hdr.type)] += 1;
 
@@ -127,6 +127,7 @@ void NetworkThread::ReadAny(string& data, int *srcRet, int *typeRet){
 bool NetworkThread::TryReadAny(string& data, int *srcRet, int *typeRet){
 	TaskBase info;
 	if(checkReceiveQueue(data,info)){
+//		DLOG_IF(INFO,info.type!=4)<<"Receive(t) from "<<info.src_dst<<" to "<<id()<<", type "<<info.type;
 		if(srcRet) *srcRet = info.src_dst;
 		if(typeRet) *typeRet = info.type;
 		return true;
