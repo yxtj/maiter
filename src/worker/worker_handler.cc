@@ -46,12 +46,12 @@ void Worker::registerHandlers(){
 
 	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
 
-	bool new_thread_for_cp=true;	//SYNC: false, SYNC_SIG: true, ASYNC: false
-	RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, new_thread_for_cp);
-	RegDSPImmediate(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);	//SYNC, SYNC_SIG
-//	RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);	//ASUNC
-	RegDSPImmediate(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);	//SYNC_SIG
-//	RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);	//ASYNC
+//	bool new_thread_for_cp=true;	//SYNC: false, SYNC_SIG: true, ASYNC: false
+//	RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, new_thread_for_cp);
+//	RegDSPImmediate(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);	//SYNC, SYNC_SIG
+////	RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);	//ASUNC
+//	RegDSPImmediate(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);	//SYNC_SIG
+////	RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);	//ASYNC
 
 	RegDSPProcess(MTYPE_RESTORE, &Worker::HandleRestore);
 
@@ -62,6 +62,34 @@ void Worker::registerHandlers(){
 			bind(&SyncUnit::notify,&su_cp_sig),false);
 	rph.activateType(MTYPE_CHECKPOINT_SIG);
 	return;
+}
+
+void Worker::registerCPHandlers(){
+	switch(kreq.cp_type()){
+	case CP_NONE:
+		driver.unregisterImmediateHandler(MTYPE_START_CHECKPOINT);
+		driver.unregisterProcessHandler(MTYPE_START_CHECKPOINT);
+		driver.unregisterImmediateHandler(MTYPE_FINISH_CHECKPOINT);
+		driver.unregisterProcessHandler(MTYPE_FINISH_CHECKPOINT);
+		driver.unregisterImmediateHandler(MTYPE_CHECKPOINT_SIG);
+		driver.unregisterProcessHandler(MTYPE_CHECKPOINT_SIG);
+		break;
+	case CP_SYNC:
+		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint);
+		RegDSPImmediate(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
+		driver.unregisterImmediateHandler(MTYPE_CHECKPOINT_SIG);
+		driver.unregisterProcessHandler(MTYPE_CHECKPOINT_SIG);
+		break;
+	case CP_SYNC_SIG:
+		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, true);
+		RegDSPImmediate(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
+		RegDSPImmediate(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
+		break;
+	case CP_ASYNC:
+		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint);
+		RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
+		RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
+	}
 }
 
 void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
@@ -159,7 +187,7 @@ void Worker::HandleFlush(const string& d, const RPCInfo& rpc){
 	}
 
 	network_->Flush();
-	stats_["network_time"] += net.elapsed();
+	stats_["flush_time"] += net.elapsed();
 	sendReply(rpc);
 }
 
@@ -211,7 +239,8 @@ void Worker::HandleShutdown(const string& , const RPCInfo& rpc){
 void Worker::HandleStartCheckpoint(const string& d, const RPCInfo& rpc){
 	CheckpointRequest req;
 	req.ParseFromString(d);
-	startCheckpoint(req.epoch(), CheckpointType(req.checkpoint_type()));
+	startCheckpoint(req.epoch());
+	//TOOD: report failed checkpoint request (startCP, finishCP, CPSig)
 	sendReply(rpc);
 }
 

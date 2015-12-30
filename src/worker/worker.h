@@ -94,14 +94,14 @@ private:
 	void UpdateEpoch(int peer, int peer_epoch);
 
 //functions for checkpoint
+	void registerCPHandlers();
 	void HandleStartCheckpoint(const std::string& d, const RPCInfo& rpc);
 	void HandleFinishCheckpoint(const std::string& d, const RPCInfo& rpc);
 	void HandleRestore(const std::string& d, const RPCInfo& rpc);
 	void HandleCheckpointSig(const std::string& d, const RPCInfo& rpc);
 
-	void checkpoint(const int epoch, const CheckpointType type);
-	bool startCheckpoint(const int epoch, const CheckpointType type);
-	void processCPSig(const int wid, const int epoch);
+	bool startCheckpoint(const int epoch);
+	bool processCPSig(const int wid, const int epoch);
 	bool finishCheckpoint(const int epoch);
 	void restore(int epoch);
 
@@ -135,7 +135,7 @@ private:
 	bool running_kernel_;	//whether this kernel is running
 	KernelRequest kreq;	//the kernel running row
 
-	CheckpointType active_checkpoint_;
+//	CheckpointType active_checkpoint_;
 	bool checkpointing_;
 //	typedef unordered_map<int, bool> CheckpointMap;
 //	CheckpointMap checkpoint_tables_;

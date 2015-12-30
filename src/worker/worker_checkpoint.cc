@@ -26,27 +26,7 @@ DECLARE_double(flush_time);
 
 namespace dsm{
 
-
-void Worker::checkpoint(const int epoch, const CheckpointType type){
-	LOG(INFO) << "Begin worker checkpoint "<<epoch<<" at W" << id();
-//	lock_guard<recursive_mutex> sl(state_lock_);
-//	checkpoint_tables_.clear();
-//	TableRegistry::Map &t = TableRegistry::Get()->tables();
-//	for (TableRegistry::Map::iterator i = t.begin(); i != t.end(); ++i){
-//		checkpoint_tables_.insert(make_pair(i->first, true));
-//	}
-	driver_paused_=true;
-	DVLOG(1)<<driver.queSize();
-	startCheckpoint(epoch, type);
-	finishCheckpoint(epoch);
-	DVLOG(1)<<driver.queSize();
-	driver_paused_=false;
-	LOG(INFO) << "Finish worker checkpoint "<<epoch<<" at W" << id();
-
-//	UpdateEpoch(int peer, int peer_epoch);
-}
-
-bool Worker::startCheckpoint(const int epoch, const CheckpointType type){
+bool Worker::startCheckpoint(const int epoch){
 	LOG(INFO) << "Begin worker checkpoint "<<epoch<<" at W" << id();
 	if(epoch_ >= epoch){
 		LOG(INFO)<< "Skip old checkpoint request: "<<epoch<<", curr="<<epoch_;
@@ -60,13 +40,12 @@ bool Worker::startCheckpoint(const int epoch, const CheckpointType type){
 		lock_guard<recursive_mutex> sl(state_lock_);
 
 		epoch_ = epoch;
-		active_checkpoint_ = type;
 		tmr_.Reset();	//for checkpoint time statistics
 		tmr_cp_block_.Reset();
 		checkpointing_=true;
 	}
 
-	switch(active_checkpoint_){
+	switch(kreq.cp_type()){
 	case CP_SYNC:
 		_startCP_Sync();break;
 	case CP_SYNC_SIG:
@@ -88,7 +67,7 @@ bool Worker::finishCheckpoint(const int epoch){
 	}
 	tmr_cp_block_.Reset();
 
-	switch(active_checkpoint_){
+	switch(kreq.cp_type()){
 	case CP_SYNC:
 		_finishCP_Sync();break;
 	case CP_SYNC_SIG:
@@ -106,23 +85,22 @@ bool Worker::finishCheckpoint(const int epoch){
 			peers_[i]->epoch = epoch_;
 		}
 
-		active_checkpoint_ = CP_NONE;
+		checkpointing_=false;
 		stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 		stats_["cp_time"]+=tmr_.elapsed();
 	}
 
-	checkpointing_=false;
 	LOG(INFO) << "Finish worker checkpoint "<<epoch_<<" at W" << id();
 	return true;
 }
 
-void Worker::processCPSig(const int wid, const int epoch){
+bool Worker::processCPSig(const int wid, const int epoch){
 	if(epoch!=epoch_){
 		LOG(INFO)<<"Skipping unmatched checkpoint flush signal: "<<epoch<<", curr="<<epoch_;
-		return;
+		return false;
 	}
 	tmr_cp_block_.Reset();
-	switch(active_checkpoint_){
+	switch(kreq.cp_type()){
 	case CP_SYNC:
 		break;
 	case CP_SYNC_SIG:
@@ -133,6 +111,7 @@ void Worker::processCPSig(const int wid, const int epoch){
 		LOG(ERROR)<<"given checkpoint type is not implemented.";
 	}
 	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
+	return true;
 }
 
 void Worker::_startCP_common(){

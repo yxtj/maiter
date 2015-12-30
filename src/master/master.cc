@@ -290,6 +290,8 @@ void Master::assign_tasks(const RunDescriptor& r, vector<int> shards){
 int Master::startWorkers(const RunDescriptor& r){
 	int num_dispatched = 0;
 	KernelRequest w_req;
+	w_req.set_cp_type(r.checkpoint_type);
+	w_req.set_termcheck(r.termcheck);
 	for(int i = 0; i < workers_.size(); ++i){
 		WorkerState& w = *workers_[i];
 		if(w.num_pending() > 0 && w.num_active() == 0){
@@ -298,7 +300,7 @@ int Master::startWorkers(const RunDescriptor& r){
 			w_req.mutable_args()->CopyFrom(*p);
 			delete p;
 			num_dispatched++;
-			network_->Send(w.id + 1, MTYPE_RUN_KERNEL, w_req);
+			network_->Send(w.net_id, MTYPE_RUN_KERNEL, w_req);
 		}
 	}
 	return num_dispatched;
@@ -394,9 +396,12 @@ void Master::run(RunDescriptor&& r){
 	KernelInfo *k = KernelRegistry::Get()->kernel(r.kernel);
 	CHECK_NE(r.table, (void*)NULL) << "Table locality must be specified!";
 	CHECK_NE(k, (void*)NULL) << "Invalid kernel class " << r.kernel;
-	CHECK_EQ(k->has_method(r.method), true) << "Invalid method: " << MP(r.kernel, r.method);
-
-	VLOG(1) << "Running: " << r.kernel << " : " << r.method << " : " << *r.params.ToMessage();
+	CHECK_EQ(k->has_method(r.method), true) << "Invalid method: " << r.kernel<<" : "<< r.method;
+	{
+		Args* p=r.params.ToMessage();
+		VLOG(1) << "Running: " << r.kernel << " : " << r.method << " : " << *p;
+		delete p;
+	}
 
 	vector<int> shards = r.shards;
 
@@ -431,9 +436,10 @@ void Master::run(RunDescriptor&& r){
 	if(current_run_.checkpoint_type != CP_NONE){
 		t_cp=thread(&Master::checkpoint,this);
 	}
-//	if(this kernel has a term_checker)
-	thread t_term(&Master::termcheck, this);
-
+	thread t_term;
+	if(current_run_.termcheck){
+		t_term=thread(&Master::termcheck, this);
+	}
 	barrier2();
 
 	finishKernel();

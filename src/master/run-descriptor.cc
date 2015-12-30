@@ -20,6 +20,7 @@ void RunDescriptor::Init(const std::string& kernel,
 		const std::string& method,
 		GlobalTableBase *table,
 		const bool checkpoint,
+		const bool termcheck,
 		const std::vector<int>& cp_tables)
 {
 	barrier = true;
@@ -31,14 +32,14 @@ void RunDescriptor::Init(const std::string& kernel,
 		}
 		checkpoint_interval = FLAGS_checkpoint_interval;
 	}
-
 	if(checkpoint_type != CP_NONE && checkpoint_interval<=0){
 		LOG(ERROR)<<"Checkpoint interval is not given or is not positive.";
 	}
-	checkpoint_tables = cp_tables;
 
+	this->termcheck=termcheck;
+
+	checkpoint_tables = cp_tables;
 	if(!checkpoint_tables.empty()){
-//		checkpoint_type = CP_MASTER_CONTROLLED;
 		checkpoint_type = CP_SYNC;
 	}
 

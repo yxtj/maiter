@@ -51,17 +51,19 @@ public:
 	void run_range(RunDescriptor&& r, const std::vector<int>& shards);
 
 	// N.B.  All run_* methods are blocking.
-	void run_all(const string& kernel, const string& method, GlobalTableBase* locality, bool checkpoint){
-		run_all(RunDescriptor(kernel, method, locality, checkpoint));
+	void run_all(const string& kernel, const string& method, GlobalTableBase* locality,
+			const bool checkpoint, const bool termcheck){
+		run_all(RunDescriptor(kernel, method, locality, checkpoint, termcheck));
 	}
 	// Run the given kernel function on one (arbitrary) worker node.
-	void run_one(const string& kernel, const string& method, GlobalTableBase* locality, bool checkpoint=false){
-		run_one(RunDescriptor(kernel, method, locality, checkpoint));
+	void run_one(const string& kernel, const string& method, GlobalTableBase* locality,
+			const bool checkpoint, const bool termcheck){
+		run_one(RunDescriptor(kernel, method, locality, termcheck, checkpoint));
 	}
 	// Run the kernel function on the given set of shards.
-	void run_range(const string& kernel, const string& method,
-			GlobalTableBase* locality, bool checkpoint, const std::vector<int>& shards){
-		run_range(RunDescriptor(kernel, method, locality, checkpoint), shards);
+	void run_range(const string& kernel, const string& method, GlobalTableBase* locality,
+			const bool checkpoint, const bool termcheck, const std::vector<int>& shards){
+		run_range(RunDescriptor(kernel, method, locality, checkpoint, termcheck), shards);
 	}
 
 	void run(RunDescriptor&& r);
@@ -74,13 +76,13 @@ public:
 			return;
 		}
 
-		run_all("MaiterKernel1", "run", maiter->table, false);
+		run_all("MaiterKernel1", "run", maiter->table, false, false);
 
 		if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
-			run_all("MaiterKernel2", "map", maiter->table, true);
+			run_all("MaiterKernel2", "map", maiter->table, true, true);
 		}
 
-		run_all("MaiterKernel3", "run", maiter->table, false);
+		run_all("MaiterKernel3", "run", maiter->table, false, false);
 	}
 
 	void enable_trigger(const TriggerID triggerid, int table, bool enable);

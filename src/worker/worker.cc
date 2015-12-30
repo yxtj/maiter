@@ -24,7 +24,6 @@ static void Sleep(){
 
 Worker::Worker(const ConfigData &c){
 	epoch_ = -1;
-	active_checkpoint_ = CP_NONE;
 
 	network_ = NetworkThread::Get();
 
@@ -138,6 +137,7 @@ void Worker::runKernel(){
 	d->set_args(args);
 
 	checkpointing_=false;
+	registerCPHandlers();
 //	if(id()==0)	//hack for strange synchronization problem
 //		Sleep();
 

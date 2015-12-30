@@ -55,7 +55,6 @@ void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
 
 	CheckpointRequest req;
 	req.set_epoch(checkpoint_epoch_);
-	req.set_checkpoint_type(r.checkpoint_type);
 
 	for(int i = 0; i < r.checkpoint_tables.size(); ++i){
 		req.add_table(r.checkpoint_tables[i]);
@@ -100,7 +99,6 @@ void Master::finish_worker_checkpoint(int worker_id, const RunDescriptor& r){
 //	if(r.checkpoint_type == CP_SYNC){
 		CheckpointRequest req;
 		req.set_epoch(checkpoint_epoch_);
-		req.set_checkpoint_type(r.checkpoint_type);
 
 		network_->Send(workers_[worker_id]->net_id, MTYPE_FINISH_CHECKPOINT, req);
 //	}

@@ -8,6 +8,7 @@ message EmptyMessage {}
 
 message ReplyMessage {
   required MessageTypes type = 1;
+  optional bool result = 2 [ default = true ];
 }
 
 enum CheckpointType {
@@ -52,6 +53,8 @@ message KernelRequest {
   optional int32 table = 3;
   optional int32 shard = 4;
   required Args args = 5;
+  required CheckpointType cp_type = 6;
+  required bool termcheck = 7;
 }
 
 message KernelDone {
@@ -116,7 +119,7 @@ message KVPairData {
 
 message CheckpointRequest {
   required int32 epoch = 1;
-  required int32 checkpoint_type = 2;
+//  required int32 checkpoint_type = 2;
   repeated int32 table = 3;
 }
 
