@@ -16,7 +16,8 @@
 #include <string>
 #include <thread>
 #include <chrono>
-#include <functional>
+//#include <functional>
+#include <algorithm>
 
 using namespace std;
 
@@ -25,6 +26,38 @@ DECLARE_string(checkpoint_read_dir);
 DECLARE_double(flush_time);
 
 namespace dsm{
+
+void Worker::initialCP(){
+	switch(kreq.cp_type()){
+	case CP_NONE:
+		driver.unregisterImmediateHandler(MTYPE_START_CHECKPOINT);
+		driver.unregisterProcessHandler(MTYPE_START_CHECKPOINT);
+		driver.unregisterImmediateHandler(MTYPE_FINISH_CHECKPOINT);
+		driver.unregisterProcessHandler(MTYPE_FINISH_CHECKPOINT);
+		driver.unregisterImmediateHandler(MTYPE_CHECKPOINT_SIG);
+		driver.unregisterProcessHandler(MTYPE_CHECKPOINT_SIG);
+		break;
+	case CP_SYNC:
+		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint);
+		RegDSPImmediate(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
+		driver.unregisterImmediateHandler(MTYPE_CHECKPOINT_SIG);
+		driver.unregisterProcessHandler(MTYPE_CHECKPOINT_SIG);
+		break;
+	case CP_SYNC_SIG:
+		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, true);
+		RegDSPImmediate(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
+		RegDSPImmediate(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
+		break;
+	case CP_ASYNC:
+		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, true);
+		RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
+		RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
+		_cp_async_msg_rec.resize(config_.num_workers(),false);
+		break;
+	default:
+			LOG(ERROR)<<"given checkpoint type is not implemented.";
+	}
+}
 
 bool Worker::startCheckpoint(const int epoch){
 	LOG(INFO) << "Begin worker checkpoint "<<epoch<<" at W" << id();
@@ -183,7 +216,6 @@ void Worker::_startCP_SyncSig(){
 	CheckpointSyncSig req;
 	req.set_wid(id());
 	req.set_epoch(epoch_);
-//	req.set_type(active_checkpoint_);
 	//TODO: change peers_ to hold worker_id's net_id inside
 	for(int i=1;i<network_->size();++i){
 		if(i==network_->id())
@@ -192,8 +224,6 @@ void Worker::_startCP_SyncSig(){
 		network_->Send(i,MTYPE_CHECKPOINT_SIG,req);
 	}
 	rph.input(MTYPE_CHECKPOINT_SIG,id());	//input itself, other for incoming msg
-//	if(id()==0)
-//		rph.input(MTYPE_CHECKPOINT_SIG,1);
 	DVLOG(1)<<"wait for receiving all cp flush signals at "<<id();
 	su_cp_sig.wait();
 	DVLOG(1)<<"received all cp flush signals at "<<id();
@@ -227,15 +257,58 @@ void Worker::_processCPSig_SyncSig(const int wid){
  * Async:
  */
 void Worker::_startCP_Async(){
+	driver_paused_=true;
+	_startCP_common();
+	RegDSPProcess(MTYPE_PUT_REQUEST,&Worker::_HandlePutRequest_AsynCP);
+	CheckpointSyncSig req;
+	req.set_wid(id());
+	req.set_epoch(epoch_);
+	//TODO: change peers_ to hold worker_id's net_id inside
+	for(int i=1;i<network_->size();++i){
+		if(i==network_->id())
+			continue;
+		DVLOG(1)<<"send checkpoint flush signal from "<<network_->id()<<" to "<<i;
+		network_->Send(i,MTYPE_CHECKPOINT_SIG,req);
+	}
+	fill(_cp_async_msg_rec.begin(),_cp_async_msg_rec.end(),false);
+	driver_paused_=false;
 
+	rph.input(MTYPE_CHECKPOINT_SIG,id());	//input itself, other for incoming msg
+	DVLOG(1)<<"wait for receiving all cp flush signals at "<<id();
+	su_cp_sig.wait();
+	DVLOG(1)<<"received all cp flush signals at "<<id();
+	su_cp_sig.reset();
 }
 void Worker::_finishCP_Async(){
-
+	RegDSPProcess(MTYPE_PUT_REQUEST,&Worker::HandlePutRequest);
+	_finishCP_common();
 }
 void Worker::_processCPSig_Async(const int wid){
-
+	_cp_async_msg_rec[wid]=true;
+	rph.input(MTYPE_CHECKPOINT_SIG,wid);
 }
 
+void Worker::_HandlePutRequest_AsynCP(const string& d, const RPCInfo& info){
+	KVPairData put;
+	put.ParseFromString(d);
+
+	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
+				<< put.table()<<","<<put.shard()<<")";
+
+	MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(
+			TableRegistry::Get()->mutable_table(put.table()));
+	t->MergeUpdates(put);
+	t->ProcessUpdates();
+
+	if(put.done() && t->tainted(put.shard())){
+		VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());
+		t->get_partition_info(put.shard())->tainted = false;
+	}
+
+	//Difference:
+	if(!_cp_async_msg_rec[put.source()])
+		t->write_message(put);
+}
 /*
  * restore:
  */

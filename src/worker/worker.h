@@ -91,10 +91,9 @@ private:
 	void sendReply(const RPCInfo& rpc);
 
 	void SendTermcheck(int index, long updates, double current);
-	void UpdateEpoch(int peer, int peer_epoch);
 
 //functions for checkpoint
-	void registerCPHandlers();
+	void initialCP();
 	void HandleStartCheckpoint(const std::string& d, const RPCInfo& rpc);
 	void HandleFinishCheckpoint(const std::string& d, const RPCInfo& rpc);
 	void HandleRestore(const std::string& d, const RPCInfo& rpc);
@@ -117,6 +116,8 @@ private:
 	void _startCP_Async();
 	void _finishCP_Async();
 	void _processCPSig_Async(const int wid);
+	void _HandlePutRequest_AsynCP(const std::string& d, const RPCInfo& info);
+	std::vector<bool> _cp_async_msg_rec;
 //end functions for checkpoint
 
 	typedef void (Worker::*callback_t)(const string&, const RPCInfo&);

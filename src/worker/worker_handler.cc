@@ -64,34 +64,6 @@ void Worker::registerHandlers(){
 	return;
 }
 
-void Worker::registerCPHandlers(){
-	switch(kreq.cp_type()){
-	case CP_NONE:
-		driver.unregisterImmediateHandler(MTYPE_START_CHECKPOINT);
-		driver.unregisterProcessHandler(MTYPE_START_CHECKPOINT);
-		driver.unregisterImmediateHandler(MTYPE_FINISH_CHECKPOINT);
-		driver.unregisterProcessHandler(MTYPE_FINISH_CHECKPOINT);
-		driver.unregisterImmediateHandler(MTYPE_CHECKPOINT_SIG);
-		driver.unregisterProcessHandler(MTYPE_CHECKPOINT_SIG);
-		break;
-	case CP_SYNC:
-		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint);
-		RegDSPImmediate(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
-		driver.unregisterImmediateHandler(MTYPE_CHECKPOINT_SIG);
-		driver.unregisterProcessHandler(MTYPE_CHECKPOINT_SIG);
-		break;
-	case CP_SYNC_SIG:
-		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, true);
-		RegDSPImmediate(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
-		RegDSPImmediate(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
-		break;
-	case CP_ASYNC:
-		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint);
-		RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
-		RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
-	}
-}
-
 void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 	ReplyMessage rm;
 	rm.ParseFromString(d);
@@ -102,10 +74,6 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
 	KVPairData put;
 	put.ParseFromString(d);
-	if(put.marker() != -1){
-		UpdateEpoch(put.source(), put.marker());
-		return;
-	}
 
 	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
 				<< put.table()<<","<<put.shard()<<")";
@@ -162,8 +130,8 @@ void Worker::HandleShardAssignment(const string& d,const RPCInfo& rpc){
 			// from the old owner.
 			if(old_owner != -1){
 				LOG(INFO)<< "Setting " << MP(a.table(), a.shard())
-				<< " as tainted.  Old owner was: " << old_owner
-				<< " new owner is :  " << id();
+						<< " as tainted.  Old owner was: " << old_owner
+						<< " new owner is : " << id();
 				t->get_partition_info(a.shard())->tainted = true;
 			}
 		} else if (old_owner == id() && a.new_worker() != id()){
