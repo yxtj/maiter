@@ -74,18 +74,7 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
 	KVPairData put;
 	put.ParseFromString(d);
-
-	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
-				<< put.table()<<","<<put.shard()<<")";
-
-	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
-	t->MergeUpdates(put);
-	t->ProcessUpdates();
-
-	if(put.done() && t->tainted(put.shard())){
-		VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());
-		t->get_partition_info(put.shard())->tainted = false;
-	}
+	ProcessPutRequest(put);
 }
 
 
@@ -205,11 +194,13 @@ void Worker::HandleShutdown(const string& , const RPCInfo& rpc){
 }
 
 void Worker::HandleStartCheckpoint(const string& d, const RPCInfo& rpc){
+	//this handler may be run asynchronously, parameter may be invalid when used.
+	RPCInfo rpc_(rpc);
 	CheckpointRequest req;
 	req.ParseFromString(d);
 	startCheckpoint(req.epoch());
 	//TOOD: report failed checkpoint request (startCP, finishCP, CPSig)
-	sendReply(rpc);
+	sendReply(rpc_);
 }
 
 void Worker::HandleFinishCheckpoint(const string& d, const RPCInfo& rpc){

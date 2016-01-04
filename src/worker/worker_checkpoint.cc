@@ -44,12 +44,14 @@ void Worker::initialCP(){
 		driver.unregisterProcessHandler(MTYPE_CHECKPOINT_SIG);
 		break;
 	case CP_SYNC_SIG:
-		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, true);
+		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint);
+//		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, true);
 		RegDSPImmediate(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
 		RegDSPImmediate(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
 		break;
 	case CP_ASYNC:
-		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, true);
+		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint);
+//		RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, true);
 		RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);
 		RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
 		_cp_async_msg_rec.resize(config_.num_workers(),false);
@@ -78,17 +80,19 @@ bool Worker::startCheckpoint(const int epoch){
 		checkpointing_=true;
 	}
 
+	thread t;
 	switch(kreq.cp_type()){
 	case CP_SYNC:
 		_startCP_Sync();break;
 	case CP_SYNC_SIG:
-		_startCP_SyncSig();break;
+		t=thread(&Worker::_startCP_SyncSig,this);break;
 	case CP_ASYNC:
-		_startCP_Async();break;
+		t=thread(&Worker::_startCP_Async,this);break;
 	default:
 		LOG(ERROR)<<"given checkpoint type is not implemented.";
 	}
-
+	if(t.joinable())
+		t.join();
 	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 	return true;
 }
@@ -178,7 +182,7 @@ void Worker::_finishCP_common(){
  */
 
 void Worker::_startCP_Sync(){
-	driver_paused_=true;
+	pause_pop_msg_=true;
 
 	//archive current table state:
 	_startCP_common();
@@ -204,14 +208,14 @@ void Worker::_startCP_Sync(){
 }
 void Worker::_finishCP_Sync(){
 	_finishCP_common();
-	driver_paused_=false;
+	pause_pop_msg_=false;
 }
 
 /*
  * Sync-Sig:
  */
 void Worker::_startCP_SyncSig(){
-	driver_paused_=true;
+	pause_pop_msg_=true;
 	_startCP_common();
 	CheckpointSyncSig req;
 	req.set_wid(id());
@@ -231,7 +235,7 @@ void Worker::_startCP_SyncSig(){
 }
 void Worker::_finishCP_SyncSig(){
 	_finishCP_common();
-	driver_paused_=false;
+	pause_pop_msg_=false;
 }
 void Worker::_processCPSig_SyncSig(const int wid){
 	const deque<pair<string, RPCInfo> >& que = driver.getQue();
@@ -257,7 +261,7 @@ void Worker::_processCPSig_SyncSig(const int wid){
  * Async:
  */
 void Worker::_startCP_Async(){
-	driver_paused_=true;
+	pause_pop_msg_=true;
 	_startCP_common();
 	RegDSPProcess(MTYPE_PUT_REQUEST,&Worker::_HandlePutRequest_AsynCP);
 	CheckpointSyncSig req;
@@ -271,7 +275,7 @@ void Worker::_startCP_Async(){
 		network_->Send(i,MTYPE_CHECKPOINT_SIG,req);
 	}
 	fill(_cp_async_msg_rec.begin(),_cp_async_msg_rec.end(),false);
-	driver_paused_=false;
+	pause_pop_msg_=false;
 
 	rph.input(MTYPE_CHECKPOINT_SIG,id());	//input itself, other for incoming msg
 	DVLOG(1)<<"wait for receiving all cp flush signals at "<<id();
@@ -292,20 +296,11 @@ void Worker::_HandlePutRequest_AsynCP(const string& d, const RPCInfo& info){
 	KVPairData put;
 	put.ParseFromString(d);
 
-	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
-				<< put.table()<<","<<put.shard()<<")";
-
-	MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(
-			TableRegistry::Get()->mutable_table(put.table()));
-	t->MergeUpdates(put);
-	t->ProcessUpdates();
-
-	if(put.done() && t->tainted(put.shard())){
-		VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());
-		t->get_partition_info(put.shard())->tainted = false;
-	}
+	ProcessPutRequest(put);
 
 	//Difference:
+	MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(
+			TableRegistry::Get()->mutable_table(put.table()));
 	if(!_cp_async_msg_rec[put.source()])
 		t->write_message(put);
 }

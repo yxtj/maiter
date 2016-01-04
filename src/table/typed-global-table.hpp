@@ -10,6 +10,7 @@
 
 #include "global-table.h"
 #include "local-table.h"
+#include "statetable.h"
 #include "table_iterator.h"
 #include "table.h"
 #include "tbl_widget/sharder.h"
@@ -118,15 +119,17 @@ public:
 
 		// Changes to support centralized of triggers <CRM>
 		ProtoKVPairCoder c(&req);
+		int shard=req.shard();
 		NetUpdateDecoder it;
-		partitions_[req.shard()]->deserializeFromNet(&c, &it);
+		partitions_[shard]->deserializeFromNet(&c, &it);
 
 		//TODO: optimize.
 		//it had been guaranteed received shard is local by SendUpdates. But accumulateF1 check it each time
 		for(; !it.done(); it.Next()){
-			VLOG(2) << this->owner(req.shard()) << ":" << req.shard() << "read from remote "
+			VLOG(2) << this->owner(shard) << ":" << shard << "read from remote "
 								<< it.key() << ";" << it.value1();
 			accumulateF1(it.key(), it.value1());
+//			ProcessUpdatesSingle(shard,it.key());
 		}
 
 //		ProcessUpdates();
@@ -176,6 +179,13 @@ public:
 			//apply the output messages to remote state table
 			accumulateF1(kvpair.first, kvpair.second);
 		}
+	}
+
+	void ProcessUpdatesSingle(const int shard, const K& k){
+		DCHECK(shard==get_shard(k))<<"given shard for a key do not match local record";
+		StateTable<K,V1,V2,V3>* pt=dynamic_cast<StateTable<K,V1,V2,V3>*>(partitions_[shard]);
+		ClutterRecord<K,V1,V2,V3> c=pt->get(k);
+		ProcessUpdatesSingle(c.k,c.v1,c.v2,c.v3);
 	}
 
 	Marshal<K> *kmarshal(){

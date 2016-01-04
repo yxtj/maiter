@@ -92,6 +92,8 @@ private:
 
 	void SendTermcheck(int index, long updates, double current);
 
+	void ProcessPutRequest(const KVPairData& put);
+
 //functions for checkpoint
 	void initialCP();
 	void HandleStartCheckpoint(const std::string& d, const RPCInfo& rpc);
@@ -153,7 +155,7 @@ private:
 	Stats stats_;
 
 	MsgDriver driver;
-	bool driver_paused_;
+	bool pause_pop_msg_;
 	ReplyHandler rph;
 };
 

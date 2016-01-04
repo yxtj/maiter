@@ -17,7 +17,7 @@
 
 namespace dsm {
 
-static constexpr int sample_size = 1000;
+static constexpr int SAMPLE_SIZE = 1000;
 
 template<class K, class V1, class V2, class V3>
 class StateTable:
@@ -58,7 +58,8 @@ public:
 						static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->default_v();
 				//check if there is a change
 				b_no_change = true;
-				for(int i = 0; i < sample_size && b_no_change; i++){
+				int max_i=SAMPLE_SIZE>parent_.entries_?SAMPLE_SIZE:parent_.entries_;
+				for(int i = 0; i < max_i && b_no_change; i++){
 					int rand_pos = rand_num();
 					while(!parent_.buckets_[rand_pos].in_use){
 						rand_pos = rand_num();
@@ -69,7 +70,6 @@ public:
 			}else{
 				b_no_change = false;
 			}
-			//TODO: fix behavior of initial iterator
 			Next();
 		}
 		Marshal<K>* kmarshal(){ return parent_.kmarshal(); }
@@ -117,7 +117,7 @@ public:
 			V1 defaultv =
 					static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->default_v();
 
-			if(parent_.entries_ <= sample_size){
+			if(parent_.entries_ <= SAMPLE_SIZE){
 				//if table size is less than the sample set size, schedule them all
 				int i;
 				for(i = 0; i < parent_.size_; i++){
@@ -131,7 +131,7 @@ public:
 				//sample random pos, the sample reflect the whole data set more or less
 				std::vector<int> sampled_pos;
 				int trials = 0;
-				for(int i = 0; i < sample_size; i++){
+				for(int i = 0; i < SAMPLE_SIZE; i++){
 					int rand_pos = rand_num();
 					trials++;
 					while(!parent_.buckets_[rand_pos].in_use){
@@ -157,7 +157,7 @@ public:
 
 				//get the cut index, everything larger than the cut will be scheduled
 				sort(sampled_pos.begin(), sampled_pos.end(), compare_priority(parent_));
-				int cut_index = sample_size * parent_.info_.schedule_portion;
+				int cut_index = SAMPLE_SIZE * parent_.info_.schedule_portion;
 				V1 threshold = parent_.buckets_[sampled_pos[cut_index]].priority;
 				//V1 threshold = ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[sampled_pos[cut_index]].k, parent_.buckets_[sampled_pos[cut_index]].v1);
 

@@ -1,5 +1,4 @@
 #include "client/client.h"
-//TODO: change back after message-driven is finished
 #include "net/NetworkThread.h"
 //#include <mpi.h>
 #include <iostream>

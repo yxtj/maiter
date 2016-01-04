@@ -126,10 +126,12 @@ void Dispatcher<Params...>::launch(
 		target.first(param...);
 	}else{
 //		std::thread t(target.first, param...);
-		// Use std::bind to pass any type of param correctly to std::thread.
-		// std::thread's construct require explicit std::ref(x) on &x. But
-		// std::ref(x) invoke compile failure when x is a pointer.
+		// std::bind can pass any type of param correctly while
+		//std::thread(f,param...) has additional constrains
 		std::thread t(std::bind(target.first, param...));
+		//XXX: std::bind passes parameters by reference. So when thread is
+		//running, parameters may be invalid!!
+//		std::thread t([=](){ return target.first(param...); });
 		t.detach();
 	}
 }

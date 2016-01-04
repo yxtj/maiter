@@ -39,7 +39,7 @@ Worker::Worker(const ConfigData &c){
 	running_ = true;
 	running_kernel_=false;
 
-	driver_paused_=false;
+	pause_pop_msg_=false;
 
 	// HACKHACKHACK - register ourselves with any existing tables
 	TableRegistry::Map &t = TableRegistry::Get()->tables();
@@ -84,11 +84,11 @@ void Worker::MsgLoop(){
 	while(running_){
 		while(network_->TryReadAny(data, &info.source, &info.tag)){
 			DLOG_IF(INFO,info.tag!=4)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
-					<<", queue length "<<driver.queSize()<<", current paused="<<driver_paused_;
+					<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
 			driver.pushData(data,info);
 		}
 		Sleep();
-		while(!driver_paused_ && !driver.empty()){
+		while(!pause_pop_msg_ && !driver.empty()){
 			driver.popData();
 		}
 	}
@@ -237,6 +237,20 @@ void Worker::SendTermcheck(int snapshot, long updates, double current){
 
 void Worker::SendPutRequest(int dstWorkerID, const KVPairData& put){
 	network_->Send(dstWorkerID + 1, MTYPE_PUT_REQUEST, put);
+}
+
+void Worker::ProcessPutRequest(const KVPairData& put){
+	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
+				<< put.table()<<","<<put.shard()<<")";
+
+	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
+	t->MergeUpdates(put);
+	t->ProcessUpdates();
+
+	if(put.done() && t->tainted(put.shard())){
+		VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());
+		t->get_partition_info(put.shard())->tainted = false;
+	}
 }
 
 //void Worker::FlushUpdates(){
