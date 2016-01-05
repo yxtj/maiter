@@ -41,6 +41,8 @@ Worker::Worker(const ConfigData &c){
 
 	pause_pop_msg_=false;
 
+	th_cp_=nullptr;
+
 	// HACKHACKHACK - register ourselves with any existing tables
 	TableRegistry::Map &t = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator i = t.begin(); i != t.end(); ++i){
@@ -65,7 +67,7 @@ void Worker::registerWorker(){
 	VLOG(1) << "Worker " << config_.worker_id() << " registering...";
 	RegisterWorkerRequest req;
 	req.set_id(id());
-	network_->Send(0, MTYPE_REGISTER_WORKER, req);
+	network_->Send(0, MTYPE_WORKER_REGISTER, req);
 }
 
 void Worker::Run(){
@@ -136,7 +138,6 @@ void Worker::runKernel(){
 	args.FromMessage(kreq.args());
 	d->set_args(args);
 
-	checkpointing_=false;
 	initialCP();
 //	if(id()==0)	//hack for strange synchronization problem
 //		Sleep();
@@ -147,6 +148,21 @@ void Worker::runKernel(){
 	delete d;
 }
 void Worker::finishKernel(){
+	//shutdown checkpoint thread if available
+	if(th_cp_!=nullptr && th_cp_->joinable()){
+		if(checkpointing_){
+			VLOG(1)<<"working finished, now waiting for cp thread to terminate";
+			su_cp_sig.notify();
+		}
+		th_cp_->join();	//this must be called before deconstructed
+		if(checkpointing_){
+			su_cp_sig.reset();
+			removeCheckpoint(epoch_);
+		}
+	}
+	while(checkpointing_)
+		Sleep();
+	//send termination report to master
 	KernelDone kd;
 	kd.mutable_kernel()->CopyFrom(kreq);
 	kd.set_wid(id());
@@ -170,22 +186,22 @@ void Worker::finishKernel(){
 	VLOG(1) << "Kernel finished: " << kreq;
 }
 
-void Worker::CheckNetwork(){
-	Timer net;
-	CheckForMasterUpdates();
-
-	// Flush any tables we no longer own.
-	for(unordered_set<GlobalTableBase*>::iterator i = dirty_tables_.begin(); i != dirty_tables_.end();
-			++i){
-		MutableGlobalTableBase *mg = dynamic_cast<MutableGlobalTableBase*>(*i);
-		if(mg){
-			mg->SendUpdates();
-		}
-	}
-
-	dirty_tables_.clear();
-	stats_["network_time"] += net.elapsed();
-}
+//void Worker::CheckNetwork(){
+//	Timer net;
+//	CheckForMasterUpdates();
+//
+//	// Flush any tables we no longer own.
+//	for(unordered_set<GlobalTableBase*>::iterator i = dirty_tables_.begin(); i != dirty_tables_.end();
+//			++i){
+//		MutableGlobalTableBase *mg = dynamic_cast<MutableGlobalTableBase*>(*i);
+//		if(mg){
+//			mg->SendUpdates();
+//		}
+//	}
+//
+//	dirty_tables_.clear();
+//	stats_["network_time"] += net.elapsed();
+//}
 
 int64_t Worker::pending_kernel_bytes() const{
 	int64_t t = 0;
@@ -214,10 +230,10 @@ void Worker::merge_net_stats(){
 }
 
 void Worker::realSwap(const int tid1, const int tid2){
-	LOG(INFO)<<"Not implemented. (signal the master to perform this)";
+	LOG(INFO)<<"Invalid. (signal the master to perform this)";
 }
 void Worker::realClear(const int tid){
-	LOG(INFO)<<"Not implemented. (signal the master to perform this)";
+	LOG(INFO)<<"Invalid. (signal the master to perform this)";
 }
 
 void Worker::SendTermcheck(int snapshot, long updates, double current){
@@ -265,9 +281,10 @@ void Worker::ProcessPutRequest(const KVPairData& put){
 //	}
 //}
 
-void Worker::sendReply(const RPCInfo& rpc){
+void Worker::sendReply(const RPCInfo& rpc, const bool res){
 	ReplyMessage rm;
 	rm.set_type(static_cast<MessageTypes>(rpc.tag));
+	rm.set_result(res);
 	network_->Send(rpc.source, MTYPE_REPLY, rm);
 }
 
@@ -283,7 +300,7 @@ void Worker::CheckForMasterUpdates(){
 //	}
 
 //	CheckpointRequest checkpoint_msg;
-//	while(network_->TryRead(config_.master_id(), MTYPE_START_CHECKPOINT, &checkpoint_msg)){
+//	while(network_->TryRead(config_.master_id(), MTYPE_CHECKPOINT_START, &checkpoint_msg)){
 //		for(int i = 0; i < checkpoint_msg.table_size(); ++i){
 //			checkpoint_tables_.insert(make_pair(checkpoint_msg.table(i), true));
 //		}
@@ -291,7 +308,7 @@ void Worker::CheckForMasterUpdates(){
 //		StartCheckpoint(checkpoint_msg.epoch(), (CheckpointType)checkpoint_msg.checkpoint_type());
 //	}
 //
-//	while(network_->TryRead(config_.master_id(), MTYPE_FINISH_CHECKPOINT, &empty)){
+//	while(network_->TryRead(config_.master_id(), MTYPE_CHECKPOINT_FINISH, &empty)){
 //		FinishCheckpoint();
 //	}
 //

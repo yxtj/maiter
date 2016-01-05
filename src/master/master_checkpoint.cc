@@ -61,16 +61,25 @@ void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
 	}
 
 	VLOG(1)<<"Send checkpoint to: " << worker_id<<" with "<<req.ShortDebugString();
-	network_->Send(workers_[worker_id]->net_id, MTYPE_START_CHECKPOINT, req);
+	network_->Send(workers_[worker_id]->net_id, MTYPE_CHECKPOINT_START, req);
 }
 
 void Master::finish_checkpoint(){
+
+	CheckpointRequest req;
+	req.set_epoch(checkpoint_epoch_);
 	for(int i = 0; i < workers_.size(); ++i){
-		finish_worker_checkpoint(i, current_run_);
+		CHECK_EQ(workers_[i]->checkpointing, true);
+//		network_->Send(workers_[worker_id]->net_id, MTYPE_CHECKPOINT_FINISH, req);
 	}
+	network_->Broadcast(MTYPE_CHECKPOINT_FINISH,req);
 
 	su_cp_finish.wait();
 	su_cp_finish.reset();
+
+	for(int i = 0; i < workers_.size(); ++i){
+		workers_[i]->checkpointing=false;
+	}
 
 	Args *params = current_run_.params.ToMessage();
 	Args *cp_vars = cp_vars_.ToMessage();
@@ -93,22 +102,16 @@ void Master::finish_checkpoint(){
 	last_checkpoint_ = Now();
 }
 
-void Master::finish_worker_checkpoint(int worker_id, const RunDescriptor& r){
-	CHECK_EQ(workers_[worker_id]->checkpointing, true);
-
-//	if(r.checkpoint_type == CP_SYNC){
-		CheckpointRequest req;
-		req.set_epoch(checkpoint_epoch_);
-
-		network_->Send(workers_[worker_id]->net_id, MTYPE_FINISH_CHECKPOINT, req);
-//	}
-
-//	EmptyMessage resp;
-//	network_->Read(workers_[worker_id]->net_id, MTYPE_CHECKPOINT_DONE, &resp);
-
-	VLOG(1) <<"Worker "<< worker_id << " finished checkpointing.";
-	workers_[worker_id]->checkpointing = false;
-}
+//void Master::finish_worker_checkpoint(int worker_id){
+//	CHECK_EQ(workers_[worker_id]->checkpointing, true);
+//
+//	CheckpointRequest req;
+//	req.set_epoch(checkpoint_epoch_);
+//	network_->Send(workers_[worker_id]->net_id, MTYPE_CHECKPOINT_FINISH, req);
+//
+//	VLOG(1) <<"Worker "<< worker_id << " finished checkpointing.";
+//	workers_[worker_id]->checkpointing = false;
+//}
 
 void Master::checkpoint(){
 	mutex m;
@@ -120,6 +123,8 @@ void Master::checkpoint(){
 		//TODO: add mechanism for existing and abandoning unfinished cp when the kernel is done.
 		Timer cp_timer;
 		start_checkpoint();
+		su_cp_local.wait();
+		su_cp_local.reset();
 		finish_checkpoint();
 		LOG(INFO)<< "Checkpoint "<<checkpoint_epoch_<<" finished in " << cp_timer.elapsed();
 		checkpoint_epoch_++;

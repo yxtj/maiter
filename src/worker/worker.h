@@ -13,6 +13,7 @@
 #include "driver/tools/ReplyHandler.h"
 #include "driver/tools/SyncUnit.h"
 
+#include <thread>
 #include <mutex>
 
 namespace dsm {
@@ -25,6 +26,7 @@ bool StartWorker(const ConfigData& conf);
 
 class Worker: public TableHelper, private noncopyable{
 	struct Stub;
+	friend bool StartWorker(const ConfigData& conf);
 public:
 	Worker(const ConfigData &c);
 	~Worker();
@@ -88,7 +90,7 @@ private:
 	void runKernel();
 	void finishKernel();
 
-	void sendReply(const RPCInfo& rpc);
+	void sendReply(const RPCInfo& rpc, const bool res=true);
 
 	void SendTermcheck(int index, long updates, double current);
 
@@ -107,6 +109,7 @@ private:
 	void restore(int epoch);
 
 	void _startCP_common();
+	void _startCP_report();
 	void _finishCP_common();
 
 	void _startCP_Sync();
@@ -119,7 +122,9 @@ private:
 	void _finishCP_Async();
 	void _processCPSig_Async(const int wid);
 	void _HandlePutRequest_AsynCP(const std::string& d, const RPCInfo& info);
-	std::vector<bool> _cp_async_msg_rec;
+	std::vector<bool> _cp_async_sig_rec;
+
+	void removeCheckpoint(const int epoch);
 //end functions for checkpoint
 
 	typedef void (Worker::*callback_t)(const string&, const RPCInfo&);
@@ -143,6 +148,7 @@ private:
 //	typedef unordered_map<int, bool> CheckpointMap;
 //	CheckpointMap checkpoint_tables_;
 	Timer tmr_cp_block_;
+	std::thread* th_cp_;	//for name reusing (std::thread can not be assigned)
 
 	ConfigData config_;
 
@@ -160,12 +166,11 @@ private:
 };
 
 struct Worker::Stub{
-	int32_t id;
-	int32_t epoch;
+	int id;
+	int net_id;
+	int epoch;
 
-	Stub(int id) :
-			id(id), epoch(0){
-	}
+	Stub(int id) : id(id), net_id(0), epoch(0){}
 };
 
 

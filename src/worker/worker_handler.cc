@@ -47,9 +47,9 @@ void Worker::registerHandlers(){
 	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
 
 //	bool new_thread_for_cp=true;	//SYNC: false, SYNC_SIG: true, ASYNC: false
-//	RegDSPProcess(MTYPE_START_CHECKPOINT, &Worker::HandleStartCheckpoint, new_thread_for_cp);
-//	RegDSPImmediate(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);	//SYNC, SYNC_SIG
-////	RegDSPProcess(MTYPE_FINISH_CHECKPOINT, &Worker::HandleFinishCheckpoint);	//ASUNC
+//	RegDSPProcess(MTYPE_CHECKPOINT_START, &Worker::HandleStartCheckpoint, new_thread_for_cp);
+//	RegDSPImmediate(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);	//SYNC, SYNC_SIG
+////	RegDSPProcess(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);	//ASUNC
 //	RegDSPImmediate(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);	//SYNC_SIG
 ////	RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);	//ASYNC
 
@@ -194,27 +194,25 @@ void Worker::HandleShutdown(const string& , const RPCInfo& rpc){
 }
 
 void Worker::HandleStartCheckpoint(const string& d, const RPCInfo& rpc){
-	//this handler may be run asynchronously, parameter may be invalid when used.
-	RPCInfo rpc_(rpc);
 	CheckpointRequest req;
 	req.ParseFromString(d);
-	startCheckpoint(req.epoch());
-	//TOOD: report failed checkpoint request (startCP, finishCP, CPSig)
-	sendReply(rpc_);
+	//this handler may be run asynchronously, parameter may be invalid when used.
+	bool res=startCheckpoint(req.epoch());
+	sendReply(rpc,res);
 }
 
 void Worker::HandleFinishCheckpoint(const string& d, const RPCInfo& rpc){
 	CheckpointRequest req;
 	req.ParseFromString(d);
-	finishCheckpoint(req.epoch());
-	sendReply(rpc);
+	bool res=finishCheckpoint(req.epoch());
+	sendReply(rpc,res);
 }
 
 void Worker::HandleCheckpointSig(const string& d, const RPCInfo& rpc){
 	CheckpointSyncSig req;
 	req.ParseFromString(d);
-	processCPSig(req.wid(),req.epoch());
-	sendReply(rpc);
+	bool res=processCPSig(req.wid(),req.epoch());
+	sendReply(rpc,res);
 }
 
 void Worker::HandleRestore(const string& d, const RPCInfo& rpc){

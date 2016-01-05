@@ -18,6 +18,26 @@ enum CheckpointType {
   CP_ASYNC = 3;
 };
 
+message CheckpointInfo {
+  required int32 checkpoint_epoch = 1;
+  required int32 kernel_epoch = 2;
+}
+
+message CheckpointRequest {
+  required int32 epoch = 1;
+  repeated int32 table = 2;
+}
+
+message CheckpointSyncSig {
+  required int32 wid = 1;
+  required int32 epoch = 2;
+}
+
+message CheckpointLocalDone {
+  required int32 wid = 1;
+  required int32 epoch = 2;
+}
+
 message RegisterWorkerRequest {
   required int32 id = 1;
 }
@@ -117,29 +137,12 @@ message KVPairData {
   optional bool missing_key = 13;
 }
 
-message CheckpointRequest {
-  required int32 epoch = 1;
-//  required int32 checkpoint_type = 2;
-  repeated int32 table = 3;
-}
-
-message CheckpointSyncSig {
-  required int32 wid = 1;
-  required int32 epoch = 2;
-//  required CheckpointType type = 3;
-}
-
 message TerminationNotification {
   required int32 epoch = 1;
 }
 
 message RestoreRequest {
   required int32 epoch = 1;
-}
-
-message CheckpointInfo {
-  required int32 checkpoint_epoch = 1;
-  required int32 kernel_epoch = 2;
 }
 
 message SwapTable {

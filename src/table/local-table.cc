@@ -58,7 +58,7 @@ void LocalTable::termcheck(const string& f, long* updates, double* currF2){
 	VLOG(1) << "Start snapshot " << f;
 	Timer t;
 	serializeToSnapshot(f, updates, currF2);
-	VLOG(1) << "Flushed " << f << " to disk in: " << t.elapsed();
+//	VLOG(1) << "Flushed snapshot " << f << " in: " << t.elapsed();
 
 //  DLOG(INFO)<<getcallstack();
 }

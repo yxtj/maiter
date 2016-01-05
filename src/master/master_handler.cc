@@ -45,11 +45,11 @@ void Master::addReplyHandler(const int mtype, void (Master::*fp)(), const bool n
 void Master::registerHandlers(){
 	VLOG(1)<<"Master is registering handlers";
 	//message handlers:
-//	RegDSPImmediate(MTYPE_REGISTER_WORKER, &Master::handleRegisterWorker);
-	RegDSPProcess(MTYPE_REGISTER_WORKER, &Master::handleRegisterWorker);
+//	RegDSPImmediate(MTYPE_WORKER_REGISTER, &Master::handleRegisterWorker);
+	RegDSPProcess(MTYPE_WORKER_REGISTER, &Master::handleRegisterWorker);
 	RegDSPProcess(MTYPE_KERNEL_DONE, &Master::handleKernelDone);
 	RegDSPProcess(MTYPE_TERMCHECK_DONE, &Master::handleTermcheckDone);
-//	RegDSPProcess(MTYPE_CHECKPOINT_DONE, &Master::handleCheckpointDone);
+	RegDSPProcess(MTYPE_CHECKPOINT_LOCAL_DONE, &Master::handleCPLocalDone);
 
 	//reply handlers:
 	int nw=config_.num_workers();
@@ -71,12 +71,15 @@ void Master::registerHandlers(){
 	rph_.addType(MTYPE_SHARD_ASSIGNMENT, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_tassign),false);
 	rph_.activateType(MTYPE_SHARD_ASSIGNMENT);
-	rph_.addType(MTYPE_START_CHECKPOINT, ReplyHandler::condFactory(EACH_ONE,nw),
+	rph_.addType(MTYPE_CHECKPOINT_START, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_cp_start),false);
-	rph_.activateType(MTYPE_START_CHECKPOINT);
-	rph_.addType(MTYPE_FINISH_CHECKPOINT, ReplyHandler::condFactory(EACH_ONE,nw),
+	rph_.activateType(MTYPE_CHECKPOINT_START);
+	rph_.addType(MTYPE_CHECKPOINT_LOCAL_DONE, ReplyHandler::condFactory(EACH_ONE,nw),
+			bind(&SyncUnit::notify, &su_cp_local),false);
+	rph_.activateType(MTYPE_CHECKPOINT_LOCAL_DONE);
+	rph_.addType(MTYPE_CHECKPOINT_FINISH, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_cp_finish),false);
-	rph_.activateType(MTYPE_FINISH_CHECKPOINT);
+	rph_.activateType(MTYPE_CHECKPOINT_FINISH);
 	rph_.addType(MTYPE_RESTORE, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_cp_restore),false);
 	rph_.activateType(MTYPE_RESTORE);
@@ -84,10 +87,10 @@ void Master::registerHandlers(){
 
 	//type 2: called by specific functions (handlers) for synchronization
 	// called by handlerRegisterWorker()
-//	addReplyHandler(MTYPE_REGISTER_WORKER, &Master::syncRegw);
-	rph_.addType(MTYPE_REGISTER_WORKER, ReplyHandler::condFactory(EACH_ONE,nw),
+//	addReplyHandler(MTYPE_WORKER_REGISTER, &Master::syncRegw);
+	rph_.addType(MTYPE_WORKER_REGISTER, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_regw),false);
-	rph_.activateType(MTYPE_REGISTER_WORKER);
+	rph_.activateType(MTYPE_WORKER_REGISTER);
 	// called by handleKernelDone()
 	rph_.addType(MTYPE_KERNEL_DONE, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_kerdone),false);
@@ -113,7 +116,7 @@ void Master::handleRegisterWorker(const std::string& d, const RPCInfo& info){
 	VLOG(1)<<"Registered worker: " << req.id();
 	netId2worker_[info.source]=workers_[req.id()];
 	workers_[req.id()]->net_id=info.source;
-	rph_.input(MTYPE_REGISTER_WORKER, req.id());
+	rph_.input(MTYPE_WORKER_REGISTER, req.id());
 }
 
 void Master::handleKernelDone(const std::string& d, const RPCInfo& info){
@@ -186,6 +189,16 @@ void Master::handleTermcheckDone(const std::string& d, const RPCInfo& info){
 	workers_[worker_id]->updates = resp.updates();
 
 	rph_.input(MTYPE_TERMCHECK_DONE, resp.wid());
+}
+
+void Master::handleCPLocalDone(const std::string& d, const RPCInfo& info){
+	CheckpointLocalDone resp;
+	resp.ParseFromString(d);
+	if(resp.epoch()!=checkpoint_epoch_){
+		VLOG(2)<<"skip unmatched cp local done report";
+		return;
+	}
+	rph_.input(MTYPE_CHECKPOINT_LOCAL_DONE,resp.wid());
 }
 
 //void Master::handleCheckpointDone(const std::string& d, const RPCInfo& info){

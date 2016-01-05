@@ -141,12 +141,12 @@ private:
 
 	std::condition_variable cv_cp; //for shutdown cp thread, only be notified after kernel termination
 //	std::std::vector<SyncUnit> su_cpdone;
-//	void handleCheckpointDone(const std::string& d, const RPCInfo& info);
 	void start_checkpoint();
 	void start_worker_checkpoint(int worker_id, const RunDescriptor& r);
-	void finish_worker_checkpoint(int worker_id, const RunDescriptor& r);
+	void handleCPLocalDone(const std::string& d, const RPCInfo& info);
+//	void finish_worker_checkpoint(int worker_id);
 	void finish_checkpoint();
-	SyncUnit su_cp_start, su_cp_finish;
+	SyncUnit su_cp_start, su_cp_local, su_cp_finish;
 	SyncUnit su_cp_restore;
 
 	void handleTermcheckDone(const std::string& d, const RPCInfo& info);
