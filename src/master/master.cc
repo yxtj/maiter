@@ -67,7 +67,11 @@ Master::Master(const ConfigData &conf) :
 
 	tmsg=thread(bind(&Master::MsgLoop,this));
 
-	su_regw.wait();
+	su_regw.wait();//use it for MTYPE_WORKER_REGISTER
+	su_regw.reset();
+
+	broadcastWorkerInfo();
+	su_regw.wait();//reuse it for MTYPE_WORKER_LIST
 	su_regw.reset();
 
 	LOG(INFO)<< "All workers registered; starting up.";

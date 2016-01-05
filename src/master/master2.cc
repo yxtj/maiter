@@ -109,7 +109,7 @@ void Master::send_table_assignments(){
 	for(int i = 0; i < workers_.size(); ++i){
 		WorkerState& w = *workers_[i];
 		for(ShardSet::iterator j = w.shards.begin(); j != w.shards.end(); ++j){
-			ShardAssignment* s = req.add_assign();
+			ShardAssignmentRequest::ShardAssignment* s = req.add_assign();
 			s->set_new_worker(i);
 			s->set_table(j->table);
 			s->set_shard(j->shard);
@@ -124,5 +124,15 @@ void Master::send_table_assignments(){
 	DVLOG(1)<<"table assignment finished";
 }
 
+void Master::broadcastWorkerInfo(){
+	WorkerIDMapList req;
+	for(int i = 0; i < workers_.size(); ++i){
+		WorkerState& w = *workers_[i];
+		WorkerIDMapList::WorkerIDMap* p=req.add_workers();
+		p->set_worker_id(w.id);
+		p->set_network_id(w.net_id);
+	}
+	network_->Broadcast(MTYPE_WORKER_LIST,req);
+}
 
 } //namespace dsm

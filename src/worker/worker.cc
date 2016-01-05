@@ -28,19 +28,17 @@ Worker::Worker(const ConfigData &c){
 	network_ = NetworkThread::Get();
 
 	config_.CopyFrom(c);
-	config_.set_worker_id(network_->id() - 1);
 
-	num_peers_ = config_.num_workers();
-	peers_.resize(num_peers_);
-	for(int i = 0; i < num_peers_; ++i){
-		peers_[i] = new Stub(i + 1);
-	}
+	peers_.resize(config_.num_workers());
+	peers_[id()].net_id=network_->id();
+	nid2wid.reserve(config_.num_workers()+1);
 
 	running_ = true;
 	running_kernel_=false;
 
 	pause_pop_msg_=false;
 
+	th_ker_=nullptr;
 	th_cp_=nullptr;
 
 	// HACKHACKHACK - register ourselves with any existing tables
@@ -53,10 +51,10 @@ Worker::Worker(const ConfigData &c){
 }
 Worker::~Worker(){
 	running_ = false;
-
-	for(int i = 0; i < peers_.size(); ++i){
-		delete peers_[i];
-	}
+	if(th_ker_ && th_ker_->joinable())
+		th_ker_->join();
+	delete th_ker_;
+	delete th_cp_;
 }
 
 int Worker::ownerOfShard(int table, int shard) const{
@@ -64,10 +62,11 @@ int Worker::ownerOfShard(int table, int shard) const{
 }
 
 void Worker::registerWorker(){
-	VLOG(1) << "Worker " << config_.worker_id() << " registering...";
+	VLOG(1) << "Worker " << id() << " registering...";
 	RegisterWorkerRequest req;
 	req.set_id(id());
-	network_->Send(0, MTYPE_WORKER_REGISTER, req);
+	//TODO: check register failure. if no reply within x seconds, register again.
+	network_->Send(config_.master_id(), MTYPE_WORKER_REGISTER, req);
 }
 
 void Worker::Run(){
@@ -96,20 +95,16 @@ void Worker::MsgLoop(){
 	}
 }
 
-//void Worker::KernelLoop(){
-//	while(running_){
-//		waitKernel();
-//		if(!running_){
-//			return;
-//		}
-//
-//		runKernel();
-//
-//		finishKernel();
-//
-//		DumpProfile();
-//	}
-//}
+void Worker::KernelProcess(){
+	stats_["idle_time"]+=tmr_.elapsed();
+
+	runKernel();
+	finishKernel();
+
+	DumpProfile();
+
+	tmr_.Reset();
+}
 //
 //// HandleRunKernel2() and HandleShutdown2() can end this waiting
 //void Worker::waitKernel(){
@@ -155,6 +150,8 @@ void Worker::finishKernel(){
 			su_cp_sig.notify();
 		}
 		th_cp_->join();	//this must be called before deconstructed
+		delete th_cp_;
+		th_cp_=nullptr;
 		if(checkpointing_){
 			su_cp_sig.reset();
 			removeCheckpoint(epoch_);

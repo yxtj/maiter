@@ -42,14 +42,21 @@ message RegisterWorkerRequest {
   required int32 id = 1;
 }
 
-message ShardAssignment {
-  required int32 table = 1;
-  required int32 shard = 2;
-//  required int32 old_worker = 3;
-  required int32 new_worker = 4;
+message WorkerIDMapList {
+  message WorkerIDMap {
+    required int32 worker_id = 1;
+    required int32 network_id = 2;
+  }
+  repeated WorkerIDMap workers = 1;
 }
 
 message ShardAssignmentRequest {
+  message ShardAssignment {
+    required int32 table = 1;
+    required int32 shard = 2;
+//    required int32 old_worker = 3;
+    required int32 new_worker = 4;
+  }
   repeated ShardAssignment assign = 1;
 }
 

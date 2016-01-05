@@ -40,18 +40,12 @@ void Worker::registerHandlers(){
 	RegDSPProcess(MTYPE_ENABLE_TRIGGER, &Worker::HandleEnableTrigger);
 	RegDSPProcess(MTYPE_TERMINATION, &Worker::HandleTermNotification);
 
-	RegDSPProcess(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel, true);
+	RegDSPProcess(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel);
 	RegDSPProcess(MTYPE_WORKER_SHUTDOWN, &Worker::HandleShutdown);
+	RegDSPProcess(MTYPE_WORKER_LIST, &Worker::HandleWorkerList);
 	RegDSPProcess(MTYPE_REPLY, &Worker::HandleReply);
 
 	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
-
-//	bool new_thread_for_cp=true;	//SYNC: false, SYNC_SIG: true, ASYNC: false
-//	RegDSPProcess(MTYPE_CHECKPOINT_START, &Worker::HandleStartCheckpoint, new_thread_for_cp);
-//	RegDSPImmediate(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);	//SYNC, SYNC_SIG
-////	RegDSPProcess(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);	//ASUNC
-//	RegDSPImmediate(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);	//SYNC_SIG
-////	RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);	//ASYNC
 
 	RegDSPProcess(MTYPE_RESTORE, &Worker::HandleRestore);
 
@@ -68,6 +62,7 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 	ReplyMessage rm;
 	rm.ParseFromString(d);
 	int tag=rm.type();
+//	rph.input(tag,nid2wid[rpc.source]);
 	DVLOG(2) << "Processing reply, type " << tag << ", from " << rpc.source << ", to " << rpc.dest;
 }
 
@@ -105,7 +100,7 @@ void Worker::HandleShardAssignment(const string& d,const RPCInfo& rpc){
 	shard_req.ParseFromString(d);
 //  LOG(INFO) << "Shard assignment: " << shard_req.DebugString();
 	for(int i = 0; i < shard_req.assign_size(); ++i){
-		const ShardAssignment &a = shard_req.assign(i);
+		const ShardAssignmentRequest::ShardAssignment &a = shard_req.assign(i);
 		GlobalTableBase *t = TableRegistry::Get()->table(a.table());
 		int old_owner = t->owner(a.shard());
 		t->get_partition_info(a.shard())->sinfo.set_owner(a.new_worker());
@@ -177,18 +172,29 @@ void Worker::HandleRunKernel(const std::string& d, const RPCInfo& rpc){
 	kreq.ParseFromString(d);
 	running_kernel_=true;
 	sendReply(rpc);
-	stats_["idle_time"]+=tmr_.elapsed();
-	runKernel();
-	finishKernel();
-	tmr_.Reset();
+	if(th_ker_)
+		th_ker_->join();
+	delete th_ker_;
+	th_ker_=new thread(&Worker::KernelProcess, this);
 }
 
 void Worker::HandleShutdown(const string& , const RPCInfo& rpc){
 	if(config_.master_id()==rpc.source){
-		VLOG(1) << "Shutting down worker " << config_.worker_id();
+		VLOG(1) << "Shutting down worker " << id();
 		running_ = false;
 	}else{
 		LOG(INFO)<<"Ignore shutdown notification from "<<rpc.source<<" (only master's is accepted)";
+	}
+	sendReply(rpc);
+}
+
+void Worker::HandleWorkerList(const std::string& d, const RPCInfo& rpc){
+	WorkerIDMapList req;
+	req.ParseFromString(d);
+	for(int i=0;i<req.workers_size();++i){
+		const WorkerIDMapList::WorkerIDMap &p = req.workers(i);
+		peers_[p.worker_id()].net_id=p.network_id();
+		nid2wid[p.network_id()]=p.worker_id();
 	}
 	sendReply(rpc);
 }

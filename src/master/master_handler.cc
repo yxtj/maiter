@@ -55,13 +55,7 @@ void Master::registerHandlers(){
 	int nw=config_.num_workers();
 	ReplyHandler::ConditionType EACH_ONE=ReplyHandler::EACH_ONE;
 	RegDSPProcess(MTYPE_REPLY, &Master::handleReply);
-	//type 1: called by handleReply()
-	rph_.addType(MTYPE_CLEAR_TABLE, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_clear),false);
-	rph_.activateType(MTYPE_CLEAR_TABLE);
-	rph_.addType(MTYPE_SWAP_TABLE, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_swap),false);
-	rph_.activateType(MTYPE_SWAP_TABLE);
+	//type 1: called by handleReply() directly
 	rph_.addType(MTYPE_WORKER_FLUSH, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_wflush),false);
 	rph_.activateType(MTYPE_WORKER_FLUSH);
@@ -71,6 +65,17 @@ void Master::registerHandlers(){
 	rph_.addType(MTYPE_SHARD_ASSIGNMENT, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_tassign),false);
 	rph_.activateType(MTYPE_SHARD_ASSIGNMENT);
+	rph_.addType(MTYPE_CLEAR_TABLE, ReplyHandler::condFactory(EACH_ONE,nw),
+			bind(&SyncUnit::notify, &su_clear),false);
+	rph_.activateType(MTYPE_CLEAR_TABLE);
+	rph_.addType(MTYPE_SWAP_TABLE, ReplyHandler::condFactory(EACH_ONE,nw),
+			bind(&SyncUnit::notify, &su_swap),false);
+	rph_.activateType(MTYPE_SWAP_TABLE);
+
+	rph_.addType(MTYPE_WORKER_LIST, ReplyHandler::condFactory(EACH_ONE,nw),
+			bind(&SyncUnit::notify, &su_regw),false);
+	rph_.activateType(MTYPE_WORKER_LIST);
+
 	rph_.addType(MTYPE_CHECKPOINT_START, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_cp_start),false);
 	rph_.activateType(MTYPE_CHECKPOINT_START);
@@ -85,9 +90,8 @@ void Master::registerHandlers(){
 	rph_.activateType(MTYPE_RESTORE);
 
 
-	//type 2: called by specific functions (handlers) for synchronization
+	//type 2: called by specific functions (handlers)
 	// called by handlerRegisterWorker()
-//	addReplyHandler(MTYPE_WORKER_REGISTER, &Master::syncRegw);
 	rph_.addType(MTYPE_WORKER_REGISTER, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_regw),false);
 	rph_.activateType(MTYPE_WORKER_REGISTER);

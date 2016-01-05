@@ -127,7 +127,7 @@ private:
 	SyncUnit su_clear;
 
 	void handleRegisterWorker(const std::string& d, const RPCInfo& info);
-	SyncUnit su_regw;
+	SyncUnit su_regw; // reused for both MTYPE_WORKER_REGISTER and MTYPE_WORKER_LIST
 
 	SyncUnit su_wflush;
 	SyncUnit su_wapply;
@@ -137,6 +137,7 @@ private:
 
 	void finishKernel();
 
+	void broadcastWorkerInfo();
 	void shutdownWorkers();
 
 	std::condition_variable cv_cp; //for shutdown cp thread, only be notified after kernel termination

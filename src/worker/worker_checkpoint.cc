@@ -58,7 +58,6 @@ void Worker::initialCP(){
 //		RegDSPProcess(MTYPE_CHECKPOINT_START, &Worker::HandleStartCheckpoint, true);
 		RegDSPProcess(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);
 		RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
-		_cp_async_sig_rec.resize(config_.num_workers(),false);
 		break;
 	default:
 			LOG(ERROR)<<"given checkpoint type is not implemented.";
@@ -124,7 +123,7 @@ bool Worker::finishCheckpoint(const int epoch){
 		lock_guard<recursive_mutex> sl(state_lock_);
 
 		for(int i = 0; i < peers_.size(); ++i){
-			peers_[i]->epoch = epoch_;
+			peers_[i].epoch = epoch_;
 		}
 
 		checkpointing_=false;
@@ -170,6 +169,17 @@ void Worker::_startCP_common(){
 		t->SendUpdates();
 		//archive local state
 		t->start_checkpoint(pre + "table-" + to_string(it->first));
+	}
+}
+void Worker::_sendCPFlushSig(){
+	CheckpointSyncSig req;
+	req.set_wid(id());
+	req.set_epoch(epoch_);
+	for(size_t i=0;i<peers_.size();++i){
+		if(i==id())
+			continue;
+		DVLOG(1)<<"send checkpoint flush signal from "<<id()<<" to "<<i;
+		network_->Send(peers_[i].net_id,MTYPE_CHECKPOINT_SIG,req);
 	}
 }
 void Worker::_startCP_report(){
@@ -229,17 +239,8 @@ void Worker::_finishCP_Sync(){
  */
 void Worker::_startCP_SyncSig(){
 	pause_pop_msg_=true;
+	_sendCPFlushSig();
 	_startCP_common();
-	CheckpointSyncSig req;
-	req.set_wid(id());
-	req.set_epoch(epoch_);
-	//TODO: change peers_ to hold worker_id's net_id inside
-	for(int i=1;i<network_->size();++i){
-		if(i==network_->id())
-			continue;
-		DVLOG(1)<<"send checkpoint flush signal from "<<network_->id()<<" to "<<i;
-		network_->Send(i,MTYPE_CHECKPOINT_SIG,req);
-	}
 	rph.input(MTYPE_CHECKPOINT_SIG,id());	//input itself, other for incoming msg
 	DVLOG(1)<<"wait for receiving all cp flush signals at "<<id();
 	su_cp_sig.wait();
@@ -254,7 +255,7 @@ void Worker::_finishCP_SyncSig(){
 }
 void Worker::_processCPSig_SyncSig(const int wid){
 	const deque<pair<string, RPCInfo> >& que = driver.getQue();
-	DVLOG(1)<<"flush signal process at "<<id()<<" for "<<wid;
+	DVLOG(1)<<"flush signal processd at "<<id()<<" for "<<wid;
 	DVLOG(1)<<"queue length: "<<que.size();
 	int count=0;
 	TableRegistry::Map &tbl = TableRegistry::Get()->tables();
@@ -278,19 +279,11 @@ void Worker::_processCPSig_SyncSig(const int wid){
  */
 void Worker::_startCP_Async(){
 	pause_pop_msg_=true;
-	CheckpointSyncSig req;
-	req.set_wid(id());
-	req.set_epoch(epoch_);
-	//TODO: change peers_ to hold worker_id's net_id inside
-	for(int i=1;i<network_->size();++i){
-		if(i==network_->id())
-			continue;
-		DVLOG(1)<<"send checkpoint flush signal from "<<network_->id()<<" to "<<i;
-		network_->Send(i,MTYPE_CHECKPOINT_SIG,req);
-	}
+	_sendCPFlushSig();
 
 	_startCP_common();
 	RegDSPProcess(MTYPE_PUT_REQUEST,&Worker::_HandlePutRequest_AsynCP);
+	_cp_async_sig_rec.resize(config_.num_workers(),false);
 	fill(_cp_async_sig_rec.begin(),_cp_async_sig_rec.end(),false);
 	pause_pop_msg_=false;
 	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
@@ -310,6 +303,7 @@ void Worker::_startCP_Async(){
 }
 void Worker::_finishCP_Async(){
 	_finishCP_common();
+	_cp_async_sig_rec.clear();
 }
 void Worker::_processCPSig_Async(const int wid){
 	_cp_async_sig_rec[wid]=true;

@@ -25,15 +25,13 @@ class NetworkThread;
 bool StartWorker(const ConfigData& conf);
 
 class Worker: public TableHelper, private noncopyable{
-	struct Stub;
-	friend bool StartWorker(const ConfigData& conf);
 public:
 	Worker(const ConfigData &c);
 	~Worker();
 
 	void Run();
 
-//	void KernelLoop();
+	void KernelProcess();
 	void MsgLoop();
 
 	void CheckForMasterUpdates();
@@ -59,9 +57,11 @@ public:
 	// terminate iteration
 	void HandleTermNotification(const std::string& d, const RPCInfo& rpc);
 
-	//my new handlers:
 	void HandleRunKernel(const std::string& d, const RPCInfo& rpc);
 	void HandleShutdown(const std::string& d, const RPCInfo& rpc);
+
+	void HandleWorkerList(const std::string& d, const RPCInfo& rpc);
+
 	void HandleReply(const std::string& d, const RPCInfo& rpc);
 
 	int ownerOfShard(int table_id, int shard) const;
@@ -109,6 +109,7 @@ private:
 	void restore(int epoch);
 
 	void _startCP_common();
+	void _sendCPFlushSig();
 	void _startCP_report();
 	void _finishCP_common();
 
@@ -136,12 +137,12 @@ private:
 
 	// The current epoch this worker is running within.
 	int epoch_;
-	int num_peers_;
 
 	Timer tmr_;
 	bool running_;	//whether this worker is running
 	bool running_kernel_;	//whether this kernel is running
 	KernelRequest kreq;	//the kernel running row
+	std::thread* th_ker_;
 
 //	CheckpointType active_checkpoint_;
 	bool checkpointing_;
@@ -153,10 +154,20 @@ private:
 	ConfigData config_;
 
 	// The status of other workers.
-	vector<Stub*> peers_;
+	struct Stub{
+	//	int id;
+		int net_id;
+		int epoch;
+
+	//	Stub(int id) : id(id), net_id(0), epoch(0){}
+		Stub() : net_id(-1), epoch(0){}
+	};
+	std::vector<Stub> peers_;
+	std::unordered_map<int,int> nid2wid;
+	SyncUnit su_regw;
 
 	NetworkThread *network_;
-	unordered_set<GlobalTableBase*> dirty_tables_;
+	std::unordered_set<GlobalTableBase*> dirty_tables_;
 
 	Stats stats_;
 
@@ -165,13 +176,7 @@ private:
 	ReplyHandler rph;
 };
 
-struct Worker::Stub{
-	int id;
-	int net_id;
-	int epoch;
 
-	Stub(int id) : id(id), net_id(0), epoch(0){}
-};
 
 
 }
