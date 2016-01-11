@@ -3,8 +3,6 @@ cmake_policy(SET CMP0014 OLD)
 
 project (MAITER) 
 
-set(ENV{LANG} "C")
-
 include(../cmake/MaiterPP.cmake)
 include(../cmake/FindProtobuf.cmake)
 include(../cmake/PcFromUcontext.cmake)
@@ -61,6 +59,12 @@ if ("$ENV{OPROFILE}")
   message(STATUS "Enabling OProfile")
 endif()
 
+if( CMAKE_SIZEOF_VOID_P EQUAL 8 )
+	set( ARCH_BITS 64 )
+else()
+	set( ARCH_BITS 32 )
+endif()
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 exec_program("mpic++ -showme:compile" OUTPUT_VARIABLE MPI_COMPILE_FLAGS)
@@ -75,22 +79,22 @@ string(REPLACE " " ";" MPI_LIBDIRS "${MPI_LIBDIRS}")
 string(REPLACE " " ";" MPI_LIBS "${MPI_LIBS}")
 
 set(CMAKE_CXX_FLAGS "${CXX_DEFAULT} -fPIC -fno-omit-frame-pointer -O2 -g0 ${CXX_DEFINE}")
-		    		     
-add_subdirectory (external/google-flags)
-add_subdirectory (external/google-logging)
-add_subdirectory (external/webgraph)
+
+add_subdirectory (external)
 
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}
                      ${MAITER_BINARY_DIR}
                      ${PROTOBUF_INCLUDE_DIRS}
                      ${MPI_INCDIRS}
-		     external/google-flags
-		     external/google-logging
-	             external/webgraph )
+                   )
+include_directories(
+                     external/${GFLAGS_DIR}
+                     external/${GLOG_DIR}
+                     external/webgraph 
+	               )
 		     
 
 link_directories(${MPI_LIBDIRS})
-include_directories(${MPI_INCDIRS})
 
 set(CMAKE_CXX_FLAGS "${CXX_DEFAULT} -fPIC -fno-omit-frame-pointer -std=c++0x -ggdb1 ${CXX_WARN} ${CXX_DEFINE}")
 add_subdirectory (dbg)

@@ -4,6 +4,8 @@ CMAKE = cmake
 TOP = $(shell pwd)
 MAKE := $(MAKE) --no-print-directory
 CMAKE_FLAGS = 
+#CFLAGS := -m32
+#CPPFLAGS := -m32
 #OPROFILE = 1
 
 #ifeq ($(shell which distcc > /dev/null; echo $$?), 0)
