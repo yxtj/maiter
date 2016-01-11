@@ -723,13 +723,13 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 	// Inserting a new entry:
 	if(!found){
 		if(entries_ > size_ /** kLoadFactor*/){ //doesn't consider loadfactor, the tablesize is pre-defined
-			VLOG(0) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2)
+			VLOG(2) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2)
 					<< " entries " << entries_;
 			//entries_-=1;
 			resize(1 + size_ * 2);
 			put(k, v1, v2, v3);
 			++entries_;
-			VLOG(0) << "if entries_: " << entries_ << "  key: " << k;
+			VLOG(2) << "if entries_: " << entries_ << "  key: " << k;
 		}else{
 			buckets_[b].in_use = 1;
 			buckets_[b].k = k;
@@ -739,7 +739,7 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 			static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
 					buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
 			++entries_;
-			VLOG(0) << "else entries_: " << entries_ << "  key: " << k;
+			VLOG(2) << "else entries_: " << entries_ << "  key: " << k;
 		}
 	}else{
 		// Replacing an existing entry

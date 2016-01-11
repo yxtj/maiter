@@ -101,7 +101,8 @@ void Worker::KernelProcess(){
 	runKernel();
 	finishKernel();
 
-	DumpProfile();
+//	DumpProfile();
+	DVLOG(1)<<"Finish kernel process";
 
 	tmr_.Reset();
 }
@@ -157,6 +158,7 @@ void Worker::finishKernel(){
 			removeCheckpoint(epoch_);
 		}
 	}
+	//TODO: cancel ongoing checkpoint when kernel finished
 	while(checkpointing_)
 		Sleep();
 	//send termination report to master
@@ -323,7 +325,7 @@ bool StartWorker(const ConfigData& conf){
 	w.Run();
 	w.merge_net_stats();
 	Stats s = w.get_stats();
-	VLOG(1) << "Worker stats: \n" << s.ToString("[W"+to_string(conf.worker_id())+"]");
+	LOG(INFO) << "Worker stats: \n" << s.ToString("[W"+to_string(conf.worker_id())+"]");
 	return true;
 }
 
