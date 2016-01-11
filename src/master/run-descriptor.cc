@@ -28,12 +28,12 @@ void RunDescriptor::Init(const std::string& kernel,
 	if(checkpoint){
 		if(checkpoint && !FLAGS_checkpoint_type.empty() &&
 				!CheckpointType_Parse(FLAGS_checkpoint_type,&checkpoint_type)){
-			LOG(ERROR)<<"Cannot understand given checkpoint type: "<<FLAGS_checkpoint_type;
+			LOG(FATAL)<<"Cannot understand given checkpoint type: "<<FLAGS_checkpoint_type;
 		}
 		checkpoint_interval = FLAGS_checkpoint_interval;
 	}
 	if(checkpoint_type != CP_NONE && checkpoint_interval<=0){
-		LOG(ERROR)<<"Checkpoint interval is not given or is not positive.";
+		LOG(FATAL)<<"Checkpoint interval is not given or is not positive.";
 	}
 
 	this->termcheck=termcheck;
