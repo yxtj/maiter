@@ -14,10 +14,10 @@ include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
 include(CheckFunctionExists)
 
-find_package(PythonLibs)
-find_package(SWIG)
-find_package(SDL)
-find_package(Boost REQUIRED)
+#find_package(PythonLibs)
+#find_package(SWIG)
+#find_package(SDL)
+#find_package(Boost REQUIRED)
 
 check_include_file_cxx("google/protobuf/descriptor.h" HAVE_PROTOBUF)
 
@@ -28,7 +28,6 @@ find_program(HAVE_PROTOC "protoc")
 find_program(HAVE_MPICC "mpic++")
 
 find_library(HAVE_LIBUNWIND unwind)
-find_library(HAVE_BLAS blas)
 find_library(HAVE_PROTOBUF protobuf)
 
 if (NOT HAVE_LZO1X_H)
@@ -44,13 +43,6 @@ endif()
 if (NOT HAVE_MPICC) 
   message(FATAL_ERROR "Required OpenMPI development libraries and compiler not found")
 endif()
-
-if (NOT HAVE_BLAS) 
-  message(FATAL_ERROR "Required library blas not found")
-else()
-  set (BLAS_LIBS blas)
-endif()
-
 
 set(CXX_DEFAULT "${CMAKE_CXX_FLAGS}")
 set(CXX_DEFINE "-DHAVE_LIB_GFLAGS ")
@@ -88,12 +80,9 @@ add_subdirectory (external/google-flags)
 add_subdirectory (external/google-logging)
 add_subdirectory (external/webgraph)
 
-#SET(PYTHON_INCLUDE_PATH "/mnt/data/yzhang/lib/python/include")
-
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}
                      ${MAITER_BINARY_DIR}
                      ${PROTOBUF_INCLUDE_DIRS}
-                     ${PYTHON_INCLUDE_PATH}
                      ${MPI_INCDIRS}
 		     external/google-flags
 		     external/google-logging
@@ -115,16 +104,3 @@ add_subdirectory (master)
 add_subdirectory (worker)
 add_subdirectory (examples)
 
-if (NOT SWIG_FOUND)
-  message(STATUS "Swig not found; skipping python build.")
-endif()
-
-if (NOT PYTHONLIBS_FOUND)
-  message(STATUS "Python dev not found; skipping python build.")
-endif()
-
-if (SWIG_FOUND AND PYTHONLIBS_FOUND)
-  set(CMAKE_SWIG_FLAGS -ignoremissing -O -c++)
-  include(${SWIG_USE_FILE})
-  #add_subdirectory (client/python)
-endif()
