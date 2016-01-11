@@ -75,7 +75,7 @@ void NetworkThread::Run(){
 		TaskHeader hdr;
 		if(net->probe(&hdr)){
 			string data = net->receive(&hdr);
-//			DLOG_IF(INFO,hdr.type!=4)<<"Receive(t0) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
+			VLOG_IF(2,hdr.type!=4)<<"Receive(t0) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
 			stats["received bytes"] += hdr.nBytes;
 			stats["received type." + to_string(hdr.type)] += 1;
 
@@ -127,7 +127,7 @@ void NetworkThread::ReadAny(string& data, int *srcRet, int *typeRet){
 bool NetworkThread::TryReadAny(string& data, int *srcRet, int *typeRet){
 	TaskBase info;
 	if(checkReceiveQueue(data,info)){
-//		DLOG_IF(INFO,info.type!=4)<<"Receive(t) from "<<info.src_dst<<" to "<<id()<<", type "<<info.type;
+		VLOG_IF(2,info.type!=4)<<"Receive(t) from "<<info.src_dst<<" to "<<id()<<", type "<<info.type;
 		if(srcRet) *srcRet = info.src_dst;
 		if(typeRet) *typeRet = info.type;
 		return true;
@@ -137,7 +137,7 @@ bool NetworkThread::TryReadAny(string& data, int *srcRet, int *typeRet){
 
 // Enqueue the given request to pending buffer for transmission.
 inline int NetworkThread::Send(Task *req){
-//	DLOG_IF(INFO,req->type!=4)<<"Sending(t) from "<<id()<<" to "<<req->src_dst<<", type "<<req->type;
+	VLOG_IF(2,req->type!=4)<<"Sending(t) from "<<id()<<" to "<<req->src_dst<<", type "<<req->type;
 	int size = req->payload.size();
 	stats["sent bytes"] += size;
 	stats["sent type." + to_string(req->type)] += 1;

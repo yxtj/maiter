@@ -80,7 +80,7 @@ std::string NetworkImplMPI::receive(int dst, int type, const int nBytes){
 }
 
 void NetworkImplMPI::send(const Task* t){
-//	DLOG_IF(INFO,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
+	VLOG_IF(2,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
 	lock_guard<recursive_mutex> sl(us_lock);
 	TaskSendMPI tm{t,
 		world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type)};
@@ -121,7 +121,7 @@ size_t NetworkImplMPI::collectFinishedSend(){
 	while(it!=unconfirmed_send_buffer.end()){
 //		VLOG(3) << "Unconfirmed at " << id()<<": "<<it->tsk->src_dst<<" , "<<it->tsk->type;
 		if(it->req.Test()){
-//			VLOG(3) << "Finished send from "<<id()<<" to " << it->tsk->src_dst<< " of size " << it->tsk->payload.size();
+			VLOG_IF(2,it->tsk->type!=4)<< "Sending(f) from "<<id()<<" to " << it->tsk->src_dst<< " of type " << it->tsk->type;
 			delete it->tsk;
 			it=unconfirmed_send_buffer.erase(it);
 		}else
