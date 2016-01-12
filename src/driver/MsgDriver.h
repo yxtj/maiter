@@ -17,7 +17,6 @@
 
 namespace dsm {
 
-class NetworkThread;
 /*
  * The data flow is as below:
  * data->immediateDispatcher-+-> queue-> processDispatcher-+-> end
@@ -49,6 +48,8 @@ public:
 	void resetWaitingQueue();
 	void clear();
 
+	size_t abandonData(const int type);
+
 	const std::deque<std::pair<std::string, RPCInfo> >& getQue() const{
 		return que;
 	}
@@ -69,7 +70,7 @@ private:
 
 	Dispatcher<const std::string&, const RPCInfo&> inDisper; //immediately response
 	std::deque<std::pair<std::string, RPCInfo> > que; //queue for message waiting for process
-	mutable std::mutex lockQue;
+//	mutable std::mutex lockQue;
 	Dispatcher<const std::string&, const RPCInfo&> outDisper; //response when processed
 	callback_t defaultHandler;
 };

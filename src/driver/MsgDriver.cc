@@ -65,6 +65,7 @@ void MsgDriver::resetProcessHandler(){
 	outDisper.clear();
 }
 void MsgDriver::resetWaitingQueue(){
+//	lock_guard<mutex> ql(lockQue);
 	que.clear();
 }
 void MsgDriver::resetDefaultOutHandler(){
@@ -76,11 +77,24 @@ void MsgDriver::clear(){
 	resetWaitingQueue();
 	resetDefaultOutHandler();
 }
+size_t MsgDriver::abandonData(const int type){
+//	lock_guard<mutex> ql(lockQue);
+	size_t f=0,l=0;
+	while(l<que.size()){
+		if(que[l].second.tag==type){
+			que[f++]=move(que[l++]);
+		}else{
+			++l;
+		}
+	}
+	que.erase(que.begin()+f,que.end());
+	return l-f;
+}
 
 //Process
 bool MsgDriver::processInput(string& data, RPCInfo& info){
 	if(!inDisper.receiveData(info.tag, data, info)){
-		lock_guard<mutex> ql(lockQue);
+//		lock_guard<mutex> ql(lockQue);
 		que.push_back(make_pair(move(data),move(info)));
 		return true;
 	}
@@ -100,9 +114,14 @@ bool MsgDriver::pushData(string& data, RPCInfo& info){
 }
 bool MsgDriver::popData(){
 	if(que.empty())	return false;
-	pair<string, RPCInfo> t=move(que.front());
-	que.pop_front();
-	return processOutput(t.first, t.second);
+	string d;
+	RPCInfo r;
+	{
+//		lock_guard<mutex> ql(lockQue);
+		tie(d,r)=move(que.front());
+		que.pop_front();
+	}
+	return processOutput(d, r);
 }
 
 } /* namespace dsm */
