@@ -6,7 +6,6 @@
  */
 
 #include "MsgDriver.h"
-#include "net/NetworkThread.h"
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <thread>
@@ -25,7 +24,7 @@ MsgDriver::callback_t MsgDriver::GetDummyHandler(){
 	static callback_t dummy=[](const std::string&, const RPCInfo&){};
 	return dummy;
 }
-MsgDriver::MsgDriver():running_(false),net(nullptr)
+MsgDriver::MsgDriver():running_(false)
 {
 	clear();
 }

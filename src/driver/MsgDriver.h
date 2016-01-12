@@ -66,7 +66,6 @@ private:
 	bool processOutput(std::string& data, RPCInfo& info);
 
 	bool running_;
-	NetworkThread *net;
 
 	Dispatcher<const std::string&, const RPCInfo&> inDisper; //immediately response
 	std::deque<std::pair<std::string, RPCInfo> > que; //queue for message waiting for process
