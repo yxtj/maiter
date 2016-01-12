@@ -87,7 +87,7 @@ include_directories( ${CMAKE_CURRENT_SOURCE_DIR}
                      ${PROTOBUF_INCLUDE_DIRS}
                      ${MPI_INCDIRS}
                    )
-include_directories(
+include_directories(SYSTEM
                      external/${GFLAGS_DIR}
                      external/${GLOG_DIR}
                      external/webgraph 
