@@ -58,8 +58,8 @@ public:
 						static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->default_v();
 				//check if there is a change
 				b_no_change = true;
-				int max_i=SAMPLE_SIZE>parent_.entries_?SAMPLE_SIZE:parent_.entries_;
-				for(int i = 0; i < max_i && b_no_change; i++){
+				int end_i=SAMPLE_SIZE<=parent_.entries_*2?SAMPLE_SIZE:parent_.entries_*2;
+				for(int i = 0; i < end_i && b_no_change; i++){
 					int rand_pos = rand_num();
 					while(!parent_.buckets_[rand_pos].in_use){
 						rand_pos = rand_num();
@@ -354,9 +354,9 @@ public:
 //		while(iter->b_no_change){
 //			VLOG(1) << "wait for put";
 //			delete iter;
-//			helper->FlushUpdates();
+////			helper->FlushUpdates();
 //			std::this_thread::sleep_for(std::chrono::seconds(1) );
-//			helper->HandlePutRequest();
+////			helper->HandlePutRequest();
 //
 //			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
 //
@@ -375,8 +375,8 @@ public:
 //					total_curr += entireIter->value2();
 //				}
 //
-//				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
-//				helper->SendTermcheck(-1, total_updates, total_curr);
+////				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
+////				helper->SendTermcheck(-1, total_updates, total_curr);
 //
 //				return entireIter;
 //			}
@@ -398,9 +398,9 @@ public:
 //		while(iter->b_no_change){
 //			VLOG(1) << "wait for put, send buffered updates";
 //			delete iter;
-//			helper->FlushUpdates();
+////			helper->FlushUpdates();
 //			std::this_thread::sleep_for(std::chrono::seconds(1) );
-//			helper->HandlePutRequest();
+////			helper->HandlePutRequest();
 //
 //			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
 //
@@ -417,8 +417,8 @@ public:
 //					total_curr += entireIter->value2();
 //				}
 //
-//				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
-//				helper->SendTermcheck(-1, total_updates, total_curr);
+////				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
+////				helper->SendTermcheck(-1, total_updates, total_curr);
 //
 //				return entireIter;
 //			}
@@ -447,6 +447,7 @@ private:
 		return hashobj_(k) % size_;
 	}
 
+	//get bucket for existed key, otherwise return -1
 	int bucket_for_key(const K& k){
 		int start = bucket_idx(k);
 		int b = start;
@@ -460,6 +461,24 @@ private:
 				return -1;
 			}
 
+			b = (b + 1) % size_;
+		}while (b != start);
+
+		return -1;
+	}
+	//get bucket to access a key.
+	//when key exists return its bucket;
+	//when key do not exist return a bucket to insert it (-1 when no place to insert)
+	int bucket_for_access_key(const K& k){
+		int start = bucket_idx(k);
+		int b = start;
+
+		do{
+			if(!buckets_[b].in_use){
+				return b;
+			}else if(buckets_[b].k==k){
+				return b;
+			}
 			b = (b + 1) % size_;
 		}while (b != start);
 
@@ -584,8 +603,8 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size){
 	if(size_ == size)
 		return;
 
-	std::vector<Bucket> old_b = buckets_;
-	//int old_entries = entries_;
+	std::vector<Bucket> old_b = move(buckets_);
+	int old_entries = entries_;
 
 	// LOG(INFO) << "Rehashing.vd.. " << entries_ << " : " << size_ << " -> " << size;
 
@@ -596,11 +615,11 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size){
 	for(int i = 0; i < old_b.size(); ++i){
 		if(old_b[i].in_use){
 			put(old_b[i].k, old_b[i].v1, old_b[i].v2, old_b[i].v3);
-			LOG(INFO)<< "copy: " << old_b[i].k;
+//			LOG(INFO)<< "copy: " << old_b[i].k;
 		}
 	}
 
-	//CHECK_EQ(old_entries, entries_);
+	CHECK_EQ(old_entries, entries_)<<getcallstack();
 }
 
 template<class K, class V1, class V2, class V3>
@@ -703,8 +722,27 @@ void StateTable<K, V1, V2, V3>::accumulateF3(const K& k, const V3& v){
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, const V3& v3){
+	int b=bucket_for_access_key(k);
+	if(b==-1 /* || (!buckets_[b].in_use && entries_ >= size_*kLoadFactor) */){
+		//doesn't consider loadfactor, the tablesize is pre-defined
+		VLOG(2) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2)
+				<< " entries " << entries_;
+		resize(1 + size_ * 2);
+		b=bucket_for_access_key(k);
+	}
+	buckets_[b].in_use = 1;
+	buckets_[b].k = k;
+	buckets_[b].v1 = v1;
+	buckets_[b].v2 = v2;
+	buckets_[b].v3 = v3;
+	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
+			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
+	++entries_;
+
+	return;
+
 	int start = bucket_idx(k);
-	int b = start;
+	b = start;
 	bool found = false;
 
 	do{
@@ -722,13 +760,13 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 
 	// Inserting a new entry:
 	if(!found){
-		if(entries_ > size_ /** kLoadFactor*/){ //doesn't consider loadfactor, the tablesize is pre-defined
+		if(entries_ >= size_ /** kLoadFactor*/){ //doesn't consider loadfactor, the tablesize is pre-defined
 			VLOG(2) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2)
 					<< " entries " << entries_;
 			//entries_-=1;
 			resize(1 + size_ * 2);
 			put(k, v1, v2, v3);
-			++entries_;
+//			++entries_;
 			VLOG(2) << "if entries_: " << entries_ << "  key: " << k;
 		}else{
 			buckets_[b].in_use = 1;

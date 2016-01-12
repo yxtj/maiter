@@ -310,7 +310,7 @@ void DeltaTable<K, V1, D>::put(const K& k, const V1& v1){
 	int b = start;
 	bool found = false;
 
-	VLOG(2) << "put " << k << "," << v1 << " into deltatable";
+	VLOG(3) << "put " << k << "," << v1 << " into deltatable";
 	do{
 		if(!buckets_[b].in_use){
 			break;
