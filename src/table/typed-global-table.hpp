@@ -110,7 +110,7 @@ public:
 	void MergeUpdates(const dsm::KVPairData& req){
 		std::lock_guard<std::recursive_mutex> sl(mutex());
 
-		VLOG(2) << "applying updates, from " << req.source();
+		VLOG(3) << "applying updates, from " << req.source();
 
 		if(!is_local_shard(req.shard())){
 			LOG_EVERY_N(INFO, 1000)<< "Forwarding push request from: ("
@@ -126,7 +126,7 @@ public:
 		//TODO: optimize.
 		//it had been guaranteed received shard is local by SendUpdates. But accumulateF1 check it each time
 		for(; !it.done(); it.Next()){
-			VLOG(2) << this->owner(shard) << ":" << shard << "read from remote "
+			VLOG(3) << this->owner(shard) << ":" << shard << " read from remote "
 								<< it.key() << ";" << it.value1();
 			accumulateF1(it.key(), it.value1());
 //			ProcessUpdatesSingle(shard,it.key());
@@ -136,7 +136,14 @@ public:
 //		TermCheck();
 	}
 
+	void BufProcessUpdates(){
+		static unsigned cnt=0;
+		if(++cnt%32==0)
+			ProcessUpdates();
+	}
+
 	void ProcessUpdates(){
+		std::lock_guard<std::recursive_mutex> sl(mutex());
 		//handle multiple shards
 		for(int i=0;i<partitions_.size();++i){
 			if(!is_local_shard(i))
@@ -182,6 +189,7 @@ public:
 	}
 
 	void ProcessUpdatesSingle(const int shard, const K& k){
+		std::lock_guard<std::recursive_mutex> sl(mutex());
 		DCHECK(shard==get_shard(k))<<"given shard for a key do not match local record";
 		StateTable<K,V1,V2,V3>* pt=dynamic_cast<StateTable<K,V1,V2,V3>*>(partitions_[shard]);
 		ClutterRecord<K,V1,V2,V3> c=pt->get(k);

@@ -216,15 +216,15 @@ public:
 			if(tgt->is_local_shard(i))
 				t.push_back(tgt->get_partition(i));
 		}
-		bool single=tgt->num_shards()==1;
+//		bool single=tgt->num_shards()==1;
 		bool finish=false;
 		while(!finish){
 			finish=true;
 			for(Table* p : t)
 				if(p->alive())
 					finish=false;
-			if(single)
-				tgt->ProcessUpdates();
+//			if(single)
+				tgt->BufProcessUpdates();
 			tgt->BufSend();
 			tgt->TermCheck();
 			std::this_thread::sleep_for(std::chrono::duration<double>(0.01));

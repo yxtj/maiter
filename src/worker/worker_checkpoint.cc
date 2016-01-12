@@ -34,6 +34,7 @@ void Worker::initialCP(){
 
 	switch(kreq.cp_type()){
 	case CP_NONE:
+		VLOG(1)<<"register none cp handler";
 		driver.unregisterImmediateHandler(MTYPE_CHECKPOINT_START);
 		driver.unregisterProcessHandler(MTYPE_CHECKPOINT_START);
 		driver.unregisterImmediateHandler(MTYPE_CHECKPOINT_FINISH);
@@ -42,25 +43,28 @@ void Worker::initialCP(){
 		driver.unregisterProcessHandler(MTYPE_CHECKPOINT_SIG);
 		break;
 	case CP_SYNC:
+		VLOG(1)<<"register sync cp handler";
 		RegDSPProcess(MTYPE_CHECKPOINT_START, &Worker::HandleStartCheckpoint);
 		RegDSPImmediate(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);
 		driver.unregisterImmediateHandler(MTYPE_CHECKPOINT_SIG);
 		driver.unregisterProcessHandler(MTYPE_CHECKPOINT_SIG);
 		break;
 	case CP_SYNC_SIG:
+		VLOG(1)<<"register sync_sig cp handler";
 		RegDSPProcess(MTYPE_CHECKPOINT_START, &Worker::HandleStartCheckpoint);
 //		RegDSPProcess(MTYPE_CHECKPOINT_START, &Worker::HandleStartCheckpoint, true);
 		RegDSPImmediate(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);
 		RegDSPImmediate(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
 		break;
 	case CP_ASYNC:
+		VLOG(1)<<"register async cp handler";
 		RegDSPProcess(MTYPE_CHECKPOINT_START, &Worker::HandleStartCheckpoint);
 //		RegDSPProcess(MTYPE_CHECKPOINT_START, &Worker::HandleStartCheckpoint, true);
 		RegDSPProcess(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);
 		RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
 		break;
 	default:
-			LOG(ERROR)<<"given checkpoint type is not implemented.";
+			LOG(FATAL)<<"given checkpoint type is not implemented.";
 	}
 }
 
@@ -279,6 +283,9 @@ void Worker::_processCPSig_SyncSig(const int wid){
  */
 void Worker::_startCP_Async(){
 	pause_pop_msg_=true;
+	// Because local checkpoint stores unprocessed delta (future out-going
+	// message) together with current value, we need not to process and send
+	// then before sending the flush signal.
 	_sendCPFlushSig();
 
 	_startCP_common();

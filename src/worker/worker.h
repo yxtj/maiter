@@ -133,6 +133,8 @@ private:
 	void RegDSPProcess(const int type, callback_t fp, bool spawnThread=false);
 	void RegDSPDefault(callback_t fp);
 
+	void clearUnprocessedPut();
+
 	mutable std::recursive_mutex state_lock_;
 
 	// The current epoch this worker is running within.

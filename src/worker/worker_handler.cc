@@ -145,6 +145,13 @@ void Worker::HandleFlush(const string& d, const RPCInfo& rpc){
 
 
 void Worker::HandleApply(const string& d, const RPCInfo& rpc){
+	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+		if(t){
+			t->ProcessUpdates();
+		}
+	}
 	sendReply(rpc);
 }
 
@@ -165,6 +172,7 @@ void Worker::HandleTermNotification(const string& d, const RPCInfo& rpc){
 			ta->get_partition(i)->terminate();
 		}
 	}
+	clearUnprocessedPut();
 	sendReply(rpc);
 }
 

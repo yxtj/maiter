@@ -84,7 +84,7 @@ void Worker::MsgLoop(){
 	info.dest=network_->id();
 	while(running_){
 		while(network_->TryReadAny(data, &info.source, &info.tag)){
-			DLOG_IF(INFO,info.tag!=4)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
+			DLOG_IF(INFO,info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
 					<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
 			driver.pushData(data,info);
 		}
@@ -255,12 +255,12 @@ void Worker::SendPutRequest(int dstWorkerID, const KVPairData& put){
 }
 
 void Worker::ProcessPutRequest(const KVPairData& put){
-	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
-				<< put.table()<<","<<put.shard()<<")";
+//	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
+//				<< put.table()<<","<<put.shard()<<")";
 
 	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
 	t->MergeUpdates(put);
-	t->ProcessUpdates();
+//	t->ProcessUpdates();
 
 	if(put.done() && t->tainted(put.shard())){
 		VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());
@@ -285,6 +285,12 @@ void Worker::sendReply(const RPCInfo& rpc, const bool res){
 	rm.set_type(static_cast<MessageTypes>(rpc.tag));
 	rm.set_result(res);
 	network_->Send(rpc.source, MTYPE_REPLY, rm);
+}
+
+void Worker::clearUnprocessedPut(){
+	pause_pop_msg_=true;
+	driver.abandonData(MTYPE_PUT_REQUEST);
+	pause_pop_msg_=false;
 }
 
 void Worker::CheckForMasterUpdates(){

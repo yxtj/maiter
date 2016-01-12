@@ -204,7 +204,7 @@ void MutableGlobalTable::BufSend(){
 	if(pending_writes_ > FLAGS_bufmsg ||
 			(pending_writes_ != 0 && t.elapsed() > FLAGS_buftime))
 	{
-		VLOG(2) << "accumulate pending writes " << pending_writes_ << ", in "<<t.elapsed();
+		VLOG(3) << "accumulate pending writes " << pending_writes_ << ", in "<<t.elapsed();
 		t.Reset();
 		SendUpdates();
 	}
@@ -218,7 +218,7 @@ void MutableGlobalTable::SendUpdates(){
 		if(!is_local_shard(i) && (get_partition_info(i)->dirty || !t->empty())){
 			// Always send at least one chunk, to ensure that we clear taint on
 			// tables we own.
-			do{
+//			do{
 				put.Clear();
 				put.set_shard(i);
 				put.set_source(helper()->id());
@@ -234,10 +234,10 @@ void MutableGlobalTable::SendUpdates(){
 				//VLOG(3) << "Sending update for " << MP(t->id(), t->shard()) << " to " << owner(i) << " size " << put.kv_data_size();
 //				sent_bytes_ += NetworkThread::Get()->Send(owner(i) + 1, MTYPE_PUT_REQUEST, put);
 				helper()->SendPutRequest(owner(i),put);
-			}while(!t->empty());
+//			}while(!t->empty());
 
 			VLOG(3) << "Done with update for (" <<t->id()<<","<<t->shard()<<")";
-			t->clear();
+//			t->clear();
 		}
 	}
 

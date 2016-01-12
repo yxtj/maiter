@@ -404,7 +404,8 @@ void Master::run(RunDescriptor&& r){
 	CHECK_EQ(k->has_method(r.method), true) << "Invalid method: " << r.kernel<<" : "<< r.method;
 	{
 		Args* p=r.params.ToMessage();
-		VLOG(1) << "Running: " << r.kernel << " : " << r.method << " : " << *p;
+		VLOG(1) << "Running: " << r.kernel << " : " << r.method << " : " << *p
+				<<", CP="<<CheckpointType_Name(r.checkpoint_type)<<", termcheck="<<r.termcheck;
 		delete p;
 	}
 
