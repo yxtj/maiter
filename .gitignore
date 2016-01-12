@@ -25,4 +25,6 @@ conf/
 /Makefile
 Makefile
 track_log
-
+log
+maiter
+*.sh
