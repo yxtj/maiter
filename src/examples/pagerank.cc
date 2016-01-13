@@ -70,11 +70,12 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 };
 
 static int Pagerank(ConfigData& conf){
+	Sharders::Mod vS;
+	PagerankIterateKernel vRIK;
+	TermCheckers<int, float>::Diff vTC;
 	MaiterKernel<int, float, vector<int> >* kernel = new MaiterKernel<int, float, vector<int> >(
 			conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
-			new Sharders::Mod,
-			new PagerankIterateKernel,
-			new TermCheckers<int, float>::Diff);
+			&vS, &vRIK, &vTC);
 
 	kernel->registerMaiter();
 
