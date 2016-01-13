@@ -143,7 +143,11 @@ public:
 	}
 
 	void ProcessUpdates(){
+		if(!allowProcess())
+			return;
 		std::lock_guard<std::recursive_mutex> sl(mutex());
+		if(!allowProcess())
+			return;
 		//handle multiple shards
 		for(int i=0;i<partitions_.size();++i){
 			if(!is_local_shard(i))

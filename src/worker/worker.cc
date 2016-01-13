@@ -134,12 +134,17 @@ void Worker::runKernel(){
 	args.FromMessage(kreq.args());
 	d->set_args(args);
 
-	initialCP();
+	initialCP(kreq.cp_type());
 //	if(id()==0)	//hack for strange synchronization problem
 //		Sleep();
+	_enableProcess();
 
 	// Run the user kernel
 	helper->Run(d, kreq.method());
+
+	//clear the setting for checkpointing
+	if(kreq.cp_type()!=CP_NONE)
+		initialCP(CP_NONE);
 
 	delete d;
 }
@@ -291,6 +296,25 @@ void Worker::clearUnprocessedPut(){
 	pause_pop_msg_=true;
 	driver.abandonData(MTYPE_PUT_REQUEST);
 	pause_pop_msg_=false;
+}
+
+void Worker::_enableProcess(){
+	TableRegistry::Map &tbl = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator it = tbl.begin(); it != tbl.end(); ++it){
+		MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(it->second);
+		if(t){
+			t->enableProcess();
+		}
+	}
+}
+void Worker::_disableProcess(){
+	TableRegistry::Map &tbl = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator it = tbl.begin(); it != tbl.end(); ++it){
+		MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(it->second);
+		if(t){
+			t->disableProcess();
+		}
+	}
 }
 
 void Worker::CheckForMasterUpdates(){

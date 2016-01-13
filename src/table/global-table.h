@@ -73,6 +73,10 @@ public:
 	virtual void ProcessUpdates() = 0;
 	virtual void TermCheck() = 0;
 
+	bool allowProcess(){ return allow2Process_; }
+	void enableProcess(){ allow2Process_=true; }
+	void disableProcess(){ allow2Process_=false; }
+
 	virtual int pending_write_bytes() = 0;
 
 	virtual void resize(int64_t new_size) = 0;
@@ -81,6 +85,8 @@ public:
 	// Exchange the content of this table with that of table 'b'.
 	virtual void swap(GlobalTableBase *b) = 0;
 	virtual void local_swap(GlobalTableBase *b) = 0;
+private:
+	bool allow2Process_=true;
 };
 
 class GlobalTable: virtual public GlobalTableBase{

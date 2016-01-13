@@ -97,7 +97,7 @@ private:
 	void ProcessPutRequest(const KVPairData& put);
 
 //functions for checkpoint
-	void initialCP();
+	void initialCP(CheckpointType cpType);
 	void HandleStartCheckpoint(const std::string& d, const RPCInfo& rpc);
 	void HandleFinishCheckpoint(const std::string& d, const RPCInfo& rpc);
 	void HandleRestore(const std::string& d, const RPCInfo& rpc);
@@ -134,6 +134,8 @@ private:
 	void RegDSPDefault(callback_t fp);
 
 	void clearUnprocessedPut();
+	void _enableProcess();
+	void _disableProcess();
 
 	mutable std::recursive_mutex state_lock_;
 
