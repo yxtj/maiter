@@ -83,15 +83,28 @@ void Worker::MsgLoop(){
 	RPCInfo info;
 	info.dest=network_->id();
 	while(running_){
-		while(network_->TryReadAny(data, &info.source, &info.tag)){
+//		while(network_->TryReadAny(data, &info.source, &info.tag)){
+//			DLOG_IF(INFO,info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
+//					<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
+//			driver.pushData(data,info);
+//		}
+//		Sleep();
+//		while(!pause_pop_msg_ && !driver.empty()){
+//			driver.popData();
+//		}
+		bool busy=false;
+		if(network_->TryReadAny(data, &info.source, &info.tag)){
 			DLOG_IF(INFO,info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
 					<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
 			driver.pushData(data,info);
+			busy=true;
 		}
-		Sleep();
-		while(!pause_pop_msg_ && !driver.empty()){
+		if(!pause_pop_msg_ && !driver.empty()){
 			driver.popData();
+			busy=true;
 		}
+		if(!busy)
+			Sleep();
 	}
 }
 

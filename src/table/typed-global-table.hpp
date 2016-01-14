@@ -26,8 +26,6 @@
 #include <glog/logging.h>
 #include <gflags/gflags.h>
 
-DECLARE_int32(bufmsg);
-
 namespace dsm{
 
 template<class K, class V1, class V2, class V3>
@@ -134,12 +132,6 @@ public:
 
 //		ProcessUpdates();
 //		TermCheck();
-	}
-
-	void BufProcessUpdates(){
-		static unsigned cnt=0;
-		if(++cnt%32==0)
-			ProcessUpdates();
 	}
 
 	void ProcessUpdates(){

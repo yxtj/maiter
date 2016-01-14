@@ -159,6 +159,7 @@ public:
 	void BufSend();
 	void SendUpdates();
 	virtual void MergeUpdates(const KVPairData& req) = 0;
+	void BufProcessUpdates();
 	virtual void ProcessUpdates() = 0;
 	void TermCheck();
 

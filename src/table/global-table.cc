@@ -7,7 +7,6 @@
 //static const int kMaxNetworkChunk = 1 << 20;
 
 DEFINE_int32(snapshot_interval, 99999999, "");
-//DEFINE_int32(bufmsg, 1000000, "");
 DECLARE_int32(bufmsg);
 DECLARE_double(buftime);
 
@@ -249,6 +248,13 @@ void MutableGlobalTable::SendUpdates(){
 	 " object create takes " << objectcreate_overhead;
 	 */
 	pending_writes_ = 0;
+}
+
+void MutableGlobalTable::BufProcessUpdates(){
+	PERIODIC(FLAGS_buftime, this->ProcessUpdates());
+//		static unsigned cnt=0;
+//		if(++cnt%32==0)
+//			ProcessUpdates();
 }
 
 int MutableGlobalTable::pending_write_bytes(){
