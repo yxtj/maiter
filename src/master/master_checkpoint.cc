@@ -35,13 +35,11 @@ void Master::start_checkpoint(){
 
 	File::Mkdirs(FLAGS_checkpoint_write_dir+StringPrintf("/epoch_%04d/", checkpoint_epoch_));
 
-//	if(current_run_.checkpoint_type == CP_NONE){
-//		current_run_.checkpoint_type = CP_MASTER_CONTROLLED;
-//	}
 	for(int i = 0; i < workers_.size(); ++i){
 		start_worker_checkpoint(i, current_run_);
 	}
 
+	//reply to this request
 	su_cp_start.wait();
 	su_cp_start.reset();
 }
@@ -65,17 +63,16 @@ void Master::start_worker_checkpoint(int worker_id, const RunDescriptor &r){
 }
 
 void Master::finish_checkpoint(){
-
-	CheckpointRequest req;
-	req.set_epoch(checkpoint_epoch_);
-	for(int i = 0; i < workers_.size(); ++i){
-		CHECK_EQ(workers_[i]->checkpointing, true);
-//		network_->Send(workers_[worker_id]->net_id, MTYPE_CHECKPOINT_FINISH, req);
-	}
-	network_->Broadcast(MTYPE_CHECKPOINT_FINISH,req);
-
-	su_cp_finish.wait();
-	su_cp_finish.reset();
+//	CheckpointRequest req;
+//	req.set_epoch(checkpoint_epoch_);
+//	for(int i = 0; i < workers_.size(); ++i){
+//		CHECK_EQ(workers_[i]->checkpointing, true);
+////		network_->Send(workers_[worker_id]->net_id, MTYPE_CHECKPOINT_FINISH, req);
+//	}
+//	network_->Broadcast(MTYPE_CHECKPOINT_FINISH,req);
+//
+//	su_cp_finish.wait();
+//	su_cp_finish.reset();
 
 	for(int i = 0; i < workers_.size(); ++i){
 		workers_[i]->checkpointing=false;
@@ -123,6 +120,18 @@ void Master::checkpoint(){
 		//TODO: add mechanism for existing and abandoning unfinished cp when the kernel is done.
 		Timer cp_timer;
 		start_checkpoint();
+
+//		finish_checkpoint();
+		CheckpointRequest req;
+		req.set_epoch(checkpoint_epoch_);
+//		for(int i = 0; i < workers_.size(); ++i){
+//			CHECK_EQ(workers_[i]->checkpointing, true);
+//		}
+		network_->Broadcast(MTYPE_CHECKPOINT_FINISH,req);
+		su_cp_finish.wait();
+		su_cp_finish.reset();
+
+		//report for a certain cp state (useful for ASYNC)
 		su_cp_local.wait();
 		su_cp_local.reset();
 		finish_checkpoint();

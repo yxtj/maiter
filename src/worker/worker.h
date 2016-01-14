@@ -94,7 +94,7 @@ private:
 
 	void SendTermcheck(int index, long updates, double current);
 
-	void ProcessPutRequest(const KVPairData& put);
+	void HandlePutRequestReal(const KVPairData& put);
 
 //functions for checkpoint
 	void initialCP(CheckpointType cpType);
@@ -108,10 +108,10 @@ private:
 	bool finishCheckpoint(const int epoch);
 	void restore(int epoch);
 
-	void _startCP_common();
+	void _CP_start();
 	void _sendCPFlushSig();
-	void _startCP_report();
-	void _finishCP_common();
+	void _CP_report();
+	void _CP_stop();
 
 	void _startCP_Sync();
 	void _finishCP_Sync();
@@ -123,6 +123,7 @@ private:
 	void _finishCP_Async();
 	void _processCPSig_Async(const int wid);
 	void _HandlePutRequest_AsynCP(const std::string& d, const RPCInfo& info);
+	//assume there is only one table. General form: xx[# of table][# of worker]
 	std::vector<bool> _cp_async_sig_rec;
 
 	void removeCheckpoint(const int epoch);

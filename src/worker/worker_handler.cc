@@ -69,7 +69,7 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
 	KVPairData put;
 	put.ParseFromString(d);
-	ProcessPutRequest(put);
+	HandlePutRequestReal(put);
 }
 
 
@@ -172,7 +172,7 @@ void Worker::HandleTermNotification(const string& d, const RPCInfo& rpc){
 			ta->get_partition(i)->terminate();
 		}
 	}
-	clearUnprocessedPut();
+//	clearUnprocessedPut();
 	sendReply(rpc);
 }
 

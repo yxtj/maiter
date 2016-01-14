@@ -515,7 +515,7 @@ void StateTable<K, V1, V2, V3>::serializeToFile(TableCoder *out){
 		v1.clear();
 		v2.clear();
 		v3.clear();
-		DVLOG(1)<<i->pos<<": k="<<i->key()<<" v1="<<i->value1()<<" v2="<<i->value2();
+		DVLOG(2)<<i->pos<<": k="<<i->key()<<" v1="<<i->value1()<<" v2="<<i->value2();
 		((Marshal<K>*)info_.key_marshal)->marshal(i->key(), &k);
 //		DVLOG(1)<<"k="<<i->key()<<" - "<<k;
 		((Marshal<V1>*)info_.value1_marshal)->marshal(i->value1(), &v1);

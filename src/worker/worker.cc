@@ -259,7 +259,7 @@ void Worker::SendPutRequest(int dstWorkerID, const KVPairData& put){
 	network_->Send(dstWorkerID + 1, MTYPE_PUT_REQUEST, put);
 }
 
-void Worker::ProcessPutRequest(const KVPairData& put){
+void Worker::HandlePutRequestReal(const KVPairData& put){
 //	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
 //				<< put.table()<<","<<put.shard()<<")";
 
