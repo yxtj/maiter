@@ -46,9 +46,13 @@ NetworkImplMPI* NetworkImplMPI::GetInstance(){
 	return self;
 }
 
-void NetworkImplMPI::shutdown(){
-	VLOG(1)<<"Shut down MPI at rank "<<id();
-	MPI::Finalize();
+void NetworkImplMPI::Shutdown(){
+	if(!MPI::Is_finalized()){
+		VLOG(1)<<"Shut down MPI at rank "<<MPI::COMM_WORLD.Get_rank();
+		MPI::Finalize();
+	}
+	delete self;
+	self=nullptr;
 }
 
 ////
@@ -65,7 +69,7 @@ bool NetworkImplMPI::probe(TaskHeader* hdr){
 	return true;
 }
 std::string NetworkImplMPI::receive(const TaskHeader* hdr){
-//	DLOG_IF(INFO,hdr->type!=4)<<"Receive(m) from "<<hdr->src_dst<<" to "<<id()<<", type "<<hdr->type;
+//	VLOG_IF(2,hdr->type!=4)<<"Receive(m) from "<<hdr->src_dst<<" to "<<id()<<", type "<<hdr->type;
 	string data(hdr->nBytes,'\0');
 	world.Recv(const_cast<char*>(data.data()), hdr->nBytes, MPI::BYTE, hdr->src_dst, hdr->type);
 	return data;
@@ -80,10 +84,11 @@ std::string NetworkImplMPI::receive(int dst, int type, const int nBytes){
 }
 
 void NetworkImplMPI::send(const Task* t){
-	VLOG_IF(2,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
+//	VLOG_IF(2,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
 	lock_guard<recursive_mutex> sl(us_lock);
 	TaskSendMPI tm{t,
 		world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type)};
+//		MPI::Request()};
 	unconfirmed_send_buffer.push_back(tm);
 }
 //void NetworkImplMPI::send(const int dst, const int type, const std::string& data){

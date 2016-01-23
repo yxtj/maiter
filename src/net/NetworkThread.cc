@@ -19,7 +19,7 @@ static inline void Sleep(){
 }
 
 NetworkThread::NetworkThread() :
-		running(false), net(NULL){
+		running(false), done(false), net(nullptr){
 	net = NetworkImplMPI::GetInstance();
 
 	running = true;
@@ -65,24 +65,23 @@ int64_t NetworkThread::unpicked_bytes() const{
 	return t;
 }
 
-//void NetworkThread::ProcessReceivedMsg(int source, int tag, string& data){
-//	receive_buffer.push_back(make_pair(move(data),TaskBase{source,tag}));
-//}
-
 void NetworkThread::Run(){
+	TaskHeader hdr;
+	unsigned cnt_idle_loop=0;
+	static constexpr unsigned SLEEP_CNT=256;
+	done=false;
 	while(running){
+		bool idle=false;
 		//receive
-		TaskHeader hdr;
 		if(net->probe(&hdr)){
 			string data = net->receive(&hdr);
-			VLOG_IF(2,hdr.type!=4)<<"Receive(t0) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
+			VLOG_IF(2,hdr.type!=4)<<"Receive(t) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
 			stats["received bytes"] += hdr.nBytes;
 			stats["received type." + to_string(hdr.type)] += 1;
 
-//			ProcessReceivedMsg(hdr.src_dst, hdr.type, data);
 			receive_buffer.push_back(make_pair(move(data),TaskBase{hdr.src_dst, hdr.type}));
 		}else{
-			Sleep();
+			idle=true;
 		}
 		//clear useless send buffer
 		net->collectFinishedSend();
@@ -94,14 +93,17 @@ void NetworkThread::Run(){
 			{
 				lock_guard<recursive_mutex> sl(ps_lock);
 				pending_sends_=&ps_buffer_[ps_idx_++%2];
-
 			}
 			auto end_it=pv->end();
 			for(auto it = pv->begin(); it != end_it; ++it)
 				net->send(*it);
 			pv->clear();
+		}else{
+			if(idle && ++cnt_idle_loop%SLEEP_CNT==0)
+				Sleep();
 		}
 	}
+	done=true;
 }
 
 bool NetworkThread::checkReceiveQueue(std::string& data, TaskBase& info){
@@ -127,7 +129,7 @@ void NetworkThread::ReadAny(string& data, int *srcRet, int *typeRet){
 bool NetworkThread::TryReadAny(string& data, int *srcRet, int *typeRet){
 	TaskBase info;
 	if(checkReceiveQueue(data,info)){
-		VLOG_IF(2,info.type!=4)<<"Receive(t) from "<<info.src_dst<<" to "<<id()<<", type "<<info.type;
+		VLOG_IF(2,info.type!=4)<<"Receive(f) from "<<info.src_dst<<" to "<<id()<<", type "<<info.type;
 		if(srcRet) *srcRet = info.src_dst;
 		if(typeRet) *typeRet = info.type;
 		return true;
@@ -161,14 +163,6 @@ int NetworkThread::DSend(int dst, int method, const Message &msg){
 	return DSend(new Task(dst, method, msg));
 }
 
-void NetworkThread::Shutdown(){
-	if(running){
-		Flush();
-		running = false;
-		net->shutdown();
-	}
-}
-
 void NetworkThread::Flush(){
 	while(active()){
 		Sleep();
@@ -184,18 +178,38 @@ void NetworkThread::Broadcast(int method, const Message& msg){
 //	}
 }
 
-static NetworkThread* self = NULL;
+static NetworkThread* self = nullptr;
 NetworkThread* NetworkThread::Get(){
+	if(self==nullptr){
+		self=new NetworkThread();
+	}
 	return self;
 }
 
+void NetworkThread::Shutdown(){
+	if(running){
+		Flush();	//finish all the sending
+		running = false;
+		//wait for Run() to exit
+		while(!done){
+			Sleep();
+		}
+		net=nullptr;
+		NetworkImplMPI::Shutdown();
+	}
+	NetworkThread* v=nullptr;
+	swap(v,self);
+	delete v;
+}
+
 static void ShutdownImpl(){
-	NetworkThread::Get()->Shutdown();
+	if(self!=nullptr)
+		self->Shutdown();
 }
 
 void NetworkThread::Init(){
 	VLOG(1) << "Initializing network...";
-	CHECK(self == NULL);
+	CHECK(self == nullptr);
 	self = new NetworkThread();
 	atexit(&ShutdownImpl);
 }

@@ -29,11 +29,10 @@ public:
 	std::string receive(int dst, int type, const int nBytes);
 	// Try send out a message with given hdr and content.
 	void send(const Task* t);
-//	void send(const int dst, const int type, const std::string& data);
-//	void send(const int dst, const int type, std::string&& data);
 	void broadcast(const Task* t);
 
 	static NetworkImplMPI* GetInstance();
+	static void Shutdown();
 	static int TransformSrc(int s_d){
 		return s_d==TaskBase::ANY_SRC ? MPI::ANY_SOURCE : s_d;
 	}
@@ -43,7 +42,6 @@ public:
 
 	int id() const;
 	int size() const;
-	void shutdown();
 
 	// Check unfinished send buffer and remove those have succeeded, return left task number.
 	size_t collectFinishedSend();
