@@ -71,7 +71,7 @@ void NetworkThread::Run(){
 	static constexpr unsigned SLEEP_CNT=256;
 	done=false;
 	while(running){
-		bool idle=false;
+		bool idle=true;
 		//receive
 		if(net->probe(&hdr)){
 			string data = net->receive(&hdr);
@@ -80,8 +80,7 @@ void NetworkThread::Run(){
 			stats["received type." + to_string(hdr.type)] += 1;
 
 			receive_buffer.push_back(make_pair(move(data),TaskBase{hdr.src_dst, hdr.type}));
-		}else{
-			idle=true;
+			idle=false;
 		}
 		//clear useless send buffer
 		net->collectFinishedSend();

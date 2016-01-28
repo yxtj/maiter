@@ -134,9 +134,9 @@ size_t NetworkImplMPI::collectFinishedSend(){
 	}
 	return unconfirmed_send_buffer.size();
 }
-size_t NetworkImplMPI::unconfirmedTaskNum() const{
-	return unconfirmed_send_buffer.size();
-}
+//size_t NetworkImplMPI::unconfirmedTaskNum() const{
+//	return unconfirmed_send_buffer.size();
+//}
 std::vector<const Task*> NetworkImplMPI::unconfirmedTask() const{
 	lock_guard<recursive_mutex> sl(us_lock);
 	std::vector<const Task*> res;

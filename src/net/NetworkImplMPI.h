@@ -46,7 +46,9 @@ public:
 	// Check unfinished send buffer and remove those have succeeded, return left task number.
 	size_t collectFinishedSend();
 	// Get info of the unfinished sending tasks (do not update it)
-	size_t unconfirmedTaskNum() const;
+	size_t unconfirmedTaskNum() const{
+		return unconfirmed_send_buffer.size();
+	}
 	size_t unconfirmedBytes() const;
 	std::vector<const Task*> unconfirmedTask() const;
 private:
