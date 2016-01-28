@@ -28,3 +28,7 @@ track_log
 log
 maiter
 *.sh
+log*
+*log
+
+
