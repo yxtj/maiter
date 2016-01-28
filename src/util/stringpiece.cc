@@ -90,7 +90,7 @@ string VStringPrintf(StringPiece fmt, va_list l) {
   char *buffer=new char[len];
   vsnprintf(buffer, len, str.c_str(), l);
   string res(buffer);
-  delete buffer;
+  delete[] buffer;
   return res;
 }
 
