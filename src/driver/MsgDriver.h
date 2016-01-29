@@ -34,10 +34,10 @@ public:
 
 
 	// For message should be handled at receiving time (i.e. alive check)
-	void registerImmediateHandler(const int type, callback_t cb, bool spawnThread=false);
+	void registerImmediateHandler(const int type, callback_t cb);
 	void unregisterImmediateHandler(const int type);
 	// For message should be handled in sequence (i.e. data update)
-	void registerProcessHandler(const int type, callback_t cb, bool spawnThread=false);
+	void registerProcessHandler(const int type, callback_t cb);
 	void unregisterProcessHandler(const int type);
 
 	void registerDefaultOutHandler(callback_t cb);

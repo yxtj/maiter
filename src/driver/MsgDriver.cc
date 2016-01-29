@@ -6,20 +6,13 @@
  */
 
 #include "MsgDriver.h"
-#include <gflags/gflags.h>
-#include <glog/logging.h>
 #include <thread>
-
-DECLARE_double(sleep_time);
 
 using namespace std;
 
 namespace dsm {
 
 //Helper
-void Sleep(){
-	this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
-}
 MsgDriver::callback_t MsgDriver::GetDummyHandler(){
 	static callback_t dummy=[](const std::string&, const RPCInfo&){};
 	return dummy;
@@ -40,14 +33,14 @@ bool MsgDriver::busy() const{
 }
 
 //Register
-void MsgDriver::registerImmediateHandler(const int type, callback_t cb, bool spawnThread){
-	inDisper.registerDispFun(type,cb,spawnThread);
+void MsgDriver::registerImmediateHandler(const int type, callback_t cb){
+	inDisper.registerDispFun(type,cb);
 }
 void MsgDriver::unregisterImmediateHandler(const int type){
 	inDisper.unregisterDispFun(type);
 }
-void MsgDriver::registerProcessHandler(const int type, callback_t cb, bool spawnThread){
-	outDisper.registerDispFun(type,cb,spawnThread);
+void MsgDriver::registerProcessHandler(const int type, callback_t cb){
+	outDisper.registerDispFun(type,cb);
 }
 void MsgDriver::unregisterProcessHandler(const int type){
 	outDisper.unregisterDispFun(type);
