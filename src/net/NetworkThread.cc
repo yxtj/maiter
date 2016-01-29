@@ -53,9 +53,9 @@ int64_t NetworkThread::pending_bytes() const{
 	return t;
 }
 
-size_t NetworkThread::unpicked_pkgs() const{
-	return receive_buffer.size();
-}
+//size_t NetworkThread::unpicked_pkgs() const{
+//	return receive_buffer.size();
+//}
 int64_t NetworkThread::unpicked_bytes() const{
 	int64_t t=0;
 	lock_guard<recursive_mutex> rl(rec_lock);
@@ -73,20 +73,25 @@ void NetworkThread::Run(){
 	while(running){
 		bool idle=true;
 		//receive
-		if(net->probe(&hdr)){
-			string data = net->receive(&hdr);
-			VLOG_IF(2,hdr.type!=4)<<"Receive(t) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
-			stats["received bytes"] += hdr.nBytes;
-			stats["received type." + to_string(hdr.type)] += 1;
+//		if(unpicked_pkgs()<=FLAGS_max_preread_pkg){
+			if(doReading && net->probe(&hdr)){
+				string data = net->receive(&hdr);
+				VLOG_IF(2,hdr.type!=4)<<"Receive(t) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
+				lock_guard<recursive_mutex> sl(rec_lock);
+				stats["received bytes"] += hdr.nBytes;
+				stats["received type." + to_string(hdr.type)] += 1;
 
-			receive_buffer.push_back(make_pair(move(data),TaskBase{hdr.src_dst, hdr.type}));
-			idle=false;
-		}
+				receive_buffer.push_back(make_pair(move(data),TaskBase{hdr.src_dst, hdr.type}));
+				idle=false;
+			}
+//		}else{
+//			DLOG_EVERY_N(INFO,1000)<<"Too many unprocessed msg. "<<unpicked_pkgs();
+//		}
 		//clear useless send buffer
 		net->collectFinishedSend();
 		//send
 		/* bunch send: */
-		if(!pending_sends_->empty()){
+		if(doReading && !pending_sends_->empty()){
 			//two-buffers-swapping implementation for better performance
 			vector<Task*>* pv=pending_sends_;
 			{
@@ -106,6 +111,20 @@ void NetworkThread::Run(){
 }
 
 bool NetworkThread::checkReceiveQueue(std::string& data, TaskBase& info){
+//	TaskHeader hdr;
+//	if(net->probe(&hdr)){
+//		data = net->receive(&hdr);
+//		VLOG_IF(2,hdr.type!=4)<<"Receive(t) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
+//		lock_guard<recursive_mutex> sl(rec_lock);
+//		stats["received bytes"] += hdr.nBytes;
+//		stats["received type." + to_string(hdr.type)] += 1;
+//		info=hdr;
+////		info.src_dst=hdr.src_dst;
+////		info.type=hdr.type;
+//
+//		return true;
+//	}
+//	return false;
 	if(!receive_buffer.empty()){
 		lock_guard<recursive_mutex> sl(rec_lock);
 		if(receive_buffer.empty()) return false;

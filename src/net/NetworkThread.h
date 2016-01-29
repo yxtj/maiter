@@ -27,7 +27,9 @@ public:
 	bool active() const;
 	size_t pending_pkgs() const;
 	int64_t pending_bytes() const;
-	size_t unpicked_pkgs() const;
+	size_t unpicked_pkgs() const{
+		return receive_buffer.size();
+	}
 	int64_t unpicked_bytes() const;
 
 	// Blocking read for the given source and message type.
@@ -51,6 +53,7 @@ public:
 	static void Init();
 
 	Stats stats;
+	bool doReading=true;
 
 //	static constexpr int ANY_SRC = TaskBase::ANY_SRC;
 //	static constexpr int ANY_TAG = TaskBase::ANY_TYPE;
