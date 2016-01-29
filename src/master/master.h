@@ -119,8 +119,8 @@ private:
 
 	//helpers for registering message handlers
 	typedef void (Master::*callback_t)(const string&, const RPCInfo&);
-	void RegDSPImmediate(const int type, callback_t fp, bool spawnThread=false);
-	void RegDSPProcess(const int type, callback_t fp, bool spawnThread=false);
+	void RegDSPImmediate(const int type, callback_t fp);
+	void RegDSPProcess(const int type, callback_t fp);
 	void RegDSPDefault(callback_t fp);
 
 	SyncUnit su_swap;

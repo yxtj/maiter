@@ -21,11 +21,11 @@ using namespace std::placeholders;
 
 namespace dsm{
 
-void Worker::RegDSPImmediate(const int type, callback_t fp, bool spawnThread){
-	driver.registerImmediateHandler(type, bind(fp, this, _1, _2), spawnThread);
+void Worker::RegDSPImmediate(const int type, callback_t fp){
+	driver.registerImmediateHandler(type, bind(fp, this, _1, _2));
 }
-void Worker::RegDSPProcess(const int type, callback_t fp, bool spawnThread){
-	driver.registerProcessHandler(type, bind(fp, this, _1, _2), spawnThread);
+void Worker::RegDSPProcess(const int type, callback_t fp){
+	driver.registerProcessHandler(type, bind(fp, this, _1, _2));
 }
 void Worker::RegDSPDefault(callback_t fp){
 	driver.registerDefaultOutHandler(bind(fp, this, _1, _2));
@@ -67,9 +67,21 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 }
 
 void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
+//	static int count=0;
+//	static double time=0;
+//	static Timer tmr;
+//	tmr.Reset();
+
 	KVPairData put;
 	put.ParseFromString(d);
 	HandlePutRequestReal(put);
+
+//	time+=tmr.elapsed();
+//	if(++count==200){
+//		VLOG(1)<<"\naverage process time (put)="<<time/count;
+//		count=0;
+//		time=0;
+//	}
 }
 
 

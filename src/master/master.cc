@@ -120,7 +120,7 @@ void Master::MsgLoop(){
 	RPCInfo info;
 	info.dest=network_->id();
 	while(running_){
-		if(network_->TryReadAny(data,&info.source,&info.tag)){
+		while(network_->TryReadAny(data,&info.source,&info.tag)){
 			DVLOG(1)<<"Got a pkg from "<<info.source<<" to "<<info.dest<<", type "<<info.tag<<
 					", queue length="<<driver_.queSize();
 			driver_.pushData(data,info);

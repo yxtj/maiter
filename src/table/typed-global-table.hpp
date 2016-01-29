@@ -354,7 +354,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &k, const V1 &v){ //3
 		deltaT(shard)->accumulate(k, v);
 
 		++pending_writes_;
-		BufSend();
+//		BufSend();
 	}
 }
 

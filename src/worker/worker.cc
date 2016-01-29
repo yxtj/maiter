@@ -15,6 +15,7 @@
 
 DECLARE_double(sleep_time);
 DEFINE_double(sleep_hack, 0.0, "");
+DEFINE_int32(max_preread_pkg,200,"maximum number of buffered received packages before committed to application layer");
 
 namespace dsm {
 
@@ -82,28 +83,72 @@ void Worker::MsgLoop(){
 	string data;
 	RPCInfo info;
 	info.dest=network_->id();
+	unsigned cnt_idle_loop=0;
+	static constexpr unsigned SLEEP_CNT=256;
+//	double t1=0,t2=0;
+//	int pkt=0;
 	while(running_){
-//		while(network_->TryReadAny(data, &info.source, &info.tag)){
+//		if(network_->TryReadAny(data, &info.source, &info.tag)){
 //			DLOG_IF(INFO,info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
 //					<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
 //			driver.pushData(data,info);
 //		}
 //		Sleep();
-//		while(!pause_pop_msg_ && !driver.empty()){
+//		if(!pause_pop_msg_ && !driver.empty()){
 //			driver.popData();
 //		}
-		bool busy=false;
-		if(network_->TryReadAny(data, &info.source, &info.tag)){
+		bool idle=true;
+		//Speed control. pause fetching msg when there are too many waiting for process
+		if(network_->unpicked_pkgs()+network_->pending_pkgs() <= FLAGS_max_preread_pkg){
+			DLOG_EVERY_N(INFO,200000)<<"Acceptable unprocessed msg. driver.len="<<driver.queSize()
+					<<", unpicked="<<network_->unpicked_pkgs()<<", pending="<<network_->pending_pkgs();
+			network_->doReading=true;
+		}else{
+			network_->doReading=false;
+			DLOG_EVERY_N(INFO,20000)<<"Too many unprocessed msg. driver.len="<<driver.queSize()
+					<<", unpicked="<<network_->unpicked_pkgs()<<", pending="<<network_->pending_pkgs();
+		}
+//		Timer tmr;
+//		int cnt=200;
+		while(--cnt>=0 && network_->TryReadAny(data, &info.source, &info.tag)){
 			DLOG_IF(INFO,info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
 					<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
 			driver.pushData(data,info);
-			busy=true;
+			idle=false;
 		}
-		if(!pause_pop_msg_ && !driver.empty()){
+//		t1=tmr.elapsed();
+//		static int count=0;
+//		static double time=0;
+//		if(kreq.kernel()=="MaiterKernel2"){
+//		PERIODIC(1,
+//				DLOG(INFO)<<"receiving time: "<<t1<<"\tprocessing time: "<<t2<<"\t avg process time: "<<t2/max(1,pkt)<<"\t real process time: "<<time/max(1,count)
+//					<<"\ndriver queue length: "<<driver.queSize()
+//					<<"\nunpicked_pkgs queue length: "<<network_->unpicked_pkgs()
+//					<<"\npending_pkgs queue length: "<<network_->pending_pkgs();
+//				);
+//		}
+//		DLOG_IF_EVERY_N(INFO,driver.queSize()>1000,10)<<"driver queue length: "<<driver.queSize();
+//		DLOG_IF_EVERY_N(INFO,network_->unpicked_pkgs()>1000,10)<<"unpicked_pkgs queue length: "<<network_->unpicked_pkgs();
+//		DLOG_IF_EVERY_N(INFO,network_->pending_pkgs()>1000,10)<<"pending_pkgs queue length: "<<network_->pending_pkgs();
+//		tmr.Reset();
+//		pkt=0;
+		while(!pause_pop_msg_ && !driver.empty()){
+//			++pkt;
+//			static Timer tmr;
+//			tmr.Reset();
+
 			driver.popData();
-			busy=true;
+			idle=false;
+
+//			time+=tmr.elapsed();
+//			if(++count==200){
+//				VLOG(1)<<"\naverage process time (msg)="<<time/count;
+//				count=0;
+//				time=0;
+//			}
 		}
-		if(!busy)
+//		t2=tmr.elapsed();
+		if(idle && cnt_idle_loop++%SLEEP_CNT==0)
 			Sleep();
 	}
 }
@@ -269,7 +314,7 @@ void Worker::SendTermcheck(int snapshot, long updates, double current){
 }
 
 void Worker::SendPutRequest(int dstWorkerID, const KVPairData& put){
-	network_->Send(dstWorkerID + 1, MTYPE_PUT_REQUEST, put);
+	network_->Send(peers_[dstWorkerID].net_id , MTYPE_PUT_REQUEST, put);
 }
 
 void Worker::HandlePutRequestReal(const KVPairData& put){

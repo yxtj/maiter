@@ -27,11 +27,11 @@ using namespace std::placeholders;
 namespace dsm{
 
 //register helpers
-void Master::RegDSPImmediate(const int type, callback_t fp, bool spawnThread){
-	driver_.registerImmediateHandler(type, bind(fp, this, _1, _2), spawnThread);
+void Master::RegDSPImmediate(const int type, callback_t fp){
+	driver_.registerImmediateHandler(type, bind(fp, this, _1, _2));
 }
-void Master::RegDSPProcess(const int type, callback_t fp, bool spawnThread){
-	driver_.registerProcessHandler(type, bind(fp, this, _1, _2), spawnThread);
+void Master::RegDSPProcess(const int type, callback_t fp){
+	driver_.registerProcessHandler(type, bind(fp, this, _1, _2));
 }
 void Master::RegDSPDefault(callback_t fp){
 	driver_.registerDefaultOutHandler(bind(fp, this, _1, _2));
@@ -57,51 +57,51 @@ void Master::registerHandlers(){
 	RegDSPProcess(MTYPE_REPLY, &Master::handleReply);
 	//type 1: called by handleReply() directly
 	rph_.addType(MTYPE_WORKER_FLUSH, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_wflush),false);
+			bind(&SyncUnit::notify, &su_wflush));
 	rph_.activateType(MTYPE_WORKER_FLUSH);
 	rph_.addType(MTYPE_WORKER_APPLY, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_wapply),false);
+			bind(&SyncUnit::notify, &su_wapply));
 	rph_.activateType(MTYPE_WORKER_APPLY);
 	rph_.addType(MTYPE_SHARD_ASSIGNMENT, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_tassign),false);
+			bind(&SyncUnit::notify, &su_tassign));
 	rph_.activateType(MTYPE_SHARD_ASSIGNMENT);
 	rph_.addType(MTYPE_CLEAR_TABLE, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_clear),false);
+			bind(&SyncUnit::notify, &su_clear));
 	rph_.activateType(MTYPE_CLEAR_TABLE);
 	rph_.addType(MTYPE_SWAP_TABLE, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_swap),false);
+			bind(&SyncUnit::notify, &su_swap));
 	rph_.activateType(MTYPE_SWAP_TABLE);
 
 	rph_.addType(MTYPE_WORKER_LIST, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_regw),false);
+			bind(&SyncUnit::notify, &su_regw));
 	rph_.activateType(MTYPE_WORKER_LIST);
 
 	rph_.addType(MTYPE_CHECKPOINT_START, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_cp_start),false);
+			bind(&SyncUnit::notify, &su_cp_start));
 	rph_.activateType(MTYPE_CHECKPOINT_START);
 	rph_.addType(MTYPE_CHECKPOINT_LOCAL_DONE, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_cp_local),false);
+			bind(&SyncUnit::notify, &su_cp_local));
 	rph_.activateType(MTYPE_CHECKPOINT_LOCAL_DONE);
 	rph_.addType(MTYPE_CHECKPOINT_FINISH, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_cp_finish),false);
+			bind(&SyncUnit::notify, &su_cp_finish));
 	rph_.activateType(MTYPE_CHECKPOINT_FINISH);
 	rph_.addType(MTYPE_RESTORE, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_cp_restore),false);
+			bind(&SyncUnit::notify, &su_cp_restore));
 	rph_.activateType(MTYPE_RESTORE);
 
 
 	//type 2: called by specific functions (handlers)
 	// called by handlerRegisterWorker()
 	rph_.addType(MTYPE_WORKER_REGISTER, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_regw),false);
+			bind(&SyncUnit::notify, &su_regw));
 	rph_.activateType(MTYPE_WORKER_REGISTER);
 	// called by handleKernelDone()
 	rph_.addType(MTYPE_KERNEL_DONE, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_kerdone),false);
+			bind(&SyncUnit::notify, &su_kerdone));
 	rph_.activateType(MTYPE_KERNEL_DONE);
 	// called by handleTermcheckDone()
 	rph_.addType(MTYPE_TERMCHECK_DONE, ReplyHandler::condFactory(EACH_ONE,nw),
-			bind(&SyncUnit::notify, &su_term),false);
+			bind(&SyncUnit::notify, &su_term));
 	rph_.activateType(MTYPE_TERMCHECK_DONE);
 
 }
