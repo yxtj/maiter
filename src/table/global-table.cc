@@ -118,13 +118,13 @@ void MutableGlobalTable::restore(const string& f){
 	}
 }
 
-void MutableGlobalTable::TermCheck(){
+void MutableGlobalTable::BufTermCheck(){
 	PERIODIC(FLAGS_snapshot_interval, {
-		this->termcheck();
+		this->TermCheck();
 	});
 }
 
-void MutableGlobalTable::termcheck(){
+void MutableGlobalTable::TermCheck(){
 	double total_current = 0;
 	long total_updates = 0;
 	for(int i = 0; i < partitions_.size(); ++i){
@@ -139,7 +139,7 @@ void MutableGlobalTable::termcheck(){
 		}
 	}
 	if(helper()){
-		helper()->SendTermcheck(snapshot_index, total_updates, total_current);
+		helper()->realSendTermcheck(snapshot_index, total_updates, total_current);
 	}
 
 	snapshot_index++;
@@ -232,7 +232,7 @@ void MutableGlobalTable::SendUpdates(){
 
 				//VLOG(3) << "Sending update for " << MP(t->id(), t->shard()) << " to " << owner(i) << " size " << put.kv_data_size();
 //				sent_bytes_ += NetworkThread::Get()->Send(owner(i) + 1, MTYPE_PUT_REQUEST, put);
-				helper()->SendPutRequest(owner(i),put);
+				helper()->realSendUpdates(owner(i),put);
 //			}while(!t->empty());
 
 			VLOG(3) << "Done with update for (" <<t->id()<<","<<t->shard()<<")";

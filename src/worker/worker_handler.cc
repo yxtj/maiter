@@ -66,6 +66,16 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 	DVLOG(2) << "Processing reply, type " << tag << ", from " << rpc.source << ", to " << rpc.dest;
 }
 
+void Worker::HandleSendRequest(const std::string&, const RPCInfo&){
+	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+		if(t){
+			t->SendUpdates();
+		}
+	}
+}
+
 void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
 //	static int count=0;
 //	static double time=0;
@@ -82,6 +92,26 @@ void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
 //		count=0;
 //		time=0;
 //	}
+}
+
+void Worker::HandleProcess(const std::string&, const RPCInfo&){
+	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+		if(t){
+			t->ProcessUpdates();
+		}
+	}
+}
+
+void Worker::HandleTermCheck(const std::string&, const RPCInfo&){
+	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+		if(t){
+			t->TermCheck();
+		}
+	}
 }
 
 

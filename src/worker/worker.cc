@@ -109,7 +109,7 @@ void Worker::MsgLoop(){
 					<<", unpicked="<<network_->unpicked_pkgs()<<", pending="<<network_->pending_pkgs();
 		}
 //		Timer tmr;
-//		int cnt=200;
+		int cnt=200;
 		while(--cnt>=0 && network_->TryReadAny(data, &info.source, &info.tag)){
 			DLOG_IF(INFO,info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
 					<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
@@ -298,7 +298,7 @@ void Worker::realClear(const int tid){
 	LOG(INFO)<<"Invalid. (signal the master to perform this)";
 }
 
-void Worker::SendTermcheck(int snapshot, long updates, double current){
+void Worker::realSendTermcheck(int snapshot, long updates, double current){
 	lock_guard<recursive_mutex> sl(state_lock_);
 
 	TermcheckDelta req;
@@ -313,7 +313,7 @@ void Worker::SendTermcheck(int snapshot, long updates, double current){
 						<< StringPrintf("%.05f", current);
 }
 
-void Worker::SendPutRequest(int dstWorkerID, const KVPairData& put){
+void Worker::realSendUpdates(int dstWorkerID, const KVPairData& put){
 	network_->Send(peers_[dstWorkerID].net_id , MTYPE_PUT_REQUEST, put);
 }
 
@@ -330,18 +330,6 @@ void Worker::HandlePutRequestReal(const KVPairData& put){
 		t->get_partition_info(put.shard())->tainted = false;
 	}
 }
-
-//void Worker::FlushUpdates(){
-//	//VLOG(2) << "finish one pass";
-//	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
-//	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
-//		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
-//		if(t){
-//			t->SendUpdates();
-//			t->TermCheck();
-//		}
-//	}
-//}
 
 void Worker::sendReply(const RPCInfo& rpc, const bool res){
 	ReplyMessage rm;

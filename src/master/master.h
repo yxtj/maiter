@@ -40,8 +40,8 @@ public:
 	int ownerOfShard(int table, int shard) const{
 		return tables_[table]->owner(shard);
 	}
-	void SendPutRequest(int dstWorkerID, const KVPairData& put){}
-	void SendTermcheck(int index, long updates, double current){}
+	void realSendUpdates(int dstWorkerID, const KVPairData& put){}
+	void realSendTermcheck(int index, long updates, double current){}
 
 	void realSwap(const int tid1, const int tid2);
 	void realClear(const int tid);

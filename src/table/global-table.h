@@ -67,10 +67,10 @@ protected:
 
 class MutableGlobalTableBase: virtual public GlobalTableBase{
 public:
-	// Handle updates from the master or other workers.
-	virtual void SendUpdates() = 0;
+	// Four main working steps: merge - process - send - term
 	virtual void MergeUpdates(const KVPairData& req) = 0;
 	virtual void ProcessUpdates() = 0;
+	virtual void SendUpdates() = 0;
 	virtual void TermCheck() = 0;
 
 	bool allowProcess(){ return allow2Process_; }
@@ -156,12 +156,13 @@ public:
 //		sent_bytes_ = 0;
 	}
 
-	void BufSend();
-	void SendUpdates();
 	virtual void MergeUpdates(const KVPairData& req) = 0;
 	void BufProcessUpdates();
 	virtual void ProcessUpdates() = 0;
-	void TermCheck();
+	void BufSend();
+	virtual void SendUpdates();
+	void BufTermCheck();
+	virtual void TermCheck();
 
 	int pending_write_bytes();
 
@@ -184,7 +185,6 @@ public:
 protected:
 	int64_t pending_writes_;
 	int snapshot_index;
-	void termcheck();
 
 	//double send_overhead;
 	//double objectcreate_overhead;

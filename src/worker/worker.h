@@ -44,8 +44,19 @@ public:
 
 	void HandleShardAssignment(const std::string& d, const RPCInfo& rpc);
 
-	void SendPutRequest(int dstWorkerID, const KVPairData& msg);
+	// step 1: get input PutRequest data and merge it into current local table
 	void HandlePutRequest(const std::string& data, const RPCInfo& info);
+
+	// step 2: process current local table, and store updates into their local mirror table
+	void HandleProcess(const std::string&, const RPCInfo&);	//dummy parameters
+
+	// step 3: send out data in local mirrors
+	void HandleSendRequest(const std::string&, const RPCInfo&);	//dummy parameters
+	void realSendUpdates(int dstWorkerID, const KVPairData& msg);
+
+	// step 4: check whether current task is finished
+	void HandleTermCheck(const std::string&, const RPCInfo&);	//dummy parameters
+	void realSendTermcheck(int index, long updates, double current);
 
 	// Barrier: wait until all table data is transmitted.
 	void HandleFlush(const std::string& d, const RPCInfo& rpc);
@@ -91,8 +102,6 @@ private:
 	void finishKernel();
 
 	void sendReply(const RPCInfo& rpc, const bool res=true);
-
-	void SendTermcheck(int index, long updates, double current);
 
 	void HandlePutRequestReal(const KVPairData& put);
 

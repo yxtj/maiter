@@ -376,7 +376,7 @@ public:
 //				}
 //
 ////				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
-////				helper->SendTermcheck(-1, total_updates, total_curr);
+////				helper->realSendTermcheck(-1, total_updates, total_curr);
 //
 //				return entireIter;
 //			}
@@ -418,7 +418,7 @@ public:
 //				}
 //
 ////				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
-////				helper->SendTermcheck(-1, total_updates, total_curr);
+////				helper->realSendTermcheck(-1, total_updates, total_curr);
 //
 //				return entireIter;
 //			}

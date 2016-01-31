@@ -226,7 +226,7 @@ public:
 //			if(single)
 				tgt->BufProcessUpdates();
 			tgt->BufSend();
-			tgt->TermCheck();
+			tgt->BufTermCheck();
 			std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
 		}
 	}

@@ -131,7 +131,7 @@ public:
 		}
 
 //		ProcessUpdates();
-//		TermCheck();
+//		BufTermCheck();
 	}
 
 	void ProcessUpdates(){
@@ -159,7 +159,7 @@ public:
 			}
 			delete it2;
 		}
-//		TermCheck();
+//		BufTermCheck();
 	}
 	//Process with user provided functions
 	void ProcessUpdatesSingle(const K& k, V1& v1, V2& v2, V3& v3){
