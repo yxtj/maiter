@@ -71,7 +71,6 @@ public:
 	void updateF1(const K &k, const V1 &v);
 	void updateF2(const K &k, const V2 &v);
 	void updateF3(const K &k, const V3 &v);
-//	void enqueue_updateF1(K k, V1 v);
 	void accumulateF1(const K &k, const V1 &v); // 2 TypeGloobleTable :TypeTable
 	void accumulateF2(const K &k, const V2 &v);
 	void accumulateF3(const K &k, const V3 &v);
@@ -130,6 +129,7 @@ public:
 			accumulateF1(it.key(), it.value1());
 //			ProcessUpdatesSingle(shard,it.key());
 		}
+		pending_process_+=req.kv_data_size();
 //		VLOG_EVERY_N(1,200)<<"merge data: "<<t.elapsed()<<" with "<<req.kv_data_size();
 
 //		ProcessUpdates();
@@ -274,7 +274,7 @@ void TypedGlobalTable<K, V1, V2, V3>::put(const K &k, const V1 &v1, const V2 &v2
 		localT(shard)->put(k, v1, v2, v3);
 	}else{
 		VLOG(1) << "not local put";
-		++pending_writes_;
+		++pending_send_;
 	}
 }
 
@@ -355,7 +355,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &k, const V1 &v){ //3
 		//VLOG(1) << this->owner(shard) << ":" << shard << " accumulate " << v << " on remote " << k;
 		deltaT(shard)->accumulate(k, v);
 
-		++pending_writes_;
+		++pending_send_;
 	}
 }
 
@@ -396,12 +396,6 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF3(const K &k, const V3 &v){
 							<< is_local_shard(shard) << " : " << worker_id_;
 	}
 }
-
-//template<class K, class V1, class V2, class V3>
-//void TypedGlobalTable<K, V1, V2, V3>::enqueue_updateF1(K k, V1 v){
-//	KVPair thispair(k, v);
-//	update_queue.push_back(thispair);
-//}
 
 // Return the value associated with 'k', possibly blocking for a remote fetch.
 template<class K, class V1, class V2, class V3>

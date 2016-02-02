@@ -73,25 +73,21 @@ void NetworkThread::Run(){
 	while(running){
 		bool idle=true;
 		//receive
-//		if(unpicked_pkgs()<=FLAGS_max_preread_pkg){
-			if(doReading && net->probe(&hdr)){
-				string data = net->receive(&hdr);
-				VLOG_IF(2,hdr.type!=4)<<"Receive(t) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
-				lock_guard<recursive_mutex> sl(rec_lock);
-				stats["received bytes"] += hdr.nBytes;
-				stats["received type." + to_string(hdr.type)] += 1;
+		if(!pause_ && net->probe(&hdr)){
+			string data = net->receive(&hdr);
+			VLOG_IF(2,hdr.type!=4)<<"Receive(t) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
+			lock_guard<recursive_mutex> sl(rec_lock);
+			stats["received bytes"] += hdr.nBytes;
+			stats["received type." + to_string(hdr.type)] += 1;
 
-				receive_buffer.push_back(make_pair(move(data),TaskBase{hdr.src_dst, hdr.type}));
-				idle=false;
-			}
-//		}else{
-//			DLOG_EVERY_N(INFO,1000)<<"Too many unprocessed msg. "<<unpicked_pkgs();
-//		}
+			receive_buffer.push_back(make_pair(move(data),TaskBase{hdr.src_dst, hdr.type}));
+			idle=false;
+		}
 		//clear useless send buffer
 		net->collectFinishedSend();
 		//send
 		/* bunch send: */
-		if(doReading && !pending_sends_->empty()){
+		if(!pause_ && !pending_sends_->empty()){
 			//two-buffers-swapping implementation for better performance
 			vector<Task*>* pv=pending_sends_;
 			{

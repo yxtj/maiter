@@ -37,8 +37,9 @@ Worker::Worker(const ConfigData &c){
 	running_ = true;
 	running_kernel_=false;
 
-	st_processing_=false;
-	st_sending_=false;
+	st_will_process_=false;
+	st_will_send_=false;
+	st_will_termcheck_=false;
 
 	pause_pop_msg_=false;
 
@@ -88,72 +89,60 @@ void Worker::MsgLoop(){
 	info.dest=network_->id();
 	unsigned cnt_idle_loop=0;
 	static constexpr unsigned SLEEP_CNT=256;
-	double t1=0,t2=0;
+//	double t1=0,t2=0;
 	while(running_){
-//		if(network_->TryReadAny(data, &info.source, &info.tag)){
-//			DLOG_IF(INFO,info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
-//					<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
-//			driver.pushData(data,info);
-//		}
-//		Sleep();
-//		if(!pause_pop_msg_ && !driver.empty()){
-//			driver.popData();
-//		}
 		bool idle=true;
 		//Speed control. pause fetching msg when there are too many waiting for process
 //		PERIODIC(2,
 //		if(network_->unpicked_pkgs()+network_->pending_pkgs() <= FLAGS_max_preread_pkg){
 //			DLOG(INFO)<<"Acceptable unprocessed msg. driver.len="<<driver.queSize()
 //				<<", unpicked="<<network_->unpicked_pkgs()<<", pending="<<network_->pending_pkgs();
-//			network_->doReading=true;
+//			network_->pause_=false;
 //		}else{
-//			network_->doReading=false;
+//			network_->pause_=true;
 //			DLOG(INFO)<<"Too many unprocessed msg. driver.len="<<driver.queSize()
 //				<<", unpicked="<<network_->unpicked_pkgs()<<", pending="<<network_->pending_pkgs();
 //		}
 //		);
-		Timer tmr;
+//		Timer tmr;
 		int cnt=200;
 		while(--cnt>=0 && network_->TryReadAny(data, &info.source, &info.tag)){
-			DLOG_IF(INFO,info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()
-					<<", type "<<info.tag<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
+//			DLOG_IF(INFO,true || info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()
+//					<<", type "<<info.tag<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
 			driver.pushData(data,info);
 			idle=false;
 		}
-		t1=tmr.elapsed();
-		static int count=0;
-		static double time=0;
-		PERIODIC(2, {
-			DLOG(INFO)<<"receiving time: "<<t1<<"\tprocessing time: "<<t2
-				<<"\tavg process time: "<<(count==0?0:t2/count)<<"\treal process time: "<<(count==0?0:time/count)
-				<<"\t# of pkt: "<<count
-				<<"\nStates: process: "<<st_processing_<<"\tsend: "<<st_sending_<<"\tcheckpoint: "<<st_checkpointing_
-				<<"\ndriver queue: "<<driver.queSize()
-				<<"\tunpicked_pkgs queue: "<<network_->unpicked_pkgs()
-				<<"\tpending_pkgs queue: "<<network_->pending_pkgs();
-			t2=0;
-			count=0;
-			time=0;
-		});
-		DLOG_IF_EVERY_N(INFO,driver.queSize()>1000,10)<<"driver queue length: "<<driver.queSize();
-		DLOG_IF_EVERY_N(INFO,network_->unpicked_pkgs()>1000,10)<<"unpicked_pkgs queue length: "<<network_->unpicked_pkgs();
-		DLOG_IF_EVERY_N(INFO,network_->pending_pkgs()>1000,10)<<"pending_pkgs queue length: "<<network_->pending_pkgs();
-		tmr.Reset();
+//		t1=tmr.elapsed();
+//		static int count=0;
+//		static double time=0;
+//		PERIODIC(2, {
+//			DLOG(INFO)<<"receiving time: "<<t1<<"\tprocessing time: "<<t2
+//				<<"\tavg proc. time: "<<(count==0?0:t2/count)<<"\t# of pkt: "<<count
+//				<<"\nStates: process: "<<st_will_process_<<"\tsend: "<<st_will_send_<<"\tcheckpoint: "<<st_checkpointing_
+//				<<"\ndriver queue: "<<driver.queSize()
+//				<<"\tunpicked_pkgs queue: "<<network_->unpicked_pkgs()
+//				<<"\tpending_pkgs queue: "<<network_->pending_pkgs();
+//			t2=0;
+//			count=0;
+//			time=0;
+//		});
+//		DLOG_IF_EVERY_N(INFO,driver.queSize()>1000,10)<<"driver queue length: "<<driver.queSize();
+//		DLOG_IF_EVERY_N(INFO,network_->unpicked_pkgs()>1000,10)<<"unpicked_pkgs queue length: "<<network_->unpicked_pkgs();
+//		DLOG_IF_EVERY_N(INFO,network_->pending_pkgs()>1000,10)<<"pending_pkgs queue length: "<<network_->pending_pkgs();
+//		tmr.Reset();
 		while(!pause_pop_msg_ && !driver.empty()){
-			int v=driver.back().second.tag;
-			Timer t;
+//			int v=driver.back().second.tag;
 
 			driver.popData();
 			idle=false;
 
-			PERIODIC(2,{
-				VLOG(1)<<"process time: "<<t.elapsed()<<" for type "<<v;
-			});
-			DLOG_IF_EVERY_N(INFO,v==MTYPE_PUT_REQUEST,200)<<"merge data: "<<t.elapsed();
-			time+=t.elapsed();
-			++count;
+//			PERIODIC(2,{
+//				VLOG(1)<<"process time: "<<t.elapsed()<<" for type "<<v;
+//			});
+//			DLOG_IF_EVERY_N(INFO,v==MTYPE_PUT_REQUEST,200)<<"merge data: "<<t.elapsed();
+//			++count;
 		}
-		t2=tmr.elapsed();
+//		t2=tmr.elapsed();
 		if(idle && cnt_idle_loop++%SLEEP_CNT==0)
 			Sleep();
 	}
@@ -290,9 +279,9 @@ void Worker::realSendUpdates(int dstWorkerID, const KVPairData& put){
 }
 
 void Worker::signalToProcess(){
-	if(st_processing_)
+	if(st_will_process_)
 		return;
-	st_processing_=true;
+	st_will_process_=true;
 	EmptyMessage msg;
 	network_->Send(network_->id(),MTYPE_LOOP_PROCESS,msg);
 //	return;
@@ -300,9 +289,9 @@ void Worker::signalToProcess(){
 //	driver.pushData(string(),info);
 }
 void Worker::signalToSend(){
-	if(st_sending_)
+	if(st_will_send_)
 		return;
-	st_sending_=true;
+	st_will_send_=true;
 	EmptyMessage msg;
 	network_->Send(network_->id(),MTYPE_LOOP_SEND,msg);
 //	return;
@@ -310,6 +299,9 @@ void Worker::signalToSend(){
 //	driver.pushData(string(),info);
 }
 void Worker::signalToTermCheck(){
+	if(st_will_termcheck_)
+		return;
+	st_will_termcheck_=true;
 	EmptyMessage msg;
 	network_->Send(network_->id(),MTYPE_LOOP_TERMCHECK,msg);
 //	return;
@@ -317,11 +309,11 @@ void Worker::signalToTermCheck(){
 //	driver.pushData(string(),info);
 }
 void Worker::signalToPnS(){
-	if(st_processing_ && st_sending_)
+	if(st_will_process_ && st_will_send_)
 		return;
-	bool bsp=st_processing_, bss=st_sending_;
-	st_processing_=true;
-	st_sending_=true;
+	bool bsp=st_will_process_, bss=st_will_send_;
+	st_will_process_=true;
+	st_will_send_=true;
 	EmptyMessage msg;
 	if(!bsp && !bss){
 		network_->Send(network_->id(),MTYPE_LOOP_PNS,msg);

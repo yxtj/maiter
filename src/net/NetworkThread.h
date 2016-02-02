@@ -53,7 +53,7 @@ public:
 	static void Init();
 
 	Stats stats;
-	bool doReading=true;
+	bool pause_=false;
 
 //	static constexpr int ANY_SRC = TaskBase::ANY_SRC;
 //	static constexpr int ANY_TAG = TaskBase::ANY_TYPE;

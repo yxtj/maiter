@@ -223,19 +223,24 @@ public:
 				if(p->alive())
 					finish=false;
 			if(finish)	break;
+
 			if(single){
-				tgt->BufProcessUpdates();
-			}else if(tgt->canSend()){
-//				tgt->helper()->signalToProcess();
-//				tgt->helper()->signalToSend();
-				tgt->helper()->signalToPnS();
-				tgt->resetSendCounter();
+				tgt->helper()->signalToProcess();
+			}else{
+				if(tgt->canProcess()){
+					tgt->helper()->signalToProcess();
+					tgt->resetProcessMarker();
+				}
+				if(tgt->canSend()){
+					tgt->helper()->signalToSend();
+					tgt->resetSendMarker();
+				}
 			}
 			if(tgt->canTermCheck())
 				tgt->helper()->signalToTermCheck();
 			std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
 		}
-		DLOG(INFO)<<"pending writes: "<<tgt->pending_writes_;
+//		DLOG(INFO)<<"pending writes: "<<tgt->pending_send_;
 	}
 
 	void map(){

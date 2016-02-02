@@ -161,8 +161,10 @@ private:
 	KernelRequest kreq;	//the kernel running row
 	std::thread* th_ker_;
 
-	bool st_processing_;	//set at signalToProcess(), reset at HandleProcessUpdates() & HandlePnS()
-	bool st_sending_;	//set at signalToSend(), reset at HandleSendUpdates() & HandlePnS()
+	//the following state variables are used to control too frequent signal
+	bool st_will_process_;	//set at signalToProcess(), reset at HandleProcessUpdates() & HandlePnS()
+	bool st_will_send_;	//set at signalToSend(), reset at HandleSendUpdates() & HandlePnS()
+	bool st_will_termcheck_;	//set at signalToTermCheck(), reset at HandleTermCheck()
 
 //	CheckpointType active_checkpoint_;
 	bool st_checkpointing_;

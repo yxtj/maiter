@@ -151,7 +151,8 @@ class MutableGlobalTable:
 		virtual public Checkpointable{
 public:
 	MutableGlobalTable(){
-		pending_writes_ = 0;
+		pending_process_ = 0;
+		pending_send_ = 0;
 		snapshot_index = 0;
 //		sent_bytes_ = 0;
 	}
@@ -162,10 +163,15 @@ public:
 	virtual void SendUpdates();
 	virtual void TermCheck();
 	//helpers for main working loop
-	void resetSendCounter();
+	void resetProcessMarker();
+	void resetSendMarker();
 	//helpers for main working loop (for checking availability)
-	bool canTermCheck();
+	bool canProcess();
 	bool canSend();
+	bool canPnS();
+	bool canTermCheck();
+	bool noPendingProcess(){ return pending_process_==0; }
+	bool noPendingSend(){ return pending_send_==0; }
 	//helpers for main working loop (for conditional invocation)
 	void BufProcessUpdates();
 	void BufSendUpdates();
@@ -186,10 +192,11 @@ public:
 	void local_swap(GlobalTableBase *b);
 
 //	int64_t sent_bytes_;
-	int64_t pending_writes_;
 
 protected:
-	Timer timer;
+	Timer tmr_process, tmr_send;
+	int64_t pending_process_;
+	int64_t pending_send_;
 	int snapshot_index;
 
 	//double send_overhead;

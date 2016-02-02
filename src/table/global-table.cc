@@ -172,31 +172,39 @@ void MutableGlobalTable::restore(const string& f){
 //	}
 //}
 
-void MutableGlobalTable::resetSendCounter(){
-	pending_writes_ = 0;
+void MutableGlobalTable::resetProcessMarker(){
+	pending_process_ = 0;
+	tmr_process.Reset();
+}
+
+bool MutableGlobalTable::canProcess(){
+	return pending_process_ > FLAGS_bufmsg
+			|| (pending_process_ !=0 && tmr_process.elapsed() > FLAGS_buftime);
+}
+
+void MutableGlobalTable::BufProcessUpdates(){
+	if(canProcess()){
+		VLOG(3) << "accumulate pending process " << pending_process_ << ", in "<<tmr_process.elapsed();
+		ProcessUpdates();
+		resetProcessMarker();
+	}
+}
+
+void MutableGlobalTable::resetSendMarker(){
+	pending_send_ = 0;
+	tmr_send.Reset();
 }
 
 bool MutableGlobalTable::canSend(){
-	static Timer t;
-	if(pending_writes_ > FLAGS_bufmsg
-//			|| (pending_writes_ != 0 && t.elapsed() > FLAGS_buftime)
-	){
-		VLOG(3) << "accumulate pending writes " << pending_writes_ << ", in "<<t.elapsed();
-		t.Reset();
-		resetSendCounter();
-		return true;
-	}
-	return false;
+	return pending_send_ > FLAGS_bufmsg
+			|| (pending_send_ != 0 && tmr_send.elapsed() > FLAGS_buftime);
 }
 
 void MutableGlobalTable::BufSendUpdates(){
-	static Timer t;
-	if(pending_writes_ > FLAGS_bufmsg
-			|| (pending_writes_ != 0 && t.elapsed() > FLAGS_buftime)
-	){
-		VLOG(3) << "accumulate pending writes " << pending_writes_ << ", in "<<t.elapsed();
-		t.Reset();
-		pending_writes_ = 0;
+	if(canSend()){
+		VLOG(3) << "accumulate pending send " << pending_send_ << ", in "<<tmr_send.elapsed();
+		SendUpdates();
+		resetSendMarker();
 	}
 }
 
@@ -231,11 +239,14 @@ void MutableGlobalTable::SendUpdates(){
 		}
 	}
 
-	pending_writes_ = 0;
+	pending_send_ = 0;
 }
 
-void MutableGlobalTable::BufProcessUpdates(){
-	PERIODIC(FLAGS_buftime, this->ProcessUpdates());
+bool MutableGlobalTable::canPnS(){
+	auto m = pending_process_ >= pending_send_ ? pending_process_ : pending_send_;
+	return// m > FLAGS_bufmsg
+			//||
+			(m != 0 && tmr_send.elapsed() > FLAGS_buftime);
 }
 
 bool MutableGlobalTable::canTermCheck(){
@@ -246,9 +257,9 @@ bool MutableGlobalTable::canTermCheck(){
 }
 
 void MutableGlobalTable::BufTermCheck(){
-	PERIODIC(FLAGS_snapshot_interval, {
+	if(canTermCheck()){
 		this->TermCheck();
-	});
+	}
 }
 
 void MutableGlobalTable::TermCheck(){
@@ -290,7 +301,7 @@ void MutableGlobalTable::local_swap(GlobalTableBase *b){
 	std::swap(partinfo_, mb->partinfo_);
 	std::swap(partitions_, mb->partitions_);
 	std::swap(cache_, mb->cache_);
-	std::swap(pending_writes_, mb->pending_writes_);
+	std::swap(pending_send_, mb->pending_send_);
 }
 
 } // namespace dsm

@@ -91,7 +91,7 @@ void Worker::HandleProcessUpdates(const std::string&, const RPCInfo&){
 			t->ProcessUpdates();
 		}
 	}
-	st_processing_=false;
+	st_will_process_=false;
 }
 
 void Worker::HandleSendUpdates(const std::string&, const RPCInfo&){
@@ -104,7 +104,7 @@ void Worker::HandleSendUpdates(const std::string&, const RPCInfo&){
 			}
 		}
 	}
-	st_sending_=false;
+	st_will_send_=false;
 }
 
 void Worker::HandlePnS(const std::string&, const RPCInfo&){
@@ -118,8 +118,8 @@ void Worker::HandlePnS(const std::string&, const RPCInfo&){
 			}
 		}
 	}
-	st_processing_=false;
-	st_sending_=false;
+	st_will_process_=false;
+	st_will_send_=false;
 }
 
 void Worker::HandleTermCheck(const std::string&, const RPCInfo&){
@@ -130,6 +130,7 @@ void Worker::HandleTermCheck(const std::string&, const RPCInfo&){
 			t->TermCheck();
 		}
 	}
+	st_will_termcheck_=false;
 }
 
 
