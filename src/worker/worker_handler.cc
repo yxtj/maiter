@@ -15,20 +15,23 @@
 #include <functional>
 
 #include <glog/logging.h>
+#include <gflags/gflags.h>
 
 using namespace std;
 using namespace std::placeholders;
 
+DECLARE_int32(max_preread_pkg);
+
 namespace dsm{
 
 void Worker::RegDSPImmediate(const int type, callback_t fp){
-	driver.registerImmediateHandler(type, bind(fp, this, _1, _2));
+	driver.registerImmediateHandler(type, bind(fp, this, placeholders::_1, placeholders::_2));
 }
 void Worker::RegDSPProcess(const int type, callback_t fp){
-	driver.registerProcessHandler(type, bind(fp, this, _1, _2));
+	driver.registerProcessHandler(type, bind(fp, this, placeholders::_1, placeholders::_2));
 }
 void Worker::RegDSPDefault(callback_t fp){
-	driver.registerDefaultOutHandler(bind(fp, this, _1, _2));
+	driver.registerDefaultOutHandler(bind(fp, this, placeholders::_1, placeholders::_2));
 }
 
 void Worker::registerHandlers(){
@@ -40,12 +43,16 @@ void Worker::registerHandlers(){
 	RegDSPProcess(MTYPE_ENABLE_TRIGGER, &Worker::HandleEnableTrigger);
 	RegDSPProcess(MTYPE_TERMINATION, &Worker::HandleTermNotification);
 
-	RegDSPProcess(MTYPE_RUN_KERNEL,&Worker::HandleRunKernel);
+	RegDSPProcess(MTYPE_KERNEL_RUN,&Worker::HandleRunKernel);
 	RegDSPProcess(MTYPE_WORKER_SHUTDOWN, &Worker::HandleShutdown);
 	RegDSPProcess(MTYPE_WORKER_LIST, &Worker::HandleWorkerList);
 	RegDSPProcess(MTYPE_REPLY, &Worker::HandleReply);
 
 	RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
+	RegDSPProcess(MTYPE_LOOP_PROCESS, &Worker::HandleProcessUpdates);
+	RegDSPProcess(MTYPE_LOOP_SEND, &Worker::HandleSendUpdates);
+	RegDSPProcess(MTYPE_LOOP_TERMCHECK, &Worker::HandleTermCheck);
+	RegDSPProcess(MTYPE_LOOP_PNS, &Worker::HandlePnS);
 
 	RegDSPProcess(MTYPE_RESTORE, &Worker::HandleRestore);
 
@@ -66,35 +73,17 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 	DVLOG(2) << "Processing reply, type " << tag << ", from " << rpc.source << ", to " << rpc.dest;
 }
 
-void Worker::HandleSendRequest(const std::string&, const RPCInfo&){
-	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
-	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
-		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
-		if(t){
-			t->SendUpdates();
-		}
-	}
-}
-
 void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
-//	static int count=0;
-//	static double time=0;
-//	static Timer tmr;
-//	tmr.Reset();
+	Timer t;
 
 	KVPairData put;
 	put.ParseFromString(d);
 	HandlePutRequestReal(put);
 
-//	time+=tmr.elapsed();
-//	if(++count==200){
-//		VLOG(1)<<"\naverage process time (put)="<<time/count;
-//		count=0;
-//		time=0;
-//	}
+	VLOG_EVERY_N(1,200)<<"merge data: "<<t.elapsed()<<" with "<<put.kv_data_size();
 }
 
-void Worker::HandleProcess(const std::string&, const RPCInfo&){
+void Worker::HandleProcessUpdates(const std::string&, const RPCInfo&){
 	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
@@ -102,6 +91,35 @@ void Worker::HandleProcess(const std::string&, const RPCInfo&){
 			t->ProcessUpdates();
 		}
 	}
+	st_processing_=false;
+}
+
+void Worker::HandleSendUpdates(const std::string&, const RPCInfo&){
+	if(network_->pending_pkgs() <= FLAGS_max_preread_pkg){
+		TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+		for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+			MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+			if(t){
+				t->SendUpdates();
+			}
+		}
+	}
+	st_sending_=false;
+}
+
+void Worker::HandlePnS(const std::string&, const RPCInfo&){
+	if(network_->pending_pkgs() <= FLAGS_max_preread_pkg){
+		TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+		for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+			MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+			if(t){
+				t->ProcessUpdates();
+				t->SendUpdates();
+			}
+		}
+	}
+	st_processing_=false;
+	st_sending_=false;
 }
 
 void Worker::HandleTermCheck(const std::string&, const RPCInfo&){

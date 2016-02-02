@@ -30,7 +30,7 @@ DECLARE_double(flush_time);
 namespace dsm{
 
 void Worker::initialCP(CheckpointType cpType){
-	checkpointing_=false;
+	st_checkpointing_=false;
 	pause_pop_msg_=true;
 
 	switch(cpType){
@@ -76,7 +76,7 @@ bool Worker::startCheckpoint(const int epoch){
 	if(epoch_ >= epoch){
 		LOG(INFO)<< "Skip old checkpoint request: "<<epoch<<", curr="<<epoch_;
 		return false;
-	}else if(checkpointing_){
+	}else if(st_checkpointing_){
 		LOG(INFO)<<"Skip current checkpoint request because last one has not finished. "<<epoch<<" vs "<<epoch_;
 		return false;
 	}
@@ -87,7 +87,7 @@ bool Worker::startCheckpoint(const int epoch){
 		epoch_ = epoch;
 		tmr_.Reset();	//for checkpoint time statistics
 		tmr_cp_block_.Reset();
-		checkpointing_=true;
+		st_checkpointing_=true;
 	}
 
 	switch(kreq.cp_type()){
@@ -141,7 +141,7 @@ bool Worker::finishCheckpoint(const int epoch){
 			peers_[i].epoch = epoch_;
 		}
 
-		checkpointing_=false;
+		st_checkpointing_=false;
 //		stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 		stats_["cp_time"]+=tmr_.elapsed();
 	}

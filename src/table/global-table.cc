@@ -12,6 +12,54 @@ DECLARE_double(buftime);
 
 namespace dsm {
 
+
+ProtoTableCoder::ProtoTableCoder(const TableData *in) :
+		read_pos_(0), t_(const_cast<TableData*>(in)){
+}
+
+bool ProtoTableCoder::ReadEntryFromFile(string *k, string *v1, string *v2, string *v3){
+	if(read_pos_ < t_->rec_data_size()){
+		k->assign(t_->rec_data(read_pos_).key());
+		v1->assign(t_->rec_data(read_pos_).value1());
+		v2->assign(t_->rec_data(read_pos_).value2());
+		v3->assign(t_->rec_data(read_pos_).value3());
+		++read_pos_;
+		return true;
+	}
+
+	return false;
+}
+
+void ProtoTableCoder::WriteEntryToFile(StringPiece k, StringPiece v1, StringPiece v2,
+		StringPiece v3){
+	Record *a = t_->add_rec_data();
+	a->set_key(k.data, k.len);
+	a->set_value1(v1.data, v1.len);
+	a->set_value2(v2.data, v2.len);
+	a->set_value3(v3.data, v3.len);
+}
+
+ProtoKVPairCoder::ProtoKVPairCoder(const KVPairData *in) :
+		read_pos_(0), t_(const_cast<KVPairData*>(in)){
+}
+
+bool ProtoKVPairCoder::ReadEntryFromNet(string *k, string *v){
+	if(read_pos_ < t_->kv_data_size()){
+		k->assign(t_->kv_data(read_pos_).key());
+		v->assign(t_->kv_data(read_pos_).value());
+		++read_pos_;
+		return true;
+	}
+
+	return false;
+}
+
+void ProtoKVPairCoder::WriteEntryToNet(StringPiece k, StringPiece v){
+	Arg *a = t_->add_kv_data();
+	a->set_key(k.data, k.len);
+	a->set_value(v.data, v.len);
+}
+
 void GlobalTable::UpdatePartitions(const ShardInfo& info){
 	partinfo_[info.shard()].sinfo.CopyFrom(info);
 }
@@ -118,94 +166,37 @@ void MutableGlobalTable::restore(const string& f){
 	}
 }
 
-void MutableGlobalTable::BufTermCheck(){
-	PERIODIC(FLAGS_snapshot_interval, {
-		this->TermCheck();
-	});
-}
-
-void MutableGlobalTable::TermCheck(){
-	double total_current = 0;
-	long total_updates = 0;
-	for(int i = 0; i < partitions_.size(); ++i){
-		if(is_local_shard(i)){
-			LocalTable *t = partitions_[i];
-			double partF2;
-			long partUpdates;
-			t->termcheck(StringPrintf("snapshot/iter%d-part%d", snapshot_index, i), &partUpdates,
-					&partF2);
-			total_current += partF2;
-			total_updates += partUpdates;
-		}
-	}
-	if(helper()){
-		helper()->realSendTermcheck(snapshot_index, total_updates, total_current);
-	}
-
-	snapshot_index++;
-}
-
 //void MutableGlobalTable::HandlePutRequests(){
 //	if(helper()){
 //		helper()->HandlePutRequest();
 //	}
 //}
 
-ProtoTableCoder::ProtoTableCoder(const TableData *in) :
-		read_pos_(0), t_(const_cast<TableData*>(in)){
+void MutableGlobalTable::resetSendCounter(){
+	pending_writes_ = 0;
 }
 
-bool ProtoTableCoder::ReadEntryFromFile(string *k, string *v1, string *v2, string *v3){
-	if(read_pos_ < t_->rec_data_size()){
-		k->assign(t_->rec_data(read_pos_).key());
-		v1->assign(t_->rec_data(read_pos_).value1());
-		v2->assign(t_->rec_data(read_pos_).value2());
-		v3->assign(t_->rec_data(read_pos_).value3());
-		++read_pos_;
-		return true;
-	}
-
-	return false;
-}
-
-void ProtoTableCoder::WriteEntryToFile(StringPiece k, StringPiece v1, StringPiece v2,
-		StringPiece v3){
-	Record *a = t_->add_rec_data();
-	a->set_key(k.data, k.len);
-	a->set_value1(v1.data, v1.len);
-	a->set_value2(v2.data, v2.len);
-	a->set_value3(v3.data, v3.len);
-}
-
-ProtoKVPairCoder::ProtoKVPairCoder(const KVPairData *in) :
-		read_pos_(0), t_(const_cast<KVPairData*>(in)){
-}
-
-bool ProtoKVPairCoder::ReadEntryFromNet(string *k, string *v){
-	if(read_pos_ < t_->kv_data_size()){
-		k->assign(t_->kv_data(read_pos_).key());
-		v->assign(t_->kv_data(read_pos_).value());
-		++read_pos_;
-		return true;
-	}
-
-	return false;
-}
-
-void ProtoKVPairCoder::WriteEntryToNet(StringPiece k, StringPiece v){
-	Arg *a = t_->add_kv_data();
-	a->set_key(k.data, k.len);
-	a->set_value(v.data, v.len);
-}
-
-void MutableGlobalTable::BufSend(){
+bool MutableGlobalTable::canSend(){
 	static Timer t;
-	if(pending_writes_ > FLAGS_bufmsg ||
-			(pending_writes_ != 0 && t.elapsed() > FLAGS_buftime))
-	{
+	if(pending_writes_ > FLAGS_bufmsg
+//			|| (pending_writes_ != 0 && t.elapsed() > FLAGS_buftime)
+	){
 		VLOG(3) << "accumulate pending writes " << pending_writes_ << ", in "<<t.elapsed();
 		t.Reset();
-		SendUpdates();
+		resetSendCounter();
+		return true;
+	}
+	return false;
+}
+
+void MutableGlobalTable::BufSendUpdates(){
+	static Timer t;
+	if(pending_writes_ > FLAGS_bufmsg
+			|| (pending_writes_ != 0 && t.elapsed() > FLAGS_buftime)
+	){
+		VLOG(3) << "accumulate pending writes " << pending_writes_ << ", in "<<t.elapsed();
+		t.Reset();
+		pending_writes_ = 0;
 	}
 }
 
@@ -240,21 +231,45 @@ void MutableGlobalTable::SendUpdates(){
 		}
 	}
 
-	//cout << "Sending... index " << timerindex++ << " timer " << timer.elapsed() << " from " << helper_id() << " size: " << sent_bytes_ << endl;
-	/*
-	 sendtime++;
-	 if(sendtime == 750)
-	 VLOG(0) << sendtime << " takes " << send_overhead <<
-	 " object create takes " << objectcreate_overhead;
-	 */
 	pending_writes_ = 0;
 }
 
 void MutableGlobalTable::BufProcessUpdates(){
 	PERIODIC(FLAGS_buftime, this->ProcessUpdates());
-//		static unsigned cnt=0;
-//		if(++cnt%32==0)
-//			ProcessUpdates();
+}
+
+bool MutableGlobalTable::canTermCheck(){
+	PERIODIC(FLAGS_snapshot_interval, {
+		return true;
+	});
+	return false;
+}
+
+void MutableGlobalTable::BufTermCheck(){
+	PERIODIC(FLAGS_snapshot_interval, {
+		this->TermCheck();
+	});
+}
+
+void MutableGlobalTable::TermCheck(){
+	double total_current = 0;
+	long total_updates = 0;
+	for(int i = 0; i < partitions_.size(); ++i){
+		if(is_local_shard(i)){
+			LocalTable *t = partitions_[i];
+			double partF2;
+			long partUpdates;
+			t->termcheck(StringPrintf("snapshot/iter%d-part%d", snapshot_index, i),
+					&partUpdates, &partF2);
+			total_current += partF2;
+			total_updates += partUpdates;
+		}
+	}
+	if(helper()){
+		helper()->realSendTermCheck(snapshot_index, total_updates, total_current);
+	}
+
+	snapshot_index++;
 }
 
 int MutableGlobalTable::pending_write_bytes(){

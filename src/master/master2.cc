@@ -32,6 +32,20 @@ void Master::shutdownWorkers(){
 		network_->Send(i, MTYPE_WORKER_SHUTDOWN, msg);
 	}
 }
+
+void Master::signalToProcess(){
+	EmptyMessage msg;
+	network_->Broadcast(MTYPE_LOOP_PROCESS,msg);
+}
+void Master::signalToSend(){
+	EmptyMessage msg;
+	network_->Broadcast(MTYPE_LOOP_SEND,msg);
+}
+void Master::signalToTermCheck(){
+	EmptyMessage msg;
+	network_->Broadcast(MTYPE_LOOP_TERMCHECK,msg);
+}
+
 void Master::realSwap(const int tid1, const int tid2){
 	SwapTable req;
 	req.set_table_a(tid1);
@@ -64,12 +78,6 @@ void Master::enable_trigger(const TriggerID triggerid, int table, bool enable){
 }
 
 void Master::terminate_iteration(){
-//	for(int i = 0; i < workers_.size(); ++i){
-//		int worker_id = i;
-//		TerminationNotification req;
-//		req.set_epoch(0);
-//		network_->Send(1 + worker_id, MTYPE_TERMINATION, req);
-//	}
 	TerminationNotification req;
 	req.set_epoch(0);
 	VLOG(1) << "Sent termination notifications ";

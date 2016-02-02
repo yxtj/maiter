@@ -88,10 +88,19 @@ struct Stats{
 		return p_[key];
 	}
 
-	string ToString(string prefix){
-		string out;
-		for(auto i = p_.begin(); i != p_.end(); ++i){
-			out += StringPrintf("%s -- %s : %.2f\n", prefix.c_str(), i->first.c_str(), i->second);
+	std::string ToString(const std::string& prefix, bool sort=false){
+		std::string out;
+		if(sort==true){
+			std::map<std::string, double> p_;
+			for(const auto& t : this->p_)
+				p_[t.first]=t.second;
+			for(auto i = p_.begin(); i != p_.end(); ++i){
+				out += StringPrintf("%s -- %s : %.2f\n", prefix.c_str(), i->first.c_str(), i->second);
+			}
+		}else{
+			for(auto i = p_.begin(); i != p_.end(); ++i){
+				out += StringPrintf("%s -- %s : %.2f\n", prefix.c_str(), i->first.c_str(), i->second);
+			}
 		}
 		return out;
 	}

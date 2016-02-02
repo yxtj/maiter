@@ -156,13 +156,20 @@ public:
 //		sent_bytes_ = 0;
 	}
 
+	//main working loop
 	virtual void MergeUpdates(const KVPairData& req) = 0;
-	void BufProcessUpdates();
 	virtual void ProcessUpdates() = 0;
-	void BufSend();
 	virtual void SendUpdates();
-	void BufTermCheck();
 	virtual void TermCheck();
+	//helpers for main working loop
+	void resetSendCounter();
+	//helpers for main working loop (for checking availability)
+	bool canTermCheck();
+	bool canSend();
+	//helpers for main working loop (for conditional invocation)
+	void BufProcessUpdates();
+	void BufSendUpdates();
+	void BufTermCheck();
 
 	int pending_write_bytes();
 
@@ -179,11 +186,10 @@ public:
 	void local_swap(GlobalTableBase *b);
 
 //	int64_t sent_bytes_;
-	Timer timer;
-	int timerindex;
+	int64_t pending_writes_;
 
 protected:
-	int64_t pending_writes_;
+	Timer timer;
 	int snapshot_index;
 
 	//double send_overhead;

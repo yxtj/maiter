@@ -10,7 +10,6 @@
 #include "table/tbl_widget/IterateKernel.h"
 
 #include <fstream>
-//#include <iostream>
 #include <string>
 #include <map>
 #include <thread>
@@ -18,7 +17,6 @@
 DECLARE_string(graph_dir);
 
 namespace dsm {
-
 
 template<class K, class V, class D>
 class MaiterKernel;
@@ -211,24 +209,33 @@ public:
 	}
 	void run_loop(TypedGlobalTable<K, V, V, D>* tgt){
 		tgt->ProcessUpdates();
-		std::vector<Table*> t;
+		std::vector<Table*> localTs;
 		for(int i = 0; i < tgt->num_shards(); ++i){
 			if(tgt->is_local_shard(i))
-				t.push_back(tgt->get_partition(i));
+				localTs.push_back(tgt->get_partition(i));
 		}
-//		bool single=tgt->num_shards()==1;
+		bool single=tgt->num_shards()==1;
 		bool finish=false;
+		tgt->helper()->signalToProcess();	//start the loop with initial data
 		while(!finish){
 			finish=true;
-			for(Table* p : t)
+			for(Table* p : localTs)
 				if(p->alive())
 					finish=false;
-//			if(single)
+			if(finish)	break;
+			if(single){
 				tgt->BufProcessUpdates();
-			tgt->BufSend();
-			tgt->BufTermCheck();
+			}else if(tgt->canSend()){
+//				tgt->helper()->signalToProcess();
+//				tgt->helper()->signalToSend();
+				tgt->helper()->signalToPnS();
+				tgt->resetSendCounter();
+			}
+			if(tgt->canTermCheck())
+				tgt->helper()->signalToTermCheck();
 			std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
 		}
+		DLOG(INFO)<<"pending writes: "<<tgt->pending_writes_;
 	}
 
 	void map(){

@@ -1,44 +1,48 @@
 package dsm;
 
 enum MessageTypes {
-  MTYPE_RUN_KERNEL = 1;
-  MTYPE_KERNEL_DONE = 2;
-  
-  MTYPE_REPLY = 3;
-  
-  MTYPE_PUT_REQUEST = 4;  
-  
-  MTYPE_WORKER_REGISTER = 6;
-  MTYPE_WORKER_LIST = 7;
-  MTYPE_WORKER_SHUTDOWN = 8;
-  
-  MTYPE_CHECKPOINT_START = 10;
-  MTYPE_CHECKPOINT_LOCAL_DONE = 11;
-  MTYPE_CHECKPOINT_FINISH = 12;
-  
-  MTYPE_CHECKPOINT_SIG=39;	//signal of last message while taking checkpoint
-  MTYPE_CHECKPOINT_ASYN_FAIL=44;	//master tell all workers to cancel this ACP and rollback
-  
-  MTYPE_RESTORE = 13;
-  MTYPE_RESTORE_DONE = 14;
-  
-  MTYPE_WORKER_FLUSH = 15;
-//  MTYPE_WORKER_FLUSH_DONE = 16;
-  
-  MTYPE_SHARD_ASSIGNMENT = 17;
-//  MTYPE_SHARD_ASSIGNMENT_DONE = 18;
-  
-  MTYPE_ITERATOR = 20;
+// Basic info and main working loop control: 
+	MTYPE_KERNEL_RUN = 1;
+	MTYPE_KERNEL_DONE = 2;
+	
+	MTYPE_REPLY = 3;
+	
+	// step 1/4: get input update data and merge into local table
+	MTYPE_PUT_REQUEST = 4;
+	// step 2/4: process merged local delta data and store the results locally
+	MTYPE_LOOP_PROCESS = 5;
+	// step 3/4: send out the update belonging to remote shards
+	MTYPE_LOOP_SEND = 6;
+	// step 4/4: check whether the iterative process can be terminated
+	MTYPE_LOOP_TERMCHECK = 7;
+	MTYPE_TERMCHECK_LOCAL = 8;	//report local check result
+	MTYPE_TERMINATION = 9;	//command workers to terminate
+	
+	// shortcut for both step 2 and step 3 
+	MTYPE_LOOP_PNS = 10;
+	
+// Worker control:
+	MTYPE_WORKER_REGISTER = 20;
+	MTYPE_WORKER_LIST = 21;
+	MTYPE_WORKER_FLUSH = 22;
+	MTYPE_WORKER_APPLY = 23;
+	MTYPE_WORKER_SHUTDOWN = 24;
+	
+	MTYPE_SHARD_ASSIGNMENT = 25;
+	
+// Fault tolerance:
+	MTYPE_CHECKPOINT_START = 30;
+	MTYPE_CHECKPOINT_LOCAL_DONE = 31;
+	MTYPE_CHECKPOINT_FINISH = 32;
+	MTYPE_CHECKPOINT_SIG=33;	//signal of last message while taking checkpoint
+	MTYPE_CHECKPOINT_FAIL=34;	//master tell all workers to cancel this ACP and rollback
+	
+	MTYPE_RESTORE = 35;
+	MTYPE_RESTORE_DONE = 36;
+	
+// Other table control:
+	MTYPE_SWAP_TABLE = 41;	
+	MTYPE_CLEAR_TABLE = 42;
 
-  MTYPE_TERMCHECK_DONE = 21;
-  MTYPE_TERMINATION = 22;
-
-  MTYPE_SYNC_REPLY = 31;
-
-  MTYPE_WORKER_APPLY = 33;
-
-  MTYPE_SWAP_TABLE = 35;  
-  MTYPE_CLEAR_TABLE = 37;
-
-  MTYPE_ENABLE_TRIGGER = 38;
+	MTYPE_ENABLE_TRIGGER = 43;
 };

@@ -305,7 +305,7 @@ int Master::startWorkers(const RunDescriptor& r){
 			w_req.mutable_args()->CopyFrom(*p);
 			delete p;
 			num_dispatched++;
-			network_->Send(w.net_id, MTYPE_RUN_KERNEL, w_req);
+			network_->Send(w.net_id, MTYPE_KERNEL_RUN, w_req);
 		}
 	}
 	return num_dispatched;

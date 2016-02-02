@@ -48,7 +48,7 @@ void Master::registerHandlers(){
 //	RegDSPImmediate(MTYPE_WORKER_REGISTER, &Master::handleRegisterWorker);
 	RegDSPProcess(MTYPE_WORKER_REGISTER, &Master::handleRegisterWorker);
 	RegDSPProcess(MTYPE_KERNEL_DONE, &Master::handleKernelDone);
-	RegDSPProcess(MTYPE_TERMCHECK_DONE, &Master::handleTermcheckDone);
+	RegDSPProcess(MTYPE_TERMCHECK_LOCAL, &Master::handleTermcheckDone);
 	RegDSPProcess(MTYPE_CHECKPOINT_LOCAL_DONE, &Master::handleCPLocalDone);
 
 	//reply handlers:
@@ -100,9 +100,9 @@ void Master::registerHandlers(){
 			bind(&SyncUnit::notify, &su_kerdone));
 	rph_.activateType(MTYPE_KERNEL_DONE);
 	// called by handleTermcheckDone()
-	rph_.addType(MTYPE_TERMCHECK_DONE, ReplyHandler::condFactory(EACH_ONE,nw),
+	rph_.addType(MTYPE_TERMCHECK_LOCAL, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_term));
-	rph_.activateType(MTYPE_TERMCHECK_DONE);
+	rph_.activateType(MTYPE_TERMCHECK_LOCAL);
 
 }
 
@@ -192,7 +192,7 @@ void Master::handleTermcheckDone(const std::string& d, const RPCInfo& info){
 	workers_[worker_id]->current = resp.delta();
 	workers_[worker_id]->updates = resp.updates();
 
-	rph_.input(MTYPE_TERMCHECK_DONE, resp.wid());
+	rph_.input(MTYPE_TERMCHECK_LOCAL, resp.wid());
 }
 
 void Master::handleCPLocalDone(const std::string& d, const RPCInfo& info){

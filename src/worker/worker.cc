@@ -37,6 +37,9 @@ Worker::Worker(const ConfigData &c){
 	running_ = true;
 	running_kernel_=false;
 
+	st_processing_=false;
+	st_sending_=false;
+
 	pause_pop_msg_=false;
 
 	th_ker_=nullptr;
@@ -85,8 +88,7 @@ void Worker::MsgLoop(){
 	info.dest=network_->id();
 	unsigned cnt_idle_loop=0;
 	static constexpr unsigned SLEEP_CNT=256;
-//	double t1=0,t2=0;
-//	int pkt=0;
+	double t1=0,t2=0;
 	while(running_){
 //		if(network_->TryReadAny(data, &info.source, &info.tag)){
 //			DLOG_IF(INFO,info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
@@ -99,55 +101,59 @@ void Worker::MsgLoop(){
 //		}
 		bool idle=true;
 		//Speed control. pause fetching msg when there are too many waiting for process
-		if(network_->unpicked_pkgs()+network_->pending_pkgs() <= FLAGS_max_preread_pkg){
-			DLOG_EVERY_N(INFO,200000)<<"Acceptable unprocessed msg. driver.len="<<driver.queSize()
-					<<", unpicked="<<network_->unpicked_pkgs()<<", pending="<<network_->pending_pkgs();
-			network_->doReading=true;
-		}else{
-			network_->doReading=false;
-			DLOG_EVERY_N(INFO,20000)<<"Too many unprocessed msg. driver.len="<<driver.queSize()
-					<<", unpicked="<<network_->unpicked_pkgs()<<", pending="<<network_->pending_pkgs();
-		}
-//		Timer tmr;
+//		PERIODIC(2,
+//		if(network_->unpicked_pkgs()+network_->pending_pkgs() <= FLAGS_max_preread_pkg){
+//			DLOG(INFO)<<"Acceptable unprocessed msg. driver.len="<<driver.queSize()
+//				<<", unpicked="<<network_->unpicked_pkgs()<<", pending="<<network_->pending_pkgs();
+//			network_->doReading=true;
+//		}else{
+//			network_->doReading=false;
+//			DLOG(INFO)<<"Too many unprocessed msg. driver.len="<<driver.queSize()
+//				<<", unpicked="<<network_->unpicked_pkgs()<<", pending="<<network_->pending_pkgs();
+//		}
+//		);
+		Timer tmr;
 		int cnt=200;
 		while(--cnt>=0 && network_->TryReadAny(data, &info.source, &info.tag)){
-			DLOG_IF(INFO,info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()<<", type "<<info.tag
-					<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
+			DLOG_IF(INFO,info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()
+					<<", type "<<info.tag<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
 			driver.pushData(data,info);
 			idle=false;
 		}
-//		t1=tmr.elapsed();
-//		static int count=0;
-//		static double time=0;
-//		if(kreq.kernel()=="MaiterKernel2"){
-//		PERIODIC(1,
-//				DLOG(INFO)<<"receiving time: "<<t1<<"\tprocessing time: "<<t2<<"\t avg process time: "<<t2/max(1,pkt)<<"\t real process time: "<<time/max(1,count)
-//					<<"\ndriver queue length: "<<driver.queSize()
-//					<<"\nunpicked_pkgs queue length: "<<network_->unpicked_pkgs()
-//					<<"\npending_pkgs queue length: "<<network_->pending_pkgs();
-//				);
-//		}
-//		DLOG_IF_EVERY_N(INFO,driver.queSize()>1000,10)<<"driver queue length: "<<driver.queSize();
-//		DLOG_IF_EVERY_N(INFO,network_->unpicked_pkgs()>1000,10)<<"unpicked_pkgs queue length: "<<network_->unpicked_pkgs();
-//		DLOG_IF_EVERY_N(INFO,network_->pending_pkgs()>1000,10)<<"pending_pkgs queue length: "<<network_->pending_pkgs();
-//		tmr.Reset();
-//		pkt=0;
+		t1=tmr.elapsed();
+		static int count=0;
+		static double time=0;
+		PERIODIC(2, {
+			DLOG(INFO)<<"receiving time: "<<t1<<"\tprocessing time: "<<t2
+				<<"\tavg process time: "<<(count==0?0:t2/count)<<"\treal process time: "<<(count==0?0:time/count)
+				<<"\t# of pkt: "<<count
+				<<"\nStates: process: "<<st_processing_<<"\tsend: "<<st_sending_<<"\tcheckpoint: "<<st_checkpointing_
+				<<"\ndriver queue: "<<driver.queSize()
+				<<"\tunpicked_pkgs queue: "<<network_->unpicked_pkgs()
+				<<"\tpending_pkgs queue: "<<network_->pending_pkgs();
+			t2=0;
+			count=0;
+			time=0;
+		});
+		DLOG_IF_EVERY_N(INFO,driver.queSize()>1000,10)<<"driver queue length: "<<driver.queSize();
+		DLOG_IF_EVERY_N(INFO,network_->unpicked_pkgs()>1000,10)<<"unpicked_pkgs queue length: "<<network_->unpicked_pkgs();
+		DLOG_IF_EVERY_N(INFO,network_->pending_pkgs()>1000,10)<<"pending_pkgs queue length: "<<network_->pending_pkgs();
+		tmr.Reset();
 		while(!pause_pop_msg_ && !driver.empty()){
-//			++pkt;
-//			static Timer tmr;
-//			tmr.Reset();
+			int v=driver.back().second.tag;
+			Timer t;
 
 			driver.popData();
 			idle=false;
 
-//			time+=tmr.elapsed();
-//			if(++count==200){
-//				VLOG(1)<<"\naverage process time (msg)="<<time/count;
-//				count=0;
-//				time=0;
-//			}
+			PERIODIC(2,{
+				VLOG(1)<<"process time: "<<t.elapsed()<<" for type "<<v;
+			});
+			DLOG_IF_EVERY_N(INFO,v==MTYPE_PUT_REQUEST,200)<<"merge data: "<<t.elapsed();
+			time+=t.elapsed();
+			++count;
 		}
-//		t2=tmr.elapsed();
+		t2=tmr.elapsed();
 		if(idle && cnt_idle_loop++%SLEEP_CNT==0)
 			Sleep();
 	}
@@ -164,24 +170,7 @@ void Worker::KernelProcess(){
 
 	tmr_.Reset();
 }
-//
-//// HandleRunKernel2() and HandleShutdown2() can end this waiting
-//void Worker::waitKernel(){
-//	Timer idle;
-//	while(!running_kernel_){
-////		CheckNetwork();
-//		Sleep();
-//		if(!running_){
-//			return;
-//		}
-//	}
-//	stats_["idle_time"] += idle.elapsed();
-//	VLOG(1) << "Received run request for " << kreq;
-//	if(ownerOfShard(kreq.table(), kreq.shard()) != config_.worker_id()){
-//		LOG(FATAL)<< "Received a shard I can't work on! : " << kreq.shard()
-//				<< " : " << ownerOfShard(kreq.table(), kreq.shard());
-//	}
-//}
+
 void Worker::runKernel(){
 	KernelInfo *helper = KernelRegistry::Get()->kernel(kreq.kernel());
 	DSMKernel* d = helper->create();
@@ -209,20 +198,20 @@ void Worker::runKernel(){
 void Worker::finishKernel(){
 	//shutdown checkpoint thread if available
 	if(th_cp_!=nullptr && th_cp_->joinable()){
-		if(checkpointing_){
+		if(st_checkpointing_){
 			VLOG(1)<<"working finished, now waiting for cp thread to terminate";
 			su_cp_sig.notify();
 		}
 		th_cp_->join();	//this must be called before deconstructed
 		delete th_cp_;
 		th_cp_=nullptr;
-		if(checkpointing_){
+		if(st_checkpointing_){
 			su_cp_sig.reset();
 			removeCheckpoint(epoch_);
 		}
 	}
-	//TODO: cancel ongoing checkpoint when kernel finished
-	while(checkpointing_)
+	//TODO: cancel running checkpoint when kernel finished
+	while(st_checkpointing_)
 		Sleep();
 	//send termination report to master
 	KernelDone kd;
@@ -247,23 +236,6 @@ void Worker::finishKernel(){
 
 	VLOG(1) << "Kernel finished: " << kreq;
 }
-
-//void Worker::CheckNetwork(){
-//	Timer net;
-//	CheckForMasterUpdates();
-//
-//	// Flush any tables we no longer own.
-//	for(unordered_set<GlobalTableBase*>::iterator i = dirty_tables_.begin(); i != dirty_tables_.end();
-//			++i){
-//		MutableGlobalTableBase *mg = dynamic_cast<MutableGlobalTableBase*>(*i);
-//		if(mg){
-//			mg->SendUpdates();
-//		}
-//	}
-//
-//	dirty_tables_.clear();
-//	stats_["network_time"] += net.elapsed();
-//}
 
 int64_t Worker::pending_kernel_bytes() const{
 	int64_t t = 0;
@@ -298,7 +270,7 @@ void Worker::realClear(const int tid){
 	LOG(INFO)<<"Invalid. (signal the master to perform this)";
 }
 
-void Worker::realSendTermcheck(int snapshot, long updates, double current){
+void Worker::realSendTermCheck(int snapshot, long updates, double current){
 	lock_guard<recursive_mutex> sl(state_lock_);
 
 	TermcheckDelta req;
@@ -306,7 +278,7 @@ void Worker::realSendTermcheck(int snapshot, long updates, double current){
 	req.set_index(snapshot);
 	req.set_delta(current);
 	req.set_updates(updates);
-	network_->Send(config_.master_id(), MTYPE_TERMCHECK_DONE, req);
+	network_->Send(config_.master_id(), MTYPE_TERMCHECK_LOCAL, req);
 
 	VLOG(1) << "termination condition of subpass " << snapshot << " worker " << id()
 						<< " sent to master... with total current "
@@ -317,13 +289,58 @@ void Worker::realSendUpdates(int dstWorkerID, const KVPairData& put){
 	network_->Send(peers_[dstWorkerID].net_id , MTYPE_PUT_REQUEST, put);
 }
 
+void Worker::signalToProcess(){
+	if(st_processing_)
+		return;
+	st_processing_=true;
+	EmptyMessage msg;
+	network_->Send(network_->id(),MTYPE_LOOP_PROCESS,msg);
+//	return;
+//	RPCInfo info{0,0,MTYPE_LOOP_PROCESS};
+//	driver.pushData(string(),info);
+}
+void Worker::signalToSend(){
+	if(st_sending_)
+		return;
+	st_sending_=true;
+	EmptyMessage msg;
+	network_->Send(network_->id(),MTYPE_LOOP_SEND,msg);
+//	return;
+//	RPCInfo info{0,0,MTYPE_LOOP_SEND};
+//	driver.pushData(string(),info);
+}
+void Worker::signalToTermCheck(){
+	EmptyMessage msg;
+	network_->Send(network_->id(),MTYPE_LOOP_TERMCHECK,msg);
+//	return;
+//	RPCInfo info{0,0,MTYPE_LOOP_TERMCHECK};
+//	driver.pushData(string(),info);
+}
+void Worker::signalToPnS(){
+	if(st_processing_ && st_sending_)
+		return;
+	bool bsp=st_processing_, bss=st_sending_;
+	st_processing_=true;
+	st_sending_=true;
+	EmptyMessage msg;
+	if(!bsp && !bss){
+		network_->Send(network_->id(),MTYPE_LOOP_PNS,msg);
+	}else if(!bsp){
+		network_->Send(network_->id(),MTYPE_LOOP_PROCESS,msg);
+	}else{//(!bss)
+		network_->Send(network_->id(),MTYPE_LOOP_SEND,msg);
+	}
+//	return;
+//	RPCInfo info{0,0,MTYPE_LOOP_PNS};
+//	driver.pushData(string(),info);
+}
+
 void Worker::HandlePutRequestReal(const KVPairData& put){
 //	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
 //				<< put.table()<<","<<put.shard()<<")";
 
 	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
 	t->MergeUpdates(put);
-//	t->ProcessUpdates();
 
 	if(put.done() && t->tainted(put.shard())){
 		VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());
@@ -363,36 +380,6 @@ void Worker::_disableProcess(){
 	}
 }
 
-void Worker::CheckForMasterUpdates(){
-	lock_guard<recursive_mutex> sl(state_lock_);
-	// Check for shutdown.
-	EmptyMessage empty;
-
-//	if(network_->TryRead(config_.master_id(), MTYPE_WORKER_SHUTDOWN, &empty)){
-//		VLOG(1) << "Shutting down worker " << config_.worker_id();
-//		running_ = false;
-//		return;
-//	}
-
-//	CheckpointRequest checkpoint_msg;
-//	while(network_->TryRead(config_.master_id(), MTYPE_CHECKPOINT_START, &checkpoint_msg)){
-//		for(int i = 0; i < checkpoint_msg.table_size(); ++i){
-//			checkpoint_tables_.insert(make_pair(checkpoint_msg.table(i), true));
-//		}
-//
-//		StartCheckpoint(checkpoint_msg.epoch(), (CheckpointType)checkpoint_msg.checkpoint_type());
-//	}
-//
-//	while(network_->TryRead(config_.master_id(), MTYPE_CHECKPOINT_FINISH, &empty)){
-//		FinishCheckpoint();
-//	}
-//
-//	StartRestore restore_msg;
-//	while(network_->TryRead(config_.master_id(), MTYPE_RESTORE, &restore_msg)){
-//		Restore(restore_msg.epoch());
-//	}
-}
-
 bool StartWorker(const ConfigData& conf){
 	//TODO: change back after message-driven is finished
 	if(NetworkImplMPI::GetInstance()->id() == conf.master_id()) return false;
@@ -400,8 +387,8 @@ bool StartWorker(const ConfigData& conf){
 	Worker w(conf);
 	w.Run();
 	w.merge_net_stats();
-	Stats s = w.get_stats();
-	LOG(INFO) << "Worker stats: \n" << s.ToString("[W"+to_string(conf.worker_id())+"]");
+	Stats& s = w.get_stats();
+	LOG(INFO) << "Worker stats: \n" << s.ToString("[W"+to_string(conf.worker_id())+"]", true);
 	return true;
 }
 

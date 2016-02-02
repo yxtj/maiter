@@ -26,6 +26,9 @@ void MsgDriver::terminate(){
 	running_=false;
 }
 bool MsgDriver::empty() const{
+	return que.empty();
+}
+bool MsgDriver::emptyStrict() const{
 	return !inDisper.busy() && que.empty();
 }
 bool MsgDriver::busy() const{
@@ -84,7 +87,7 @@ size_t MsgDriver::abandonData(const int type){
 }
 
 //Process
-bool MsgDriver::processInput(string& data, RPCInfo& info){
+bool MsgDriver::processInput(string&& data, RPCInfo& info){
 	if(!inDisper.receiveData(info.tag, data, info)){
 //		lock_guard<mutex> ql(lockQue);
 		que.push_back(make_pair(move(data),move(info)));
@@ -102,18 +105,23 @@ bool MsgDriver::processOutput(string& data, RPCInfo& info){
 
 //Main working functions
 bool MsgDriver::pushData(string& data, RPCInfo& info){
-	return processInput(data,info);
+	return processInput(move(data),info);
+}
+bool MsgDriver::pushData(string&& data, RPCInfo& info){
+	return processInput(move(data),info);
 }
 bool MsgDriver::popData(){
 	if(que.empty())	return false;
-	string d;
-	RPCInfo r;
-	{
+//	string d;
+//	RPCInfo r;
+//	{
 //		lock_guard<mutex> ql(lockQue);
-		tie(d,r)=move(que.front());
+//		tie(d,r)=move(que.front());
+	auto p=move(que.front());
 		que.pop_front();
-	}
-	return processOutput(d, r);
+//	}
+//	return processOutput(d, r);
+	return processOutput(p.first,p.second);
 }
 
 } /* namespace dsm */

@@ -21,14 +21,23 @@ struct TableHelper{
 	virtual int epoch() const = 0;
 //	virtual int ownerOfShard(int table, int shard) const = 0;
 
+	virtual void signalToProcess() = 0;
+	virtual void signalToSend() = 0;
+	virtual void signalToTermCheck() = 0;
+
+	virtual void signalToPnS(){
+		signalToProcess();
+		signalToSend();
+	}
+
 	virtual void realSendUpdates(int dstWorkerID, const KVPairData& put) = 0;
 //	virtual void HandlePutRequest() = 0;
 //	virtual void FlushUpdates() = 0;
+	virtual void realSendTermCheck(int index, long updates, double current) = 0;
 
 	virtual void realSwap(const int tid1, const int tid2) = 0;
 	virtual void realClear(const int tid) = 0;
 
-	virtual void realSendTermcheck(int index, long updates, double current) = 0;
 	virtual ~TableHelper(){}
 };
 

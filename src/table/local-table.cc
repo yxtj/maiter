@@ -56,7 +56,7 @@ void LocalTableCoder::WriteEntryToFile(StringPiece k, StringPiece v1, StringPiec
 //snapshot
 void LocalTable::termcheck(const string& f, long* updates, double* currF2){
 	VLOG(1) << "Start snapshot " << f;
-	Timer t;
+//	Timer t;
 	serializeToSnapshot(f, updates, currF2);
 //	VLOG(1) << "Flushed snapshot " << f << " in: " << t.elapsed();
 
@@ -65,7 +65,7 @@ void LocalTable::termcheck(const string& f, long* updates, double* currF2){
 
 void LocalTable::start_checkpoint(const string& f){
 	VLOG(1) << "Start checkpoint " << f;
-	Timer t;
+//	Timer t;
 
 	LocalTableCoder c(f, "w");
 	serializeToFile(&c);

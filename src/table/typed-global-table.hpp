@@ -106,9 +106,10 @@ public:
 	}
 
 	void MergeUpdates(const dsm::KVPairData& req){
+//		Timer t;
 		std::lock_guard<std::recursive_mutex> sl(mutex());
 
-		VLOG(3) << "applying updates, from " << req.source();
+//		VLOG(3) << "applying updates, from " << req.source();
 
 		if(!is_local_shard(req.shard())){
 			LOG_EVERY_N(INFO, 1000)<< "Forwarding push request from: ("
@@ -125,10 +126,11 @@ public:
 		//it had been guaranteed received shard is local by SendUpdates. But accumulateF1 check it each time
 		for(; !it.done(); it.Next()){
 			VLOG(3) << this->owner(shard) << ":" << shard << " read from remote "
-								<< it.key() << ";" << it.value1();
+								<< it.key() << ":" << it.value1();
 			accumulateF1(it.key(), it.value1());
 //			ProcessUpdatesSingle(shard,it.key());
 		}
+//		VLOG_EVERY_N(1,200)<<"merge data: "<<t.elapsed()<<" with "<<req.kv_data_size();
 
 //		ProcessUpdates();
 //		BufTermCheck();
@@ -140,6 +142,7 @@ public:
 		std::lock_guard<std::recursive_mutex> sl(mutex());
 		if(!allowProcess())
 			return;
+//		Timer t;
 		//handle multiple shards
 		for(int i=0;i<partitions_.size();++i){
 			if(!is_local_shard(i))
@@ -152,13 +155,12 @@ public:
 			}
 			//should not use for(;!it->done();it->Next()), that will skip some entry
 			while(!it2->done()){
-//				bool cont = it2->Next();        //if we have more in the state table, we continue
-//				if(!cont) break;
 				ProcessUpdatesSingle(it2->key(), it2->value1(), it2->value2(), it2->value3());
 				it2->Next();
 			}
 			delete it2;
 		}
+//		DVLOG(1)<<"process data: "<<t.elapsed();
 //		BufTermCheck();
 	}
 	//Process with user provided functions
@@ -354,7 +356,6 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &k, const V1 &v){ //3
 		deltaT(shard)->accumulate(k, v);
 
 		++pending_writes_;
-//		BufSend();
 	}
 }
 
@@ -500,16 +501,14 @@ LocalTable* TypedGlobalTable<K, V1, V2, V3>::create_deltaT(int shard){
 }
 
 template<class K, class V1, class V2, class V3>
-TableIterator* TypedGlobalTable<K, V1, V2, V3>::get_iterator(int shard, bool bfilter,
-		unsigned int fetch_num){
+TableIterator* TypedGlobalTable<K, V1, V2, V3>::get_iterator(
+		int shard, bool bfilter, unsigned int fetch_num){
 	CHECK_EQ(this->is_local_shard(shard), true)<<"should use local get_iterator";
 	TableIterator* res;
 	if(info().schedule_portion < 1){
 		res=partitions_[shard]->schedule_iterator(this->helper(), bfilter);
-//		return (TypedTableIterator<K, V1, V2, V3>*) partitions_[shard]->schedule_iterator(this->helper(), bfilter);
 	} else{
 		res=partitions_[shard]->get_iterator(this->helper(), bfilter);
-//		return (TypedTableIterator<K, V1, V2, V3>*) partitions_[shard]->get_iterator(this->helper(), bfilter);
 	}
 	return dynamic_cast<TypedTableIterator<K, V1, V2, V3>*>(res);
 }

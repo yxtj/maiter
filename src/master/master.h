@@ -40,11 +40,16 @@ public:
 	int ownerOfShard(int table, int shard) const{
 		return tables_[table]->owner(shard);
 	}
-	void realSendUpdates(int dstWorkerID, const KVPairData& put){}
-	void realSendTermcheck(int index, long updates, double current){}
+	// the following 3 work-loop-related-function will not to be called by master under normal condition
+	virtual void signalToProcess();
+	virtual void signalToSend();
+	virtual void signalToTermCheck();
 
-	void realSwap(const int tid1, const int tid2);
-	void realClear(const int tid);
+	virtual void realSendUpdates(int dstWorkerID, const KVPairData& put){}
+	virtual void realSendTermCheck(int index, long updates, double current){}
+
+	virtual void realSwap(const int tid1, const int tid2);
+	virtual void realClear(const int tid);
 
 	void run_all(RunDescriptor&& r);
 	void run_one(RunDescriptor&& r);

@@ -1,5 +1,5 @@
-#ifndef SPARSE_MAP_H_
-#define SPARSE_MAP_H_
+#ifndef TABLE_STATE_TABLE_H_
+#define TABLE_STATE_TABLE_H_
 
 #include "util/noncopyable.h"
 #include "tbl_widget/IterateKernel.h"
@@ -12,8 +12,12 @@
 #include <algorithm>
 #include <thread>
 #include <chrono>
+#include <gflags/gflags.h>
 
 #include "dbg/getcallstack.h"
+
+DECLARE_int32(bufmsg);
+DECLARE_double(bufmsg_portion);
 
 namespace dsm {
 
@@ -43,7 +47,7 @@ public:
 	struct Iterator: public TypedTableIterator<K, V1, V2, V3> {
 		Iterator(StateTable<K, V1, V2, V3>& parent, bool bfilter) :
 				pos(-1), parent_(parent){
-			pos = -1;           //pos(-1) doesn't work
+			defaultv = static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->default_v();
 			/* This filter is very important in large-scale experiment.
 			 * If there is no such control, many useless parsing will occur.
 			 * It will degrading the performance a lot
@@ -54,8 +58,6 @@ public:
 				std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
 				auto rand_num = [&](){return dist(gen);};
 
-				V1 defaultv =
-						static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->default_v();
 				//check if there is a change
 				b_no_change = true;
 				int end_i=SAMPLE_SIZE<=parent_.entries_*2?SAMPLE_SIZE:parent_.entries_*2;
@@ -82,7 +84,8 @@ public:
 				++pos;
 				//cout << "pos now is " << pos << " v1 " << parent_.buckets_[pos].v1 << endl;
 			}while(pos < parent_.size_
-					&& (/*parent_.buckets_[pos].v1 == defaultv || */!parent_.buckets_[pos].in_use));
+					&& (parent_.buckets_[pos].v1 == defaultv &&
+							!parent_.buckets_[pos].in_use));
 			return pos < parent_.size_;
 		}
 
@@ -99,26 +102,24 @@ public:
 		int pos;
 		StateTable<K, V1, V2, V3> &parent_;
 		bool b_no_change;
-//		V1 defaultv;
+		V1 defaultv;
 	};
 
 	struct ScheduledIterator: public TypedTableIterator<K, V1, V2, V3> {
 		ScheduledIterator(StateTable<K, V1, V2, V3>& parent, bool bfilter) :
 				pos(-1), parent_(parent){
 
-			pos = -1;
 			b_no_change = true;
+			V1 defaultv=static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->default_v();
 
 			//random number generator
 			std::mt19937 gen(time(0));
 			std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
 			auto rand_num = [&](){return dist(gen);};
 
-			V1 defaultv =
-					static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->default_v();
-
 			if(parent_.entries_ <= SAMPLE_SIZE){
 				//if table size is less than the sample set size, schedule them all
+				scheduled_pos.reserve(parent_.entries_);
 				int i;
 				for(i = 0; i < parent_.size_; i++){
 					if(parent_.buckets_[i].in_use){
@@ -161,17 +162,20 @@ public:
 				V1 threshold = parent_.buckets_[sampled_pos[cut_index]].priority;
 				//V1 threshold = ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[sampled_pos[cut_index]].k, parent_.buckets_[sampled_pos[cut_index]].v1);
 
-				VLOG(1) << "cut index " << cut_index << " theshold " << threshold << " pos "
+				VLOG(2) << "cut index " << cut_index << " threshold " << threshold << " pos "
 									<< sampled_pos[cut_index] << " max "
 									<< parent_.buckets_[sampled_pos[0]].v1;
 
+				//Reserve parent_.size_*P instead of parent_.entries_*P because P is not correct portion
+				//When P is smaller than real portion, reserving parent_.entries_*P slot may lead to an resize()
+				scheduled_pos.reserve(parent_.size_*cut_index/SAMPLE_SIZE);
 				if(cut_index == 0 || parent_.buckets_[sampled_pos[0]].priority == threshold){
 					//to avoid non eligible records
 					for(int i = 0; i < parent_.size_; i++){
 						if(!parent_.buckets_[i].in_use) continue;
 						if(parent_.buckets_[i].v1 == defaultv) continue;
 
-						if(parent_.buckets_[i].priority >= threshold){
+						if(parent_.buckets_[i].priority >= threshold){// >=
 							scheduled_pos.push_back(i);
 						}
 					}
@@ -180,7 +184,7 @@ public:
 						if(!parent_.buckets_[i].in_use) continue;
 						if(parent_.buckets_[i].v1 == defaultv) continue;
 
-						if(parent_.buckets_[i].priority > threshold){
+						if(parent_.buckets_[i].priority > threshold){// >
 							scheduled_pos.push_back(i);
 						}
 					}
@@ -199,7 +203,7 @@ public:
 
 		bool Next(){
 			++pos;
-			return true;
+			return pos < scheduled_pos.size();
 		}
 
 		bool done(){
@@ -349,7 +353,7 @@ public:
 //		helper->HandlePutRequest();
 //		DLOG_EVERY_N(INFO,100)<<getcallstack();
 
-		Iterator* iter = new Iterator(*this, true);
+		Iterator* iter = new Iterator(*this, false);
 //		int trial = 0;
 //		while(iter->b_no_change){
 //			VLOG(1) << "wait for put";
@@ -618,7 +622,8 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size){
 //			LOG(INFO)<< "copy: " << old_b[i].k;
 		}
 	}
-
+	FLAGS_bufmsg=std::max<int32_t>(
+			FLAGS_bufmsg, static_cast<int32_t>(1+FLAGS_bufmsg_portion*size_));
 	CHECK_EQ(old_entries, entries_)<<getcallstack();
 }
 
@@ -790,4 +795,4 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 }
 
 } //namespace dsm
-#endif /* SPARSE_MAP_H_ */
+#endif /* TABLE_STATE_TABLE_H_ */

@@ -34,9 +34,6 @@ public:
 	void KernelProcess();
 	void MsgLoop();
 
-	void CheckForMasterUpdates();
-	void CheckNetwork();
-
 	void realSwap(const int tid1, const int tid2);
 	void realClear(const int tid);
 	void HandleSwapRequest(const std::string& d, const RPCInfo& rpc);
@@ -48,15 +45,21 @@ public:
 	void HandlePutRequest(const std::string& data, const RPCInfo& info);
 
 	// step 2: process current local table, and store updates into their local mirror table
-	void HandleProcess(const std::string&, const RPCInfo&);	//dummy parameters
+	virtual void signalToProcess();
+	void HandleProcessUpdates(const std::string&, const RPCInfo&);	//dummy parameters
 
 	// step 3: send out data in local mirrors
-	void HandleSendRequest(const std::string&, const RPCInfo&);	//dummy parameters
-	void realSendUpdates(int dstWorkerID, const KVPairData& msg);
+	virtual void signalToSend();
+	void HandleSendUpdates(const std::string&, const RPCInfo&);	//dummy parameters
+	virtual void realSendUpdates(int dstWorkerID, const KVPairData& msg);
+
+	virtual void signalToPnS();
+	void HandlePnS(const std::string&, const RPCInfo&);	//dummy parameters
 
 	// step 4: check whether current task is finished
+	virtual void signalToTermCheck();
 	void HandleTermCheck(const std::string&, const RPCInfo&);	//dummy parameters
-	void realSendTermcheck(int index, long updates, double current);
+	virtual void realSendTermCheck(int index, long updates, double current);
 
 	// Barrier: wait until all table data is transmitted.
 	void HandleFlush(const std::string& d, const RPCInfo& rpc);
@@ -158,8 +161,11 @@ private:
 	KernelRequest kreq;	//the kernel running row
 	std::thread* th_ker_;
 
+	bool st_processing_;	//set at signalToProcess(), reset at HandleProcessUpdates() & HandlePnS()
+	bool st_sending_;	//set at signalToSend(), reset at HandleSendUpdates() & HandlePnS()
+
 //	CheckpointType active_checkpoint_;
-	bool checkpointing_;
+	bool st_checkpointing_;
 //	typedef unordered_map<int, bool> CheckpointMap;
 //	CheckpointMap checkpoint_tables_;
 	Timer tmr_cp_block_;
