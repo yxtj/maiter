@@ -74,13 +74,9 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 }
 
 void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
-	Timer t;
-
 	KVPairData put;
 	put.ParseFromString(d);
 	HandlePutRequestReal(put);
-
-	VLOG_EVERY_N(1,200)<<"merge data: "<<t.elapsed()<<" with "<<put.kv_data_size();
 }
 
 void Worker::HandleProcessUpdates(const std::string&, const RPCInfo&){

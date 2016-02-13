@@ -148,6 +148,7 @@ public:
 	virtual V3 getF3(const K &k) = 0;
 	virtual ClutterRecord<K, V1, V2, V3> get(const K &k) = 0;
 	virtual void put(const K &k, const V1 &v1, const V2 &v2, const V3 &v3) = 0;
+	virtual void put(K &&k, V1 &&v1, V2 &&v2, V3 &&v3) = 0;
 	virtual void updateF1(const K &k, const V1 &v) = 0;
 	virtual void updateF2(const K &k, const V2 &v) = 0;
 	virtual void updateF3(const K &k, const V3 &v) = 0;

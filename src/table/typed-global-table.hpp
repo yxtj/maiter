@@ -68,6 +68,7 @@ public:
 	// remote thread, the application occurs immediately on the local host,
 	// and the update is queued for transmission to the owner.
 	void put(const K &k, const V1 &v1, const V2 &v2, const V3 &v3);
+	void put(K &&k, V1 &&v1, V2 &&v2, V3 &&v3);
 	void updateF1(const K &k, const V1 &v);
 	void updateF2(const K &k, const V2 &v);
 	void updateF3(const K &k, const V3 &v);
@@ -278,6 +279,20 @@ void TypedGlobalTable<K, V1, V2, V3>::put(const K &k, const V1 &v1, const V2 &v2
 	}
 }
 
+template<class K, class V1, class V2, class V3>
+void TypedGlobalTable<K, V1, V2, V3>::put(K &&k, V1 &&v1, V2 &&v2, V3 &&v3){
+	int shard = this->get_shard(k);
+
+#ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
+	std::lock_guard<std::recursive_mutex> sl(mutex());
+#endif
+	if(is_local_shard(shard)){
+		localT(shard)->put(std::forward<K>(k), std::forward<V1>(v1), std::forward<V2>(v2), std::forward<V3>(v3));
+	}else{
+		VLOG(1) << "not local put";
+		++pending_send_;
+	}
+}
 template<class K, class V1, class V2, class V3>
 void TypedGlobalTable<K, V1, V2, V3>::updateF1(const K &k, const V1 &v){
 	int shard = this->get_shard(k);

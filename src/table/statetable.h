@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <thread>
 #include <chrono>
+#include <utility>
 #include <gflags/gflags.h>
 
 #include "dbg/getcallstack.h"
@@ -315,6 +316,7 @@ public:
 	ClutterRecord<K, V1, V2, V3> get(const K& k);
 	bool contains(const K& k);
 	void put(const K& k, const V1& v1, const V2& v2, const V3& v3);
+	void put(K&& k, V1&& v1, V2&& v2, V3&& v3);
 	void updateF1(const K& k, const V1& v);
 	void updateF2(const K& k, const V2& v);
 	void updateF3(const K& k, const V3& v);
@@ -745,54 +747,28 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 	++entries_;
 
 	return;
-
-	int start = bucket_idx(k);
-	b = start;
-	bool found = false;
-
-	do{
-		if(!buckets_[b].in_use){
-			break;
-		}
-
-		if(buckets_[b].k == k){
-			found = true;
-			break;
-		}
-
-		b = (b + 1) % size_;
-	}while(b != start);
-
-	// Inserting a new entry:
-	if(!found){
-		if(entries_ >= size_ /** kLoadFactor*/){ //doesn't consider loadfactor, the tablesize is pre-defined
-			VLOG(2) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2)
-					<< " entries " << entries_;
-			//entries_-=1;
-			resize(1 + size_ * 2);
-			put(k, v1, v2, v3);
-//			++entries_;
-			VLOG(2) << "if entries_: " << entries_ << "  key: " << k;
-		}else{
-			buckets_[b].in_use = 1;
-			buckets_[b].k = k;
-			buckets_[b].v1 = v1;
-			buckets_[b].v2 = v2;
-			buckets_[b].v3 = v3;
-			static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
-					buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
-			++entries_;
-			VLOG(2) << "else entries_: " << entries_ << "  key: " << k;
-		}
-	}else{
-		// Replacing an existing entry
-		buckets_[b].v1 = v1;
-		buckets_[b].v2 = v2;
-		buckets_[b].v3 = v3;
-		static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
-				buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
-	}
 }
 
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
+	int b=bucket_for_access_key(k);
+	if(b==-1 /* || (!buckets_[b].in_use && entries_ >= size_*kLoadFactor) */){
+		//doesn't consider loadfactor, the tablesize is pre-defined
+		VLOG(2) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2)
+				<< " entries " << entries_;
+		resize(1 + size_ * 2);
+		b=bucket_for_access_key(k);
+	}
+	buckets_[b].in_use = 1;
+	buckets_[b].k = std::forward<K>(k);
+	buckets_[b].v1 = std::forward<V1>(v1);
+	buckets_[b].v2 = std::forward<V2>(v2);
+	buckets_[b].v3 = std::forward<V3>(v3);
+	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
+			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
+	++entries_;
+
+	return;
+}
 } //namespace dsm
 #endif /* TABLE_STATE_TABLE_H_ */

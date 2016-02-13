@@ -52,11 +52,6 @@ public:
 			}while(pos < parent_.size_ && !parent_.buckets_[pos].in_use);
 
 			return pos<parent_.size_;
-//			if(pos >= parent_.size_){
-//				return false;
-//			}else{
-//				return true;
-//			}
 		}
 
 		bool done(){
