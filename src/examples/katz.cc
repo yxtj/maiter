@@ -1,7 +1,8 @@
 #include "client/client.h"
-
+#include <string>
 
 using namespace dsm;
+using namespace std;
 
 DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
@@ -10,83 +11,81 @@ DECLARE_int64(katz_source);
 DECLARE_double(katz_beta);
 DECLARE_int32(shards);
 
+struct KatzIterateKernel: public IterateKernel<int, float, vector<int> > {
 
-struct KatzIterateKernel : public IterateKernel<int, float, vector<int> > {
-    
-    float zero;
+	float zero;
 
-    KatzIterateKernel() : zero(0){}
+	KatzIterateKernel() :
+			zero(0){
+	}
 
-    void read_data(string& line, int* k, vector<int>* data){
-        string linestr(line);
-        int pos = linestr.find("\t");
-        int source = stoi(linestr.substr(0, pos));
+	void read_data(string& line, int& k, vector<int>& data){
+		//line: "k\ta b c "
+		size_t pos = line.find('\t');
 
-        vector<int> linkvec;
-        string links = linestr.substr(pos+1);
-        int spacepos = 0;
-        while((spacepos = links.find_first_of(" ")) != links.npos){
-            int to;
-            if(spacepos > 0){
-                to = stoi(links.substr(0, spacepos));
-            }
-            links = links.substr(spacepos+1);
-            linkvec.push_back(to);
-        }
+		k = stoi(line.substr(0, pos));
 
-        *k = source;
-        *data = linkvec;
-    }
+		data.clear();
+		size_t spacepos;
+		while((spacepos = line.find(' ', pos)) != line.npos){
+			int to = stoi(line.substr(pos, spacepos - pos));
+			data.push_back(to);
+			pos = spacepos + 1;
+		}
 
-    void init_c(const int& k, float* delta){
-        if(k == FLAGS_katz_source){
-            *delta = 1000000;
-        }else{
-            *delta = 0;
-        }
-    }
+	}
 
-    void accumulate(float* a, const float& b){
-        *a = *a + b;
-    }
+	void init_c(const int& k, float& delta, vector<int>&){
+		if(k == FLAGS_katz_source){
+			delta = 1000000;
+		}else{
+			delta = 0;
+		}
+	}
 
-    void priority(float* pri, const float& value, const float& delta){
-        *pri = delta;
-    }
+	void init_v(const int& k, float& v, vector<int>&){
+		v = default_v();
+	}
 
-    void g_func(const float& delta, const vector<int>& data, vector<pair<int, float> >* output){
-        float outv = FLAGS_katz_beta * delta;
-        for(vector<int>::const_iterator it=data.begin(); it!=data.end(); it++){
-            int target = *it;
-            output->push_back(make_pair(target, outv));
-        }
-    }
+	void accumulate(float& a, const float& b){
+		a = a + b;
+	}
 
-    const float& default_v() const {
-        return zero;
-    }
+	void priority(float& pri, const float& value, const float& delta){
+		pri = delta;
+	}
+
+	void g_func(const int& k, const float& delta, const float& value, const vector<int>& data,
+			vector<pair<int, float> >* output){
+		float outv = FLAGS_katz_beta * delta;
+		for(vector<int>::const_iterator it = data.begin(); it != data.end(); it++){
+			int target = *it;
+			output->push_back(make_pair(target, outv));
+		}
+	}
+
+	const float& default_v() const{
+		return zero;
+	}
 };
 
+static int Katz(ConfigData& conf){
+	MaiterKernel<int, float, vector<int> >* kernel = new MaiterKernel<int, float, vector<int> >(
+			conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
+			new Sharders::Mod,
+			new KatzIterateKernel,
+			new TermCheckers<int, float>::Diff);
 
-static int Katz(ConfigData& conf) {
-    MaiterKernel<int, float, vector<int> >* kernel = new MaiterKernel<int, float, vector<int> >(
-                                        conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
-                                        new Sharders::Mod,
-                                        new KatzIterateKernel,
-                                        new TermCheckers<int, float>::Diff);
-    
-    
-    kernel->registerMaiter();
+	kernel->registerMaiter();
 
-    if (!StartWorker(conf)) {
-        Master m(conf);
-        m.run_maiter(kernel);
-    }
-    
-    delete kernel;
-    return 0;
+	if(!StartWorker(conf)){
+		Master m(conf);
+		m.run_maiter(kernel);
+	}
+
+	delete kernel;
+	return 0;
 }
 
 REGISTER_RUNNER(Katz);
-
 

@@ -1,7 +1,8 @@
 #include "client/client.h"
-
+#include <string>
 
 using namespace dsm;
+using namespace std;
 
 //DECLARE_string(graph_dir);
 DECLARE_string(result_dir);
@@ -15,27 +16,20 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
     PagerankIterateKernel() : zero(0){}
 
     void read_data(string& line, int& k, vector<int>& data){
-        string linestr(line);
-        int pos = linestr.find("\t");
-        if(pos == -1) return;
-        
-        int source = stoi(linestr.substr(0, pos));
+		//line: "k\ta b c "
+		size_t pos = line.find('\t');
 
-        vector<int> linkvec;
-        string links = linestr.substr(pos+1);
-        int spacepos = 0;
-        while((spacepos = links.find_first_of(" ")) != links.npos){
-            int to;
-            if(spacepos > 0){
-                to = stoi(links.substr(0, spacepos));
-            }
-            links = links.substr(spacepos+1);
-            linkvec.push_back(to);
-        }
+		k = stoi(line.substr(0, pos));
 
-        k = source;
-        data = linkvec;
-    }
+		data.clear();
+		size_t spacepos;
+		while((spacepos = line.find(' ',pos)) != line.npos){
+			int to = stoi(line.substr(pos, spacepos-pos));
+			data.push_back(to);
+			pos=spacepos+1;
+		}
+
+	}
 
     void init_c(const int& k, int& delta, vector<int>& data){
             int  init_delta = k;

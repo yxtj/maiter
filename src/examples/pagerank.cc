@@ -12,24 +12,19 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 	const float zero=0.0f;
 
 	void read_data(string& line, int& k, vector<int>& data){
-		string linestr(move(line));
-		size_t pos = linestr.find("\t");
-		if(pos == -1) return;
+		//line: "k\ta b c "
+		size_t pos = line.find('\t');
 
-		int source = stoi(linestr.substr(0, pos));
+		k = stoi(line.substr(0, pos));
 
-		vector<int> linkvec;
-		//cout<<"links:"<<links<<endl;
-		size_t spacepos = pos+1;
-		while((spacepos = linestr.find_first_of(" ",pos)) != linestr.npos){
-			int to = stoi(linestr.substr(pos, spacepos-pos));
-			linkvec.push_back(to);
-			//cout<<"to:"<<to<<endl;
+		data.clear();
+		size_t spacepos;
+		while((spacepos = line.find(' ',pos)) != line.npos){
+			int to = stoi(line.substr(pos, spacepos-pos));
+			data.push_back(to);
 			pos=spacepos+1;
 		}
 
-		k = source;
-		data = move(linkvec);
 	}
 
 	void init_c(const int& k, float& delta, vector<int>& data){
@@ -37,7 +32,7 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 	}
 
 	void init_v(const int& k, float& v, vector<int>& data){
-		v = 0;
+		v = default_v();
 	}
 
 	void accumulate(float& a, const float& b){
