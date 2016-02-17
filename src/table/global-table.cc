@@ -178,7 +178,7 @@ void MutableGlobalTable::resetProcessMarker(){
 }
 
 bool MutableGlobalTable::canProcess(){
-	return pending_process_ > FLAGS_bufmsg
+	return pending_process_ > bufmsg
 			|| (pending_process_ !=0 && tmr_process.elapsed() > FLAGS_buftime);
 }
 
@@ -196,7 +196,7 @@ void MutableGlobalTable::resetSendMarker(){
 }
 
 bool MutableGlobalTable::canSend(){
-	return pending_send_ > FLAGS_bufmsg
+	return pending_send_ > bufmsg
 			|| (pending_send_ != 0 && tmr_send.elapsed() > FLAGS_buftime);
 }
 

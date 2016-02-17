@@ -26,6 +26,8 @@
 #include <glog/logging.h>
 #include <gflags/gflags.h>
 
+DECLARE_double(bufmsg_portion);
+
 namespace dsm{
 
 template<class K, class V1, class V2, class V3>
@@ -50,12 +52,15 @@ public:
 	}
 
 	void InitStateTable(){
+		int64_t t=0;
 		for(int i = 0; i < partitions_.size(); ++i){
 			if(is_local_shard(i)){
 				delete partitions_[i];
 				partitions_[i] = create_localT(i);
+				t+=partitions_[i]->capacity();
 			}
 		}
+		bufmsg=std::max<int64_t>(bufmsg, static_cast<int64_t>(FLAGS_bufmsg_portion*t));
 		binit = true;
 	}
 

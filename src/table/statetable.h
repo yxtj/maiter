@@ -17,9 +17,6 @@
 
 #include "dbg/getcallstack.h"
 
-DECLARE_int32(bufmsg);
-DECLARE_double(bufmsg_portion);
-
 namespace dsm {
 
 static constexpr int SAMPLE_SIZE = 1000;
@@ -332,15 +329,21 @@ public:
 
 	bool empty(){return size() == 0;}
 	int64_t size(){return entries_;}
+	int64_t capacity(){return size_;}
 
 	void clear(){
-		for (int i = 0; i < size_; ++i){
+		for (int64_t i = 0; i < size_; ++i){
 			buckets_[i].in_use = 0;
 		}
 		entries_ = 0;
 	}
 
-	void reset(){}
+	void reset(){
+		buckets_.clear();
+		size_=0;
+		entries_=0;
+		resize(1);
+	}
 
 	bool compare_priority(int i, int j){
 		return buckets_[i].priority > buckets_[j].priority;
@@ -624,8 +627,6 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size){
 //			LOG(INFO)<< "copy: " << old_b[i].k;
 		}
 	}
-	FLAGS_bufmsg=std::max<int32_t>(
-			FLAGS_bufmsg, static_cast<int32_t>(1+FLAGS_bufmsg_portion*size_));
 	CHECK_EQ(old_entries, entries_)<<getcallstack();
 }
 
@@ -745,8 +746,6 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
 			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
 	++entries_;
-
-	return;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -767,8 +766,7 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
 			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
 	++entries_;
-
-	return;
 }
+
 } //namespace dsm
 #endif /* TABLE_STATE_TABLE_H_ */

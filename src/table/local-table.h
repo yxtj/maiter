@@ -33,6 +33,7 @@ public:
 	void termcheck(const std::string& f, long *updates, double *totalF2);
 
 	virtual int64_t size() = 0;
+	virtual int64_t capacity() = 0;
 	virtual void clear() = 0;
 	virtual void reset() = 0;
 	virtual void resize(int64_t size) = 0;

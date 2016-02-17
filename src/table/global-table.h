@@ -151,10 +151,11 @@ class MutableGlobalTable:
 		virtual public Checkpointable{
 public:
 	MutableGlobalTable(){
+//		sent_bytes_ = 0;
 		pending_process_ = 0;
 		pending_send_ = 0;
 		snapshot_index = 0;
-//		sent_bytes_ = 0;
+		bufmsg=1;
 	}
 
 	//main working loop
@@ -199,9 +200,7 @@ protected:
 	int64_t pending_send_;
 	int snapshot_index;
 
-	//double send_overhead;
-	//double objectcreate_overhead;
-	//int sendtime;
+	int64_t bufmsg;	//updated while init local table shards
 };
 
 }
