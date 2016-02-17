@@ -106,7 +106,8 @@ bool Worker::startCheckpoint(const int epoch){
 	default:
 		LOG(ERROR)<<"given checkpoint type is not implemented.";
 	}
-//	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
+	stats_["cp_time"]+=tmr_.elapsed();
+	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 	return true;
 }
 
@@ -142,7 +143,9 @@ bool Worker::finishCheckpoint(const int epoch){
 		}
 
 		st_checkpointing_=false;
-//		stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
+//		if(kreq.cp_type()==CP_SYNC){
+//			stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
+//		}
 		stats_["cp_time"]+=tmr_.elapsed();
 	}
 
@@ -219,7 +222,7 @@ void Worker::_CP_stop(){
  */
 
 void Worker::_startCP_Sync(){
-	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
+//	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 }
 void Worker::_finishCP_Sync(){
 	pause_pop_msg_=true;
@@ -252,6 +255,7 @@ void Worker::_finishCP_Sync(){
 	_enableProcess();
 	pause_pop_msg_=false;
 	_CP_report();
+	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 }
 
 /*
@@ -260,7 +264,7 @@ void Worker::_finishCP_Sync(){
 void Worker::_startCP_SyncSig(){
 	pause_pop_msg_=true;
 	_disableProcess();
-	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
+//	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 }
 void Worker::_finishCP_SyncSig(){
 	_CP_start();
@@ -273,6 +277,7 @@ void Worker::_finishCP_SyncSig(){
 	_CP_stop();
 	_enableProcess();
 	pause_pop_msg_=false;
+	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 	_CP_report();
 }
 void Worker::_processCPSig_SyncSig(const int wid){
@@ -286,8 +291,8 @@ void Worker::_processCPSig_SyncSig(const int wid){
 			KVPairData d;
 			d.ParseFromString(que[i].first);
 			Checkpointable *t = dynamic_cast<Checkpointable*>(tbl.at(d.table()));
-	ofstream fout("haha/"+to_string(id())+'-'+to_string(wid));
-	fout<<d.DebugString();
+//	ofstream fout("haha/"+to_string(id())+'-'+to_string(wid));
+//	fout<<d.DebugString();
 			++count;
 			t->write_message(d);
 		}
@@ -301,7 +306,7 @@ void Worker::_processCPSig_SyncSig(const int wid){
  */
 void Worker::_startCP_Async(){
 	//synchronize the starting signal
-	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
+//	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 }
 void Worker::_finishCP_Async(){
 	pause_pop_msg_=true;
@@ -346,11 +351,13 @@ void Worker::_HandlePutRequest_AsynCP(const string& d, const RPCInfo& info){
 	HandlePutRequestReal(put);
 
 	//Difference:
+	tmr_cp_block_.Reset();
 	MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(
 			TableRegistry::Get()->mutable_table(put.table()));
 	if(!_cp_async_sig_rec[put.source()])
 		t->write_message(put);
 	DVLOG(1)<<"cp write a message from "<<put.source()<<" at worker "<<id();
+	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 }
 
 /*
