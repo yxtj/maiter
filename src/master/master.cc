@@ -297,6 +297,9 @@ int Master::startWorkers(const RunDescriptor& r){
 	KernelRequest w_req;
 	w_req.set_cp_type(r.checkpoint_type);
 	w_req.set_termcheck(r.termcheck);
+	w_req.set_restore(r.restore);
+	if(r.restore)
+		w_req.set_restore_epoch(r.restore_epoch);
 	for(int i = 0; i < workers_.size(); ++i){
 		WorkerState& w = *workers_[i];
 		if(w.num_pending() > 0 && w.num_active() == 0){

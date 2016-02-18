@@ -20,8 +20,6 @@
 using namespace std;
 using namespace std::placeholders;
 
-DECLARE_int32(max_preread_pkg);
-
 namespace dsm{
 
 void Worker::RegDSPImmediate(const int type, callback_t fp){
@@ -91,27 +89,23 @@ void Worker::HandleProcessUpdates(const std::string&, const RPCInfo&){
 }
 
 void Worker::HandleSendUpdates(const std::string&, const RPCInfo&){
-	if(network_->pending_pkgs() <= FLAGS_max_preread_pkg){
-		TableRegistry::Map &tmap = TableRegistry::Get()->tables();
-		for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
-			MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
-			if(t){
-				t->SendUpdates();
-			}
+	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+		if(t){
+			t->SendUpdates();
 		}
 	}
 	st_will_send_=false;
 }
 
 void Worker::HandlePnS(const std::string&, const RPCInfo&){
-	if(network_->pending_pkgs() <= FLAGS_max_preread_pkg){
-		TableRegistry::Map &tmap = TableRegistry::Get()->tables();
-		for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
-			MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
-			if(t){
-				t->ProcessUpdates();
-				t->SendUpdates();
-			}
+	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+		if(t){
+			t->ProcessUpdates();
+			t->SendUpdates();
 		}
 	}
 	st_will_process_=false;

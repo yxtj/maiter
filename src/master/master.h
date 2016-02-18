@@ -57,18 +57,18 @@ public:
 
 	// N.B.  All run_* methods are blocking.
 	void run_all(const string& kernel, const string& method, GlobalTableBase* locality,
-			const bool checkpoint, const bool termcheck){
-		run_all(RunDescriptor(kernel, method, locality, checkpoint, termcheck));
+			const bool checkpoint, const bool termcheck, const bool restore){
+		run_all(RunDescriptor(kernel, method, locality, checkpoint, termcheck, restore));
 	}
 	// Run the given kernel function on one (arbitrary) worker node.
 	void run_one(const string& kernel, const string& method, GlobalTableBase* locality,
-			const bool checkpoint, const bool termcheck){
-		run_one(RunDescriptor(kernel, method, locality, termcheck, checkpoint));
+			const bool checkpoint, const bool termcheck, const bool restore){
+		run_one(RunDescriptor(kernel, method, locality, termcheck, checkpoint, restore));
 	}
 	// Run the kernel function on the given set of shards.
 	void run_range(const string& kernel, const string& method, GlobalTableBase* locality,
-			const bool checkpoint, const bool termcheck, const std::vector<int>& shards){
-		run_range(RunDescriptor(kernel, method, locality, checkpoint, termcheck), shards);
+			const bool checkpoint, const bool termcheck, const bool restore, const std::vector<int>& shards){
+		run_range(RunDescriptor(kernel, method, locality, checkpoint, termcheck, restore), shards);
 	}
 
 	void run(RunDescriptor&& r);
@@ -81,13 +81,13 @@ public:
 			return;
 		}
 
-		run_all("MaiterKernel1", "run", maiter->table, false, false);
+		run_all("MaiterKernel1", "run", maiter->table, false, false, false);
 
 		if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
-			run_all("MaiterKernel2", "map", maiter->table, true, true);
+			run_all("MaiterKernel2", "map", maiter->table, true, true, true);
 		}
 
-		run_all("MaiterKernel3", "run", maiter->table, false, false);
+		run_all("MaiterKernel3", "run", maiter->table, false, false, false);
 	}
 
 	void enable_trigger(const TriggerID triggerid, int table, bool enable);

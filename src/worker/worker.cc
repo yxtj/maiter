@@ -15,7 +15,6 @@
 
 DECLARE_double(sleep_time);
 DEFINE_double(sleep_hack, 0.0, "");
-DEFINE_int32(max_preread_pkg,200,"maximum number of buffered received packages before committed to application layer");
 
 namespace dsm {
 
@@ -92,18 +91,6 @@ void Worker::MsgLoop(){
 //	double t1=0,t2=0;
 	while(running_){
 		bool idle=true;
-		//Speed control. pause fetching msg when there are too many waiting for process
-//		PERIODIC(2,
-//		if(network_->unpicked_pkgs()+network_->pending_pkgs() <= FLAGS_max_preread_pkg){
-//			DLOG(INFO)<<"Acceptable unprocessed msg. driver.len="<<driver.queSize()
-//				<<", unpicked="<<network_->unpicked_pkgs()<<", pending="<<network_->pending_pkgs();
-//			network_->pause_=false;
-//		}else{
-//			network_->pause_=true;
-//			DLOG(INFO)<<"Too many unprocessed msg. driver.len="<<driver.queSize()
-//				<<", unpicked="<<network_->unpicked_pkgs()<<", pending="<<network_->pending_pkgs();
-//		}
-//		);
 //		Timer tmr;
 		int cnt=200;
 		while(--cnt>=0 && network_->TryReadAny(data, &info.source, &info.tag)){
@@ -171,6 +158,11 @@ void Worker::runKernel(){
 	d->set_args(args);
 
 	initialCP(kreq.cp_type());
+	if(kreq.restore()){
+		//TODO implement restore function
+		//doRestore(kreq.restore_epoch);
+	}
+
 //	if(id()==0)	//hack for strange synchronization problem
 //		Sleep();
 	_enableProcess();
