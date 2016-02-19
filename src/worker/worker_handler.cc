@@ -6,6 +6,7 @@
  */
 
 #include "worker.h"
+#include "table/table-registry.h"
 #include "net/Task.h"
 #include "net/RPCInfo.h"
 #include "net/NetworkThread.h"

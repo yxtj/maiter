@@ -2,11 +2,10 @@
 #define WORKER_H_
 
 #include "util/common.h"
-#include "kernel/kernel.h"
 #include "table/TableHelper.h"
-#include "table/table.h"
-#include "table/local-table.h"
-#include "table/global-table.h"
+//#include "table/table.h"
+//#include "table/local-table.h"
+//#include "table/global-table.h"
 #include "msg/message.pb.h"
 #include "net/RPCInfo.h"
 #include "driver/MsgDriver.h"
@@ -19,6 +18,7 @@
 namespace dsm {
 
 class NetworkThread;
+class GlobalTableBase;
 
 // If this node is the master, return false immediately.  Otherwise
 // start a worker and exit when the computation is finished.

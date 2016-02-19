@@ -7,6 +7,7 @@ using namespace dsm;
 using namespace std;
 
 DEFINE_string(runner, "", "");
+DEFINE_int32(taskid,0,"unique id for distinguishing different task");
 
 DEFINE_int32(shards, 10, "");
 DEFINE_int32(iterations, 10, "");
@@ -26,10 +27,6 @@ DEFINE_int64(num_nodes, 100, "");
 DEFINE_double(portion, 1, "");
 DEFINE_double(termcheck_threshold, 1000000000, "");
 DEFINE_double(sleep_time, 0.001, "");
-
-DEFINE_string(checkpoint_write_dir, "/tmp/maiter/checkpoints", "");
-DEFINE_string(checkpoint_read_dir, "/tmp/maiter/checkpoints", "");
-DEFINE_double(flush_time,0.2,"waiting time for flushing out all network message");
 
 DEFINE_int32(adsorption_starts, 100, "");
 DEFINE_double(adsorption_damping, 0.1, "");

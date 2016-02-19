@@ -2,6 +2,7 @@
 #define LOCALTABLE_H_
 
 #include "table.h"
+#include "table-interfaces.h"
 #include <string>
 
 namespace dsm {

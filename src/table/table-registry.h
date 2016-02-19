@@ -1,7 +1,7 @@
 #ifndef TABLE_REGISTY_H_
 #define TABLE_REGISTY_H_
 
-#include <table/TableDescriptor.h>
+#include "table/TableDescriptor.h"
 #include "global-table.h"
 #include "typed-global-table.hpp"
 #include "statetable.h"

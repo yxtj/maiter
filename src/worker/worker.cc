@@ -2,9 +2,8 @@
 #include "table/table-registry.h"
 #include "util/common.h"
 #include "kernel/kernel.h"
-//TODO: change back after message-driven is finished
 #include "net/NetworkThread.h"
-#include "net/NetworkImplMPI.h"
+//#include "net/NetworkImplMPI.h"
 #include "net/Task.h"
 #include <string>
 #include <thread>
@@ -365,8 +364,7 @@ void Worker::_disableProcess(){
 }
 
 bool StartWorker(const ConfigData& conf){
-	//TODO: change back after message-driven is finished
-	if(NetworkImplMPI::GetInstance()->id() == conf.master_id()) return false;
+	if(NetworkThread::Get()->id() == conf.master_id()) return false;
 
 	Worker w(conf);
 	w.Run();

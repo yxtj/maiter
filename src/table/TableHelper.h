@@ -8,6 +8,8 @@
 #ifndef TABLE_TABLEHELPER_H_
 #define TABLE_TABLEHELPER_H_
 
+#include <string>
+
 //#include "msg/message.pb.h"
 
 namespace dsm{
@@ -37,6 +39,16 @@ struct TableHelper{
 
 	virtual void realSwap(const int tid1, const int tid2) = 0;
 	virtual void realClear(const int tid) = 0;
+
+	std::string genCPNameFolderPart(int taskid){
+		return "task-" + std::to_string(taskid);
+	}
+	std::string genCPNameFolderPart(int taskid, int epoch){
+		return "task-" + std::to_string(taskid) + "/epoch_" + std::to_string(epoch);
+	}
+	std::string genCPNameFilePart(int table, int shard){
+		return "T" + std::to_string(table) + "-S" + std::to_string(shard);
+	}
 
 	virtual ~TableHelper(){}
 };

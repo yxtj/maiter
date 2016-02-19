@@ -44,11 +44,11 @@ void RunDescriptor::Init(const std::string& kernel,
 
 	this->termcheck=termcheck;
 
-	this->restore=restore;
 	if(restore && FLAGS_restore_epoch>=0){
+		this->restore=true;
 		this->restore_epoch=FLAGS_restore_epoch;
 	}else{
-		LOG(FATAL)<<"Restore epoch is not given or is not valid.";
+		this->restore=false;
 	}
 
 	this->kernel = kernel;

@@ -4,7 +4,6 @@
 #include "util/marshalled_map.hpp"
 //#include "IterateKernel.h"
 #include "DSMKernel.h"
-#include "table/table.h"
 #include "table/table-registry.h"
 #include "table/typed-global-table.hpp"
 #include "table/tbl_widget/IterateKernel.h"

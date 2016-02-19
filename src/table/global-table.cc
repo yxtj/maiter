@@ -126,11 +126,11 @@ void MutableGlobalTable::clear(){
 //	helper()->SyncClearRequest(req);
 }
 
-void MutableGlobalTable::start_checkpoint(const string& f){
+void MutableGlobalTable::start_checkpoint(const string& pre){
 	for(int i = 0; i < partitions_.size(); ++i){
 		if(is_local_shard(i)){
 			LocalTable *t = partitions_[i];
-			t->start_checkpoint(f + StringPrintf("-%04d-of-%04d", i, partitions_.size()));
+			t->start_checkpoint(pre + helper()->genCPNameFilePart(id(),i));
 		}
 	}
 }
@@ -154,12 +154,11 @@ void MutableGlobalTable::finish_checkpoint(){
 	}
 }
 
-void MutableGlobalTable::restore(const string& f){
+void MutableGlobalTable::restore(const string& pre){
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
-
 		if(is_local_shard(i)){
-			t->restore(f + StringPrintf("-%04d-of-%04d", i, partitions_.size()));
+			t->restore(pre + helper()->genCPNameFilePart(id(),i));
 		}else{
 			t->clear();
 		}

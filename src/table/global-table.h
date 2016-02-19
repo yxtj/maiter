@@ -3,6 +3,7 @@
 
 #include "local-table.h"
 #include "table.h"
+#include "table-interfaces.h"
 #include "util/timer.h"
 #include <mutex>
 #include <unordered_map>
@@ -184,10 +185,13 @@ public:
 	void resize(int64_t new_size);
 
 	//override from Checkpointable
-	void start_checkpoint(const string& f);
+	void start_checkpoint(const string& pre);
 	void write_message(const KVPairData& d);
 	void finish_checkpoint();
-	void restore(const string& f);
+	void restore(const string& pre);
+	//convenient functions for checkpoint
+	void start_checkpoint(const int taskid, const int epoch);
+	void restore(const int taskid, const int epoch);
 
 	void swap(GlobalTableBase *b);
 	void local_swap(GlobalTableBase *b);
