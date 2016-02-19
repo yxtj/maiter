@@ -20,8 +20,8 @@
 
 DECLARE_string(checkpoint_write_dir);
 DECLARE_string(checkpoint_read_dir);
-DECLARE_bool(restore);
 DECLARE_int32(taskid);
+DEFINE_bool(restore, false, "If true, enable restore.");
 
 namespace dsm{
 
@@ -132,11 +132,11 @@ void Master::checkpoint(){
 }
 
 
-bool Master::restore(){
-	if(!FLAGS_restore){
-		LOG(INFO)<< "Restore disabled by flag.";
-		return false;
-	}
+bool Master::restore(const int epoch){
+//	if(!FLAGS_restore){
+//		LOG(INFO)<< "Restore disabled by flag.";
+//		return false;
+//	}
 
 	if (!shards_assigned_){
 		assign_tables();
@@ -144,16 +144,27 @@ bool Master::restore(){
 	}
 
 	Timer t;
+	string path;
 	vector<string> matches = File::MatchingFilenames(FLAGS_checkpoint_read_dir
 			+genCPNameFolderPart(FLAGS_taskid)+"/*/checkpoint.finished");
-	if (matches.empty()){
-		return false;
+	if(epoch<0){
+		//no successful checkpoint
+		if (matches.empty()){
+			return false;
+		}
+		path=matches.back();
+	}else{
+		path=FLAGS_checkpoint_read_dir+genCPNameFolderPart(FLAGS_taskid,epoch);
+		//given checkpoint is not valid (not finished/not exist)
+		if(path>matches.back()){
+			return false;
+		}
 	}
 
 	// Glob returns results in sorted order, so our last checkpoint will be the last.
-	LOG(INFO) << "Restoring from file: " << matches.back();
+	LOG(INFO) << "Restoring from file: " << path;
 
-	RecordFile rf(matches.back(), "r");
+	RecordFile rf(path, "r");
 	CheckpointInfo info;
 	Args checkpoint_vars;
 	Args params;

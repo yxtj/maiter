@@ -371,7 +371,7 @@ void Worker::restore(int epoch){
 	lock_guard<recursive_mutex> sl(state_lock_);
 	LOG(INFO)<< "Worker "<<id()<<" is restoring state from epoch: " << epoch;
 	string pre=FLAGS_checkpoint_read_dir
-			+"/"+ genCPNameFolderPart(FLAGS_taskid,epoch_)+"/";
+			+"/"+ genCPNameFolderPart(FLAGS_taskid,epoch)+"/";
 	epoch_ = epoch;
 
 	TableRegistry::Map &t = TableRegistry::Get()->tables();

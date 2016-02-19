@@ -12,7 +12,7 @@
 
 DEFINE_string(checkpoint_type,"CP_NONE","Type of checkpoint mechanism");
 DEFINE_double(checkpoint_interval,0.0,"Interval of taking checkpoint(in second)");
-DEFINE_int32(restore_epoch,-1,"The epoch to restore from (-1 for do not restore).");
+DEFINE_int32(restore_from,-1,"The epoch to restore from (-1 for do not restore).");
 
 namespace dsm{
 
@@ -44,9 +44,9 @@ void RunDescriptor::Init(const std::string& kernel,
 
 	this->termcheck=termcheck;
 
-	if(restore && FLAGS_restore_epoch>=0){
+	if(restore && FLAGS_restore_from>=0){
 		this->restore=true;
-		this->restore_epoch=FLAGS_restore_epoch;
+		this->restore_from_epoch=FLAGS_restore_from;
 	}else{
 		this->restore=false;
 	}

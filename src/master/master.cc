@@ -17,8 +17,6 @@
 //		"For failure testing; comma delimited list of workers to pretend have died.");
 DEFINE_bool(work_stealing, true, "Enable work stealing to load-balance tasks between machines.");
 
-DEFINE_bool(restore, false, "If true, enable restore.");
-
 DEFINE_string(track_log, "track_log", "");
 DEFINE_bool(sync_track, false, "");
 
@@ -299,7 +297,7 @@ int Master::startWorkers(const RunDescriptor& r){
 	w_req.set_termcheck(r.termcheck);
 	w_req.set_restore(r.restore);
 	if(r.restore)
-		w_req.set_restore_epoch(r.restore_epoch);
+		w_req.set_restore_from_epoch(r.restore_from_epoch);
 	for(int i = 0; i < workers_.size(); ++i){
 		WorkerState& w = *workers_[i];
 		if(w.num_pending() > 0 && w.num_active() == 0){

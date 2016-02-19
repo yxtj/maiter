@@ -113,7 +113,8 @@ public:
 
 	// Attempt restore from a previous checkpoint for this job.  If none exists,
 	// the process is left in the original state, and this function returns false.
-	bool restore();
+	// When epoch == -1 , restore to the latest checkpoint.
+	bool restore(const int epoch=-1);
 
 private:
 	std::thread tmsg;

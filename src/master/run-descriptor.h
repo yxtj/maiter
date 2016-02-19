@@ -33,7 +33,7 @@ struct RunDescriptor{
 	std::vector<int> shards;
 
 	bool restore;
-	int restore_epoch;	//-1 means do not do restore
+	int restore_from_epoch;	//-1 means do not do restore
 
 	// Key-value map of arguments to pass to kernel functions
 	MarshalledMap params;

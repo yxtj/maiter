@@ -3,7 +3,6 @@
 #include "util/common.h"
 #include "kernel/kernel.h"
 #include "net/NetworkThread.h"
-//#include "net/NetworkImplMPI.h"
 #include "net/Task.h"
 #include <string>
 #include <thread>
@@ -158,8 +157,7 @@ void Worker::runKernel(){
 
 	initialCP(kreq.cp_type());
 	if(kreq.restore()){
-		//TODO implement restore function
-		//doRestore(kreq.restore_epoch);
+		restore(kreq.restore_from_epoch());
 	}
 
 //	if(id()==0)	//hack for strange synchronization problem
@@ -169,7 +167,7 @@ void Worker::runKernel(){
 	// Run the user kernel
 	helper->Run(d, kreq.method());
 
-	//clear the setting for checkpointing
+	//clear the setting of checkpoint
 	if(kreq.cp_type()!=CP_NONE)
 		initialCP(CP_NONE);
 
