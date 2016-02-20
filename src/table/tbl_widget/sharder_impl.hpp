@@ -27,10 +27,8 @@ struct Sharders{
 	};
 	struct Mod_str: public Sharder<std::string> {   //only for simrank
 		int operator()(const std::string& k, int shards){
-			std::string key = k;
-			int pos = key.find("_");
-			key = key.substr(0, pos);
-			pos = stoi(key);
+			size_t pos = k.find("_");
+			pos = std::stoi(k.substr(0, pos));
 			return (pos % shards);
 		}
 	};
