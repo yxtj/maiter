@@ -7,9 +7,8 @@ using namespace std;
 DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
-DECLARE_int64(katz_source);
-DECLARE_double(katz_beta);
-DECLARE_int32(shards);
+DEFINE_int64(katz_source, 0, "");
+DEFINE_double(katz_beta, 0.1, "");
 
 struct KatzIterateKernel: public IterateKernel<int, float, vector<int> > {
 
@@ -24,6 +23,7 @@ struct KatzIterateKernel: public IterateKernel<int, float, vector<int> > {
 		size_t pos = line.find('\t');
 
 		k = stoi(line.substr(0, pos));
+		++pos;
 
 		data.clear();
 		size_t spacepos;

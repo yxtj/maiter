@@ -1,6 +1,5 @@
 #include "client/client.h"
 #include "net/NetworkThread.h"
-//#include <mpi.h>
 #include <iostream>
 
 using namespace dsm;
@@ -16,7 +15,7 @@ DEFINE_int32(edge_size, 1000, "");
 DEFINE_bool(build_graph, false, "");
 DEFINE_bool(dump_results, false, "");
 
-DEFINE_int32(bufmsg, 10000, "expected minimum number of message per sending");
+//DEFINE_int32(bufmsg, 10000, "expected minimum number of message per sending");
 DEFINE_double(bufmsg_portion, 0.01,"portion of buffered sending");
 DEFINE_double(buftime, 3.0, "maximum time interval between 2 sendings");
 
@@ -28,12 +27,6 @@ DEFINE_double(portion, 1, "");
 DEFINE_double(termcheck_threshold, 1000000000, "");
 DEFINE_double(sleep_time, 0.001, "");
 
-DEFINE_int32(adsorption_starts, 100, "");
-DEFINE_double(adsorption_damping, 0.1, "");
-DEFINE_int64(shortestpath_source, 0, "");
-DEFINE_int64(katz_source, 0, "");
-DEFINE_double(katz_beta, 0.1, "");
-
 
 int main(int argc, char** argv){
 	FLAGS_log_prefix = false;
@@ -42,9 +35,6 @@ int main(int argc, char** argv){
 	Init(argc, argv);
 
 	ConfigData conf;
-	//TODO: change back after message-driven is finished
-//  conf.set_num_workers(MPI::COMM_WORLD.Get_size() - 1);
-//  conf.set_worker_id(MPI::COMM_WORLD.Get_rank() - 1);
 	conf.set_num_workers(NetworkThread::Get()->size() - 1);
 	conf.set_worker_id(NetworkThread::Get()->id() - 1);
 

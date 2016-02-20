@@ -7,7 +7,7 @@ using namespace std;
 DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
-DECLARE_int64(shortestpath_source);
+DEFINE_int64(shortestpath_source, 0, "");
 
 struct Link{
 	Link(int inend, float inweight) :
@@ -29,6 +29,7 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 		size_t pos = line.find('\t');
 
 		k = stoi(line.substr(0, pos));
+		++pos;
 
 		data.clear();
 		size_t spacepos;
@@ -76,11 +77,12 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 };
 
 static int Shortestpath(ConfigData& conf){
+	Sharders::Mod vS;
+	ShortestpathIterateKernel vSIK;
+	TermCheckers<int, float>::Diff vTC;
 	MaiterKernel<int, float, vector<Link> >* kernel = new MaiterKernel<int, float, vector<Link> >(
 			conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
-			new Sharders::Mod,
-			new ShortestpathIterateKernel,
-			new TermCheckers<int, float>::Diff);
+			&vS, &vSIK, &vTC);
 
 	kernel->registerMaiter();
 

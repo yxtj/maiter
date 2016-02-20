@@ -20,6 +20,7 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
 		size_t pos = line.find('\t');
 
 		k = stoi(line.substr(0, pos));
+		++pos;
 
 		data.clear();
 		size_t spacepos;

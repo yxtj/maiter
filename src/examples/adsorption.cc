@@ -7,8 +7,8 @@ using namespace std;
 DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
-DECLARE_int32(adsorption_starts);
-DECLARE_double(adsorption_damping);
+DEFINE_int32(adsorption_starts, 100, "");
+DEFINE_double(adsorption_damping, 0.1, "");
 
 struct Link{
 	Link(int inend, float inweight) : end(inend), weight(inweight){}
@@ -29,6 +29,7 @@ struct AdsorptionIterateKernel: public IterateKernel<int, float, vector<Link> > 
 		size_t pos = line.find('\t');
 
 		k = stoi(line.substr(0, pos));
+		++pos;
 
 		data.clear();
 		size_t spacepos;

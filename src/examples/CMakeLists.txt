@@ -9,7 +9,7 @@ add_custom_target(example_proto DEPENDS ${EXAMPLE_PB_HDR})
 
 add_library(example 
             pagerank.cc
-            #shortestpath.cc
+            shortestpath.cc
             #adsorption.cc
             #katz.cc
             #simrank.cc
