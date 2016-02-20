@@ -7,6 +7,7 @@
 
 #include "worker/worker.h"
 #include "master/master.h"
+#include "master/master_tf.hpp"
 
 #include "kernel/kernel.h"
 #include "table/tbl_widget/sharder_impl.hpp"

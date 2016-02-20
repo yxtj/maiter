@@ -176,7 +176,7 @@ public:
 			maiter->iterkernel->read_data(line, key, data); //invoke api, get the value of key field and data field
 			maiter->iterkernel->init_v(key, value, data); //invoke api, get the initial v field value
 			maiter->iterkernel->init_c(key, delta, data); //invoke api, get the initial delta v field value
-			//cout<<"key: "<<key<<"delta: "<<delta<<"value: "<<value<<"   "<<data[0][0]<<"  "<<data[1][0]<<"   "<<data[2][0]<<endl;
+//			DVLOG(3)<<"key: "<<key<<" delta: "<<delta<<" value: "<<value<<"   "<<data.size();
 			table->put(std::move(key), std::move(delta), std::move(value), std::move(data)); //initialize a row of the state table (a node)
 		}
 	}

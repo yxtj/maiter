@@ -122,8 +122,6 @@ public:
 protected:
 	virtual int shard_for_key_str(const StringPiece& k) = 0;
 
-	int worker_id_;
-
 	std::vector<LocalTable*> partitions_;
 	std::vector<LocalTable*> cache_;
 

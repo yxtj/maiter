@@ -116,11 +116,6 @@ public:
 
 //		VLOG(3) << "applying updates, from " << req.source();
 
-		if(!is_local_shard(req.shard())){
-			LOG_EVERY_N(INFO, 1000)<< "Forwarding push request from: ("
-				<< id()<<","<<req.shard() << ") to " << owner(req.shard());
-		}
-
 		// Changes to support centralized of triggers <CRM>
 		ProtoKVPairCoder c(&req);
 		int shard=req.shard();
@@ -136,7 +131,6 @@ public:
 //			ProcessUpdatesSingle(shard,it.key());
 		}
 		pending_process_+=req.kv_data_size();
-//		VLOG_EVERY_N(1,200)<<"merge data: "<<t.elapsed()<<" with "<<req.kv_data_size();
 
 //		ProcessUpdates();
 //		BufTermCheck();
@@ -159,8 +153,11 @@ public:
 				DLOG(INFO)<<"invalid iterator at ProcessUpdates";
 				return;
 			}
-			//should not use for(;!it->done();it->Next()), that will skip some entry
+//			int c=0;
 			while(!it2->done()){
+//				typedef typename StateTable<K,V1,V2,V3>::Iterator it_t;
+//				it_t* p=dynamic_cast<it_t*>(it2);
+//				VLOG(1)<<c++<<" p="<<p->pos<<" "<<p->parent_.size()<<" k="<<it2->key();
 				ProcessUpdatesSingle(it2->key(), it2->value1(), it2->value2(), it2->value3());
 				it2->Next();
 			}
@@ -276,6 +273,7 @@ void TypedGlobalTable<K, V1, V2, V3>::put(const K &k, const V1 &v1, const V2 &v2
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<std::recursive_mutex> sl(mutex());
 #endif
+//	DVLOG(3)<<"key: "<<k<<" delta: "<<v1<<" value: "<<v2<<"   "<<v3.size()<<" shard="<<shard<<" cl W"<<helper_id();
 	if(is_local_shard(shard)){
 		localT(shard)->put(k, v1, v2, v3);
 	}else{
@@ -291,6 +289,7 @@ void TypedGlobalTable<K, V1, V2, V3>::put(K &&k, V1 &&v1, V2 &&v2, V3 &&v3){
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<std::recursive_mutex> sl(mutex());
 #endif
+//	DVLOG(3)<<"key: "<<k<<" delta: "<<v1<<" value: "<<v2<<"   "<<v3.size()<<" shard="<<shard<<" rf W"<<helper_id();
 	if(is_local_shard(shard)){
 		localT(shard)->put(std::forward<K>(k), std::forward<V1>(v1), std::forward<V2>(v2), std::forward<V3>(v3));
 	}else{
@@ -309,16 +308,9 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF1(const K &k, const V1 &v){
 
 	if(is_local_shard(shard)){
 		localT(shard)->updateF1(k, v);
-
-		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
 	}else{
 		deltaT(shard)->update(k, v);
-
 	}
-
-//	PERIODIC(0.1, {
-//		this->HandlePutRequests();
-//	});
 }
 
 template<class K, class V1, class V2, class V3>
@@ -333,10 +325,10 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF2(const K &k, const V2 &v){
 	if(is_local_shard(shard)){
 		localT(shard)->updateF2(k, v);
 
-		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
+		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << helper_id();
 	}else{
 		VLOG(2) << "update F2 shard " << shard << " local? " << " : " << is_local_shard(shard)
-							<< " : " << worker_id_;
+							<< " : " << helper_id();
 	}
 }
 
@@ -352,10 +344,10 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF3(const K &k, const V3 &v){
 	if(is_local_shard(shard)){
 		localT(shard)->updateF3(k, v);
 
-		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
+		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << helper_id();
 	}else{
 		VLOG(2) << "update F3 shard " << shard << " local? " << " : " << is_local_shard(shard)
-							<< " : " << worker_id_;
+							<< " : " << helper_id();
 	}
 }
 
@@ -391,7 +383,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF2(const K &k, const V2 &v){ // 
 	if(is_local_shard(shard)){
 		localT(shard)->accumulateF2(k, v); // Typetable
 
-		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
+		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << helper_id();
 	}else{
 		VLOG(2) << "accumulate F2 shard " << shard << " local? " << " : "
 							<< is_local_shard(shard);
@@ -410,10 +402,10 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF3(const K &k, const V3 &v){
 	if(is_local_shard(shard)){
 		localT(shard)->accumulateF3(k, v);
 
-		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << worker_id_;
+		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << helper_id();
 	}else{
 		VLOG(2) << "accumulate F3 shard " << shard << " local? " << " : "
-							<< is_local_shard(shard) << " : " << worker_id_;
+							<< is_local_shard(shard) << " : " << helper_id();
 	}
 }
 

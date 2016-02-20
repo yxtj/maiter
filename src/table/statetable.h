@@ -82,8 +82,7 @@ public:
 				++pos;
 				//cout << "pos now is " << pos << " v1 " << parent_.buckets_[pos].v1 << endl;
 			}while(pos < parent_.size_
-					&& (parent_.buckets_[pos].v1 == defaultv &&
-							!parent_.buckets_[pos].in_use));
+					&& (!parent_.buckets_[pos].in_use || parent_.buckets_[pos].v1 == defaultv));
 			return pos < parent_.size_;
 		}
 
@@ -738,6 +737,7 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 		resize(1 + size_ * 2);
 		b=bucket_for_access_key(k);
 	}
+//	DVLOG(3)<<"key: "<<k<<" delta: "<<v1<<" value: "<<v2<<"   "<<v3.size();
 	buckets_[b].in_use = 1;
 	buckets_[b].k = k;
 	buckets_[b].v1 = v1;
@@ -758,6 +758,7 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 		resize(1 + size_ * 2);
 		b=bucket_for_access_key(k);
 	}
+//	DVLOG(3)<<"key: "<<k<<" delta: "<<v1<<" value: "<<v2<<"   "<<v3.size()<<" b "<<b;
 	buckets_[b].in_use = 1;
 	buckets_[b].k = std::forward<K>(k);
 	buckets_[b].v1 = std::forward<V1>(v1);

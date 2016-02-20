@@ -75,30 +75,32 @@ public:
 
 	//maiter program
 	template<class K, class V, class D>
-	void run_maiter(MaiterKernel<K, V, D>* maiter){
-		if(maiter->sharder == nullptr){
-			LOG(FATAL)<<"sharder is not specified in current kernel";
-			return;
-		}
-
-		run_all("MaiterKernel1", "run", maiter->table, false, false, false);
-
-		if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
-			run_all("MaiterKernel2", "map", maiter->table, true, true, true);
-		}
-
-		run_all("MaiterKernel3", "run", maiter->table, false, false, false);
-	}
-
-	void enable_trigger(const TriggerID triggerid, int table, bool enable);
+	void run_maiter(MaiterKernel<K, V, D>* maiter);
+//	{
+//		if(maiter->sharder == nullptr){
+//			LOG(FATAL)<<"sharder is not specified in current kernel";
+//			return;
+//		}
+//
+//		run_all("MaiterKernel1", "run", maiter->table, false, false, false);
+//
+////		if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
+////			run_all("MaiterKernel2", "map", maiter->table, true, true, true);
+////		}
+//
+////		run_all("MaiterKernel3", "run", maiter->table, false, false, false);
+//	}
 
 	template<class T>
-	T& get_cp_var(const string& key, T defval = T()){
-		if(!cp_vars_.contains(key)){
-			cp_vars_.put(key, defval);
-		}
-		return cp_vars_.get<T>(key);
-	}
+	T& get_cp_var(const string& key, T defval = T());
+//	{
+//		if(!cp_vars_.contains(key)){
+//			cp_vars_.put(key, defval);
+//		}
+//		return cp_vars_.get<T>(key);
+//	}
+
+	void enable_trigger(const TriggerID triggerid, int table, bool enable);
 
 	void barrier();
 	void barrier2();
