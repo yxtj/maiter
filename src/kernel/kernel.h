@@ -162,7 +162,7 @@ public:
 		std::ifstream inFile(patition_file);
 		if(!inFile){
 			LOG(FATAL) << "Unable to open file" << patition_file;
-//			cerr << system("ifconfig -a | grep 192.168.*") << endl;
+			// cerr << system("ifconfig -a | grep 192.168.*") << endl;
 			exit(1); // terminate with error
 		}
 
@@ -173,12 +173,19 @@ public:
 			V delta;
 			D data;
 			V value;
-			maiter->iterkernel->read_data(line, key, data); //invoke api, get the value of key field and data field
+			std::vector<K> connection;
+			maiter->iterkernel->read_data(line, key, data, connection); //invoke api, get the value of key field and data field
 			maiter->iterkernel->init_v(key, value, data); //invoke api, get the initial v field value
 			maiter->iterkernel->init_c(key, delta, data); //invoke api, get the initial delta v field value
-//			DVLOG(3)<<"key: "<<key<<" delta: "<<delta<<" value: "<<value<<"   "<<data.size();
+			// DVLOG(3)<<"key: "<<key<<" delta: "<<delta<<" value: "<<value<<"   "<<data.size();
+			table->add_ineighbor(key, value, connection);	//add "key" as an in-neighbor of all nodes in "ons"
 			table->put(std::move(key), std::move(delta), std::move(value), std::move(data)); //initialize a row of the state table (a node)
 		}
+	}
+
+	void corridnate_in_neighbors(TypedGlobalTable<K, V, V, D>* table){
+		table->send_ineighbor_cache();
+		table->clear_ineighbor_cache();
 	}
 
 	void init_table(TypedGlobalTable<K, V, V, D>* a){
@@ -188,6 +195,7 @@ public:
 		a->resize(maiter->num_nodes);   //create local state table based on the input size
 
 		read_file(a);               //initialize the state table fields based on the input data file
+		corridnate_in_neighbors(a);
 	}
 
 	void run(){

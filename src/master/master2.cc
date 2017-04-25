@@ -10,12 +10,9 @@
 #include "table/local-table.h"
 #include "table/table.h"
 #include "table/global-table.h"
-//#include "net/NetworkThread.h"
 #include "net/Task.h"
 
-#include <set>
-#include <sstream>
-#include <iomanip>
+//#include <iomanip>
 #include <thread>
 #include <chrono>
 //#include <functional>
@@ -53,7 +50,7 @@ void Master::realSwap(const int tid1, const int tid2){
 	VLOG(2) << StringPrintf("Sending swap request (%d <--> %d)", req.table_a(), req.table_b());
 
 	su_swap.reset();
-	network_->Broadcast(MTYPE_SWAP_TABLE, req);
+	network_->Broadcast(MTYPE_TABLE_SWAP, req);
 	su_swap.wait();
 }
 void Master::realClear(const int tid){
@@ -62,7 +59,7 @@ void Master::realClear(const int tid){
 	VLOG(2) << StringPrintf("Sending clear request (%d)", req.table());
 
 	su_clear.reset();
-	network_->Broadcast(MTYPE_CLEAR_TABLE, req);
+	network_->Broadcast(MTYPE_TABLE_CLEAR, req);
 	su_clear.wait();
 }
 
@@ -141,6 +138,18 @@ void Master::broadcastWorkerInfo(){
 		p->set_network_id(w.net_id);
 	}
 	network_->Broadcast(MTYPE_WORKER_LIST,req);
+}
+
+void Master::changeGraph(){
+	for(auto& tf:current_run_.delta_graph){
+		int t=tf.first;
+		while(barrier_timer->elapsed()<tf.first){
+			this_thread::sleep_for(chrono::duration<double>(tf.first-barrier_timer->elapsed()));
+		}
+		TableUpdata req;
+		req.set_filename(tf.second);
+		network_->Broadcast(MTYPE_UPDATE_TABLE,req);
+	}
 }
 
 } //namespace dsm

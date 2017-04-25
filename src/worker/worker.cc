@@ -248,6 +248,10 @@ void Worker::realClear(const int tid){
 	LOG(INFO)<<"Invalid. (signal the master to perform this)";
 }
 
+void Worker::realSendInNeighbor(int dstWorkerID, const InNeighborData& data){
+	network_->Send(peers_[dstWorkerID].net_id , MTYPE_ADD_INNEIGHBOR, data);
+}
+
 void Worker::realSendTermCheck(int snapshot, long updates, double current){
 	lock_guard<recursive_mutex> sl(state_lock_);
 
@@ -319,9 +323,11 @@ void Worker::signalToPnS(){
 void Worker::HandlePutRequestReal(const KVPairData& put){
 //	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
 //				<< put.table()<<","<<put.shard()<<")";
-
+		
 	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
-	t->MergeUpdates(put);
+	// t->MergeUpdates(put);
+	// XXX: changes for evolving graph
+	t->MergeUpdates(put, inTable);
 
 	if(put.done() && t->tainted(put.shard())){
 		VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());

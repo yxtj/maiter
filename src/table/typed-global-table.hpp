@@ -11,6 +11,7 @@
 #include "global-table.h"
 #include "local-table.h"
 #include "statetable.h"
+#include "deltatable.h"
 #include "table_iterator.h"
 #include "table.h"
 #include "tbl_widget/sharder.h"
@@ -49,6 +50,8 @@ public:
 			partitions_[i] = create_deltaT(i);
 		}
 		binit = false;
+		// XXX: evolving graph
+		in_neighbor_cache.resize(tinfo->num_shards);
 	}
 
 	void InitStateTable(){
@@ -81,6 +84,15 @@ public:
 	void accumulateF2(const K &k, const V2 &v);
 	void accumulateF3(const K &k, const V3 &v);
 
+	// load out-neighbor and generate in-neighbor
+	void add_ineighbor_from_out(const K &from, const V1 &v1, const std::vector<K>& ons);
+	// generate and send messages of in-neighbor information
+	void send_ineighbor_cache()
+	void clear_ineighbor_cache();
+	// receive in-neighbor information
+	void add_ineighbor_from_in(const dsm::InNeighborData& req);
+	void add_ineighbor_from_in(const K &to, const V1 &v1, const std::vector<K>& ins);
+
 	// Return the value associated with 'k', possibly blocking for a remote fetch.
 	ClutterRecord<K, V1, V2, V3> get(const K &k);
 	V1 getF1(const K &k);
@@ -110,7 +122,7 @@ public:
 				partitions_[shard]->entirepass_iterator(this->helper()));
 	}
 
-	void MergeUpdates(const dsm::KVPairData& req){
+	virtual void MergeUpdates(const dsm::KVPairData& req){
 //		Timer t;
 		std::lock_guard<std::recursive_mutex> sl(mutex());
 
@@ -127,6 +139,7 @@ public:
 		for(; !it.done(); it.Next()){
 			VLOG(3) << this->owner(shard) << ":" << shard << " read from remote "
 								<< it.key() << ":" << it.value1();
+			// XXX: changes for evolving graph
 			accumulateF1(it.key(), it.value1());
 //			ProcessUpdatesSingle(shard,it.key());
 		}
@@ -215,6 +228,8 @@ protected:
 	virtual LocalTable* create_localT(int shard);
 	virtual LocalTable* create_deltaT(int shard);
 	bool binit;
+	// XXX: evolving graph
+	std::vector<std::unordered_multimap<K, K>> in_neighbor_cache;
 };
 
 static const int kWriteFlushCount = 1000000;
@@ -261,6 +276,73 @@ V3 TypedGlobalTable<K, V1, V2, V3>::get_localF3(const K& k){
 	CHECK(is_local_shard(shard)) << " non-local for shard: " << shard;
 
 	return localT(shard)->getF3(k);
+}
+
+template<class K, class V1, class V2, class V3>
+void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor_from_out(const K &from, const V1 &v1, const std::vector<K>& ons){
+	for(const K& to : ons){
+		int shard = this->get_shard(to);
+		if(is_local_shard(shard)){
+			localT(shard)->add_ineighbor(k, to, v1);
+		}else{
+			in_neighbor_cache[shard].emplace(to, k);
+		}
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache(){
+	Marshal<K> * km = kmarshal();
+	for(size_t i=0;i<in_neighbor_cache.size();++i){
+		if(is_local_shard(i))
+			continue;
+		auto& ref=in_neighbor_cache[i];
+		InNeighborData msg;
+		for(auto& it = ref.begin(); it!=ref.end(); ++it){
+			InNeighborPair* p = msg.add_data();
+			string to, from;
+			km->marshal(it->first,&to)
+			km->marshal(it->second,&from)
+			p.set_to(to);
+			p.set_from(from);
+		}
+		msg.set_table(info()->table_id)
+		info()->helper->realSendInNeighbor(i, msg);
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+void void TypedGlobalTable<K, V1, V2, V3>::clear_ineighbor_cache(){
+	in_neighbor_cache.clear();
+}
+
+template<class K, class V1, class V2, class V3>
+void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor_from_in(const dsm::InNeighborData& req){
+	Marshal<K> * km = kmarshal();
+	std::map<K, std::vector<K>> buffer;
+	int size=req.data_size();
+	for(int i=0;i<size;++i){
+		const InNeighborPair& p = req.data(i);
+		K to, from;
+		km->unmarshal(p.to(), &to);
+		km->unmarshal(p.from(), &from);
+		buffer[to].push_back(from);
+	}
+	// send
+	V1 v1 = static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel)->default_v();
+	for(auto it=buffer.begin(); it!=buffer.end(); ++it){
+		add_ineighbor_from_in(it->first, v1, it->end());
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor_from_in(const K &to, const V1 &v1, const std::vector<K>& ins){
+	int shard = this->get_shard(to);
+	CHECK(is_local_shard(shard)) << " non-local for shard: " << shard
+	StateTable *st = dynamic_cast<StateTable<K,V1,V2,V3>(localT(shard));
+	for(const K& from : ins){
+		st->add_ineighbor(from, to, v1);
+	}
 }
 
 // Store the given key-value pair in this hash. If 'k' has affinity for a

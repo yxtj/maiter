@@ -15,7 +15,7 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
 
     PagerankIterateKernel() : zero(0){}
 
-    void read_data(string& line, int& k, vector<int>& data){
+    void read_data(string& line, int& k, vector<int>& data, vector<int>& connection){
 		//line: "k\ta b c "
 		size_t pos = line.find('\t');
 
@@ -29,7 +29,7 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
 			data.push_back(to);
 			pos=spacepos+1;
 		}
-
+                connection=data;
 	}
 
     void init_c(const int& k, int& delta, vector<int>& data){

@@ -65,12 +65,12 @@ void Master::registerHandlers(){
 	rph_.addType(MTYPE_SHARD_ASSIGNMENT, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_tassign));
 	rph_.activateType(MTYPE_SHARD_ASSIGNMENT);
-	rph_.addType(MTYPE_CLEAR_TABLE, ReplyHandler::condFactory(EACH_ONE,nw),
+	rph_.addType(MTYPE_TABLE_CLEAR, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_clear));
-	rph_.activateType(MTYPE_CLEAR_TABLE);
-	rph_.addType(MTYPE_SWAP_TABLE, ReplyHandler::condFactory(EACH_ONE,nw),
+	rph_.activateType(MTYPE_TABLE_CLEAR);
+	rph_.addType(MTYPE_TABLE_SWAP, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_swap));
-	rph_.activateType(MTYPE_SWAP_TABLE);
+	rph_.activateType(MTYPE_TABLE_SWAP);
 
 	rph_.addType(MTYPE_WORKER_LIST, ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify, &su_regw));

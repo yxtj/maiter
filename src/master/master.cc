@@ -3,7 +3,6 @@
 #include "table/local-table.h"
 #include "table/table.h"
 #include "table/global-table.h"
-//#include "net/NetworkThread.h"
 #include "net/Task.h"
 
 #include <set>
@@ -441,7 +440,11 @@ void Master::run(RunDescriptor&& r){
 
 	thread t_cp;
 	if(current_run_.checkpoint_type != CP_NONE){
-		t_cp=thread(&Master::checkpoint,this);
+		t_cp=thread(&Master::checkpoint, this);
+	}
+	thread t_change;
+	if(current_run_.change_graph){
+		t_term=thread(&Master::changeGraph, this);
 	}
 	thread t_term;
 	if(current_run_.termcheck){
@@ -455,6 +458,11 @@ void Master::run(RunDescriptor&& r){
 		LOG(INFO)<<"Waiting for checkpoint thread to stop";
 		t_cp.join();
 		LOG(INFO)<<"Found checkpoint thread stopped";
+	}
+	if(t_change.joinable()){
+		LOG(INFO)<<"Waiting for graph changing thread to stop";
+		t_change.join();
+		LOG(INFO)<<"Found graph changing thread stopped";
 	}
 	if(t_term.joinable()){
 		LOG(INFO)<<"Waiting for termination checking thread to stop";

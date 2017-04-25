@@ -11,6 +11,7 @@
 #include "driver/MsgDriver.h"
 #include "driver/tools/ReplyHandler.h"
 #include "driver/tools/SyncUnit.h"
+#include "ineighbor.h"
 
 #include <thread>
 #include <mutex>
@@ -34,10 +35,13 @@ public:
 	void KernelProcess();
 	void MsgLoop();
 
-	void realSwap(const int tid1, const int tid2);
-	void realClear(const int tid);
+	virtual void realSwap(const int tid1, const int tid2);
+	virtual void realClear(const int tid);
 	void HandleSwapRequest(const std::string& d, const RPCInfo& rpc);
 	void HandleClearRequest(const std::string& d, const RPCInfo& rpc);
+
+	void HandleAddInNeighbor(const std::string& d, const RPCInfo& rpc);
+	virtual void realSendInNeighbor(int dstWorkerID, const InNeighborData& data);
 
 	void HandleShardAssignment(const std::string& d, const RPCInfo& rpc);
 
@@ -53,7 +57,7 @@ public:
 	void HandleSendUpdates(const std::string&, const RPCInfo&);	//dummy parameters
 	virtual void realSendUpdates(int dstWorkerID, const KVPairData& msg);
 
-	virtual void signalToPnS();
+	virtual void signalToPnS();	// process and send
 	void HandlePnS(const std::string&, const RPCInfo&);	//dummy parameters
 
 	// step 4: check whether current task is finished
@@ -196,9 +200,10 @@ private:
 	MsgDriver driver;
 	bool pause_pop_msg_;
 	ReplyHandler rph;
+
+	// XXX: changes for evolving graph
+	INeighborTable inTable;
 };
-
-
 
 
 }

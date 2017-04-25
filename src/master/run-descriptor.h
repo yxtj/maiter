@@ -32,6 +32,9 @@ struct RunDescriptor{
 	std::vector<int> checkpoint_tables;
 	std::vector<int> shards;
 
+	bool change_graph;
+	std::vector<std::pair<int,std::string>> delta_graph;
+
 	bool restore;
 	int restore_from_epoch;	//-1 means do not do restore
 

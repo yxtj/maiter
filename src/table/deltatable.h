@@ -24,10 +24,11 @@ private:
 #pragma pack(push, 1)
 	struct Bucket{
 		K k;
+		K src;
 		V1 v1;
 		bool in_use;
 	};
-	#pragma pack(pop)
+#pragma pack(pop)
 
 public:
 	typedef FileDecodeIterator<K, V1, int, int> FileUpdateDecoder;

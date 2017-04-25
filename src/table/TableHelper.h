@@ -37,6 +37,8 @@ struct TableHelper{
 //	virtual void FlushUpdates() = 0;
 	virtual void realSendTermCheck(int index, long updates, double current) = 0;
 
+	virtual void realSendInNeighbor(int dstWorkerID, const InNeighborData& data) = 0;
+
 	virtual void realSwap(const int tid1, const int tid2) = 0;
 	virtual void realClear(const int tid) = 0;
 

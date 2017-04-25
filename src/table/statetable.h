@@ -34,7 +34,13 @@ private:
 		V2 v2;
 		V3 v3;
 		V1 priority;
+		std::unordered_map<K, V1> input; // values of in-neighbors
+		K best_in; // pointer to the best neighbor
 		bool in_use;
+
+		// update the input and maintain the best_in
+		void update_best_pointer(const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel);
+		void reset_best_pointer(IterateKernel<K, V1, V3>* kernel);
 	};
 #pragma pack(pop)
 
@@ -52,7 +58,7 @@ public:
 			 */
 			if(bfilter){
 				std::mt19937 gen(std::chrono::system_clock::now().time_since_epoch().count());
-//				DVLOG(1)<<"bunket size="<<parent_.buckets_.size();
+				//DVLOG(1)<<"bunket size="<<parent_.buckets_.size();
 				std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
 				auto rand_num = [&](){return dist(gen);};
 
@@ -266,11 +272,11 @@ public:
 			total++;
 
 			return pos<parent_.size_;
-//			if(pos >= parent_.size_){
-//				return false;
-//			}else{
-//				return true;
-//			}
+			// if(pos >= parent_.size_){
+			// 	return false;
+			// }else{
+			// 	return true;
+			// }
 		}
 
 		bool done(){
@@ -323,6 +329,11 @@ public:
 		LOG(FATAL)<< "Not implemented.";
 		return false;
 	}
+	void add_ineighbor(const K& from, const K& to, const V1& v1);
+	void update_ineighbor(const K& from, const K& to, const V1& v1);
+	void remove_ineighbor(const K& from, const K& to);
+	V1 get_ineighbor(const K& from, const K& to);
+	void reset_best_ineighbor(const K& k);
 
 	void resize(int64_t size);
 
@@ -525,13 +536,13 @@ void StateTable<K, V1, V2, V3>::serializeToFile(TableCoder *out){
 		v3.clear();
 		DVLOG(2)<<i->pos<<": k="<<i->key()<<" v1="<<i->value1()<<" v2="<<i->value2();
 		((Marshal<K>*)info_.key_marshal)->marshal(i->key(), &k);
-//		DVLOG(1)<<"k="<<i->key()<<" - "<<k;
+		// DVLOG(1)<<"k="<<i->key()<<" - "<<k;
 		((Marshal<V1>*)info_.value1_marshal)->marshal(i->value1(), &v1);
-//		DVLOG(1)<<"v1="<<i->value1()<<" - "<<v1;
+		// DVLOG(1)<<"v1="<<i->value1()<<" - "<<v1;
 		((Marshal<V2>*)info_.value2_marshal)->marshal(i->value2(), &v2);
-//		DVLOG(1)<<"v2="<<i->value2()<<" - "<<v3;
-//		((Marshal<V3>*)info_.value3_marshal)->marshal(i->value3(), &v3);
-//		DVLOG(1)<<"v3="<<i->value3()<<" - "<<v3;
+		// DVLOG(1)<<"v2="<<i->value2()<<" - "<<v3;
+		// ((Marshal<V3>*)info_.value3_marshal)->marshal(i->value3(), &v3);
+		// DVLOG(1)<<"v3="<<i->value3()<<" - "<<v3;
 		out->WriteEntryToFile(k, v1, v2, v3);
 		i->Next();
 	}
@@ -619,11 +630,11 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size){
 	buckets_.resize(size);
 	size_ = size;
 	clear();
-	//LOG(INFO) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
+	// LOG(INFO) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
 	for(int i = 0; i < old_b.size(); ++i){
 		if(old_b[i].in_use){
 			put(old_b[i].k, old_b[i].v1, old_b[i].v2, old_b[i].v3);
-//			LOG(INFO)<< "copy: " << old_b[i].k;
+			// LOG(INFO)<< "copy: " << old_b[i].k;
 		}
 	}
 	CHECK_EQ(old_entries, entries_)<<getcallstack();
@@ -738,14 +749,16 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 		b=bucket_for_access_key(k);
 	}
 //	DVLOG(3)<<"key: "<<k<<" delta: "<<v1<<" value: "<<v2<<"   "<<v3.size();
-	buckets_[b].in_use = 1;
+	if(buckets_[b].in_use == false){
+		buckets_[b].in_use == true;
+		++entries_;
+	}
 	buckets_[b].k = k;
 	buckets_[b].v1 = v1;
 	buckets_[b].v2 = v2;
 	buckets_[b].v3 = v3;
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
 			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
-	++entries_;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -758,15 +771,97 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 		resize(1 + size_ * 2);
 		b=bucket_for_access_key(k);
 	}
-//	DVLOG(3)<<"key: "<<k<<" delta: "<<v1<<" value: "<<v2<<"   "<<v3.size()<<" b "<<b;
-	buckets_[b].in_use = 1;
+	// DVLOG(3)<<"key: "<<k<<" delta: "<<v1<<" value: "<<v2<<"   "<<v3.size()<<" b "<<b;
+	if(buckets_[b].in_use == false){
+		buckets_[b].in_use == true;
+		++entries_;
+	}
 	buckets_[b].k = std::forward<K>(k);
 	buckets_[b].v1 = std::forward<V1>(v1);
 	buckets_[b].v2 = std::forward<V2>(v2);
 	buckets_[b].v3 = std::forward<V3>(v3);
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
 			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
-	++entries_;
+}
+
+// XXX: for evolving graph:
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::Bucket::update_best_pointer(
+	const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel)
+{
+	V1 old = input[best_in];
+	input[from]=v;
+	if(kernel->better(v, input[best_in])){
+		best_in=from;
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::Bucket::reset_best_pointer(IterateKernel<K, V1, V3>* kernel){
+	if(input.empty())
+		return;
+	auto itbest=input.begin(), it=input.begin(), itend=input.end();
+	for(++it; it!=itend; ++it){
+		if(kernel->better(it->second, itbest->second))
+			itbest=it;
+	}
+	best_in = itbest->first;
+}
+
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::add_ineighbor(const K& from, const K& to, const V1& v1){
+	int b=bucket_for_access_key(to);
+	if(b==-1 /* || (!buckets_[b].in_use && entries_ >= size_*kLoadFactor) */){
+		//doesn't consider loadfactor, the tablesize is pre-defined
+		VLOG(2) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2)
+				<< " entries " << entries_;
+		resize(1 + size_ * 2);
+		b=bucket_for_access_key(to);
+	}
+	if(buckets_[b].in_use == false){
+		buckets_[b].in_use = true;
+		++entries_;
+	}
+	buckets_[b].k = to;
+	buckets_[b].input[from] = v1;
+}
+
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::update_ineighbor(const K& from, const K& to, const V1& v){
+	int b = bucket_for_key(to);
+	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&to) << ">";
+	V1 old = buckets_[b].input[from];
+	buckets_[b].input[from] = v;
+	// update the pointer to the best ineighbor
+	V1 temp = old;
+	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->accumulate(temp, v);
+	if(temp == old){ // a bad change
+		//if(from == buckets_[b].ibest)
+	}else{ // a good change;
+		
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::remove_ineighbor(const K& from, const K& to){
+	int b = bucket_for_key(to);
+	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&to) << ">";
+	buckets_[b].input.erase(from);
+}
+
+template<class K, class V1, class V2, class V3>
+V1 StateTable<K, V1, V2, V3>::get_ineighbor(const K& from, const K& to){
+	int b = bucket_for_key(to);
+	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&to) << ">";
+	return buckets_[b].input[from];
+}
+
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::reset_best_ineighbor(const K& k){
+	int b = bucket_for_key(to);
+	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&to) << ">";
+	IterateKernel<K, V1, V3>* kernel = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
+	buckets_[b].reset_best_pointer(kernel);
 }
 
 } //namespace dsm

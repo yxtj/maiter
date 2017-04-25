@@ -83,6 +83,9 @@ public:
 	const TableDescriptor& info() const{
 		return info_;
 	}
+	TableDescriptor& info(){
+		return info_;
+	}
 	TableDescriptor& mutable_info(){
 		return info_;
 	}

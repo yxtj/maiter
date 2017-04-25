@@ -48,6 +48,8 @@ public:
 	virtual void realSendUpdates(int dstWorkerID, const KVPairData& put){}
 	virtual void realSendTermCheck(int index, long updates, double current){}
 
+	virtual void realSendInNeighbor(int dstWorkerID, const InNeighborData& data){}
+
 	virtual void realSwap(const int tid1, const int tid2);
 	virtual void realClear(const int tid);
 
@@ -148,6 +150,7 @@ private:
 	void broadcastWorkerInfo();
 	void shutdownWorkers();
 
+	// checkpointing
 	std::condition_variable cv_cp; //for shutdown cp thread, only be notified after kernel termination
 //	std::std::vector<SyncUnit> su_cpdone;
 	void start_checkpoint();
@@ -158,9 +161,13 @@ private:
 	SyncUnit su_cp_start, su_cp_local, su_cp_finish;
 	SyncUnit su_cp_restore;
 
+	// termination check
 	void handleTermcheckDone(const std::string& d, const RPCInfo& info);
 	SyncUnit su_term;
 	void terminate_iteration();
+
+	// change graph
+	void changeGraph();
 
 	WorkerState* worker_for_shard(int table, int shard);
 

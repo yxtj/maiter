@@ -24,7 +24,7 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 		imax = std::numeric_limits<float>::max();
 	}
 
-	void read_data(string& line, int& k, vector<Link>& data){
+	void read_data(string& line, int& k, vector<Link>& data, vector<int>& connection){
 		//line: "k\tai,aw bi,bw ci,cw "
 		size_t pos = line.find('\t');
 
@@ -32,12 +32,15 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 		++pos;
 
 		data.clear();
+		connection.clear();
 		size_t spacepos;
 		while((spacepos = line.find(' ', pos)) != line.npos){
 			size_t cut = line.find(',', pos + 1);
-			Link to(stoi(line.substr(pos, cut - pos)),
-					stof(line.substr(cut + 1, spacepos - cut - 1)));
+			int node=stoi(line.substr(pos, cut - pos));
+			float weight=stof(line.substr(cut + 1, spacepos - cut - 1));
+			Link to(node, weight);
 			data.push_back(to);
+			connection.push_back(node);
 			pos = spacepos + 1;
 		}
 

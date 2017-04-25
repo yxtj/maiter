@@ -163,8 +163,22 @@ message ClearTable {
   required int32 table = 1;
 }
 
+message TableUpdata {
+  required string filename = 1;
+}
+
 message EnableTrigger {
   required int32 trigger_id = 1;
   required int32 table = 2;
   required bool enable = 3;
+}
+
+message InNeighborPair {
+  required bytes from = 1;
+  required bytes to = 2;
+}
+
+message InNeighborData {
+  required uint32 table = 1;
+  repeated InNeighborPair data = 2;
 }
