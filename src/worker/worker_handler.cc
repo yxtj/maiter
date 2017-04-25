@@ -61,6 +61,10 @@ void Worker::registerHandlers(){
 	rph.addType(MTYPE_CHECKPOINT_SIG,ReplyHandler::condFactory(EACH_ONE,nw),
 			bind(&SyncUnit::notify,&su_cp_sig),false);
 	rph.activateType(MTYPE_CHECKPOINT_SIG);
+
+	rph.addType(MTYPE_ADD_INNEIGHBOR, ReplyHandler::condFactory(EACH_ONE,nw),
+			bind(&SyncUnit::notify, &su_neigh), false);
+	rph.activateType(MTYPE_ADD_INNEIGHBOR);
 	return;
 }
 
@@ -75,6 +79,7 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 void Worker::HandleAddInNeighbor(const string& d, const RPCInfo& info){
 	InNeighborData data;
 	data.ParseFromString(d);
+	rph.input(MTYPE_ADD_INNEIGHBOR,info.source);
 	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(data.table());
 	t->add_ineighbor_from_in(data);
 }

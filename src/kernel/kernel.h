@@ -178,7 +178,7 @@ public:
 			maiter->iterkernel->init_v(key, value, data); //invoke api, get the initial v field value
 			maiter->iterkernel->init_c(key, delta, data); //invoke api, get the initial delta v field value
 			// DVLOG(3)<<"key: "<<key<<" delta: "<<delta<<" value: "<<value<<"   "<<data.size();
-			table->add_ineighbor(key, value, connection);	//add "key" as an in-neighbor of all nodes in "ons"
+			table->add_ineighbor_from_out(key, value, connection);	//add "key" as an in-neighbor of all nodes in "ons"
 			table->put(std::move(key), std::move(delta), std::move(value), std::move(data)); //initialize a row of the state table (a node)
 		}
 	}

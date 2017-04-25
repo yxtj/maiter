@@ -201,8 +201,8 @@ private:
 	bool pause_pop_msg_;
 	ReplyHandler rph;
 
-	// XXX: changes for evolving graph
-	INeighborTable inTable;
+	// XXX: evolving graph
+	SyncUnit su_neigh;
 };
 
 

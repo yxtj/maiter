@@ -166,6 +166,10 @@ void Worker::runKernel(){
 
 	// Run the user kernel
 	helper->Run(d, kreq.method());
+	if(kreq.kernel()=="MaiterKernel1"){
+		rph.input(MTYPE_ADD_INNEIGHBOR,id());
+		su_neigh.wait();
+	}
 
 	//clear the setting of checkpoint
 	if(kreq.cp_type()!=CP_NONE)
