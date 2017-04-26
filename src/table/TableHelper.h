@@ -15,6 +15,7 @@
 namespace dsm{
 
 class KVPairData;
+class InNeighborData;
 
 // This interface is used by global tables to communicate with the outside
 // world and determine the current state of a computation.

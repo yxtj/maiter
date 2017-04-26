@@ -286,11 +286,53 @@ public:
 		delete it;
 
 		File.close();
-		VLOG(0)<<"W"<<maiter->conf.worker_id()<<":\ntotal F1 : " << totalF1 << "\ntotal F2 : " << totalF2;
+		VLOG(0)<<"W"<<maiter->conf.worker_id()<<":\ttotal F1 : " << totalF1 << "\ttotal F2 : " << totalF2;
 	}
 
 	void run(){
 		VLOG(0) << "dumping result";
+		dump(maiter->table);
+	}
+};
+
+template<class K, class V, class D>
+class MaiterKernel4: public DSMKernel{ //the examine phase: dumping the in-neighbor list together with the values on them
+private:
+	MaiterKernel<K, V, D>* maiter;              //user-defined iteratekernel
+public:
+	void set_maiter(MaiterKernel<K, V, D>* inmaiter){
+		maiter = inmaiter;
+	}
+
+	void dump(TypedGlobalTable<K, V, V, D>* a){
+		std::string file = StringPrintf("%s/ilist-%d", maiter->output.c_str(), current_shard()); //the output path
+		std::ofstream File(file);	//the output file containing the local state table infomation
+
+		int nNode = 0, nNeigh = 0;
+		//get the iterator of the local state table
+		typename StateTable<K, V, V, D>::EntirePassIterator *it =
+			dynamic_cast<typename StateTable<K, V, V, D>::EntirePassIterator*>(
+					a->get_entirepass_iterator(current_shard()));
+
+		while(!it->done()){
+			File << it->key() << "\t";
+			++nNode;
+			const std::unordered_map<K, V>& ineigh = it->ineighbor();
+			for(auto jt=ineigh.begin(); jt!=ineigh.end(); ++jt){
+				File<< jt->first <<','<< jt->second <<' ';
+				++nNeigh;
+			}
+			File<<"\n";
+			it->Next();
+		}
+		delete it;
+
+		File.close();
+		VLOG(0)<<"W"<<maiter->conf.worker_id()<<":\tnNode : " << nNode << "\tnNeigh: " << nNeigh;
+	}
+
+	void run(){
+		VLOG(0) << "dumping in-neighbors";
 		dump(maiter->table);
 	}
 };
@@ -360,6 +402,10 @@ public:
 		KernelRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", this);
 		MethodRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", "run",
 				&MaiterKernel3<K, V, D>::run, this);
+
+		KernelRegistrationHelper<MaiterKernel4<K, V, D>, K, V, D>("MaiterKernel4", this);
+		MethodRegistrationHelper<MaiterKernel4<K, V, D>, K, V, D>("MaiterKernel4", "run",
+				&MaiterKernel4<K, V, D>::run, this);
 
 		return 0;
 	}

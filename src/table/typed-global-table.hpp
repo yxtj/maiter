@@ -12,6 +12,7 @@
 #include "local-table.h"
 #include "statetable.h"
 #include "deltatable.h"
+#include "msg/message.pb.h"
 #include "table_iterator.h"
 #include "table.h"
 #include "tbl_widget/sharder.h"
@@ -87,11 +88,10 @@ public:
 	// load out-neighbor and generate in-neighbor
 	void add_ineighbor_from_out(const K &from, const V1 &v1, const std::vector<K>& ons);
 	// generate and send messages of in-neighbor information
-	void send_ineighbor_cache()
+	void send_ineighbor_cache();
 	void clear_ineighbor_cache();
 	// receive in-neighbor information
-	void add_ineighbor_from_in(const dsm::InNeighborData& req);
-	void add_ineighbor_from_in(const K &to, const V1 &v1, const std::vector<K>& ins);
+	virtual void add_ineighbor(const dsm::InNeighborData& req);
 
 	// Return the value associated with 'k', possibly blocking for a remote fetch.
 	ClutterRecord<K, V1, V2, V3> get(const K &k);
@@ -279,13 +279,16 @@ V3 TypedGlobalTable<K, V1, V2, V3>::get_localF3(const K& k){
 }
 
 template<class K, class V1, class V2, class V3>
-void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor_from_out(const K &from, const V1 &v1, const std::vector<K>& ons){
+void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor_from_out(
+		const K &from, const V1 &v1, const std::vector<K>& ons)
+{
 	for(const K& to : ons){
 		int shard = this->get_shard(to);
 		if(is_local_shard(shard)){
-			localT(shard)->add_ineighbor(k, to, v1);
+			StateTable<K, V1, V2, V3> *st=dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(shard));
+			st->add_ineighbor(from, to, v1);
 		}else{
-			in_neighbor_cache[shard].emplace(to, k);
+			in_neighbor_cache[shard].emplace(to, from);
 		}
 	}
 }
@@ -298,50 +301,37 @@ void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache(){
 			continue;
 		auto& ref=in_neighbor_cache[i];
 		InNeighborData msg;
-		for(auto& it = ref.begin(); it!=ref.end(); ++it){
+		for(auto it = ref.begin(); it!=ref.end(); ++it){
 			InNeighborPair* p = msg.add_data();
 			string to, from;
-			km->marshal(it->first,&to)
-			km->marshal(it->second,&from)
-			p.set_to(to);
-			p.set_from(from);
+			km->marshal(it->first,&to);
+			km->marshal(it->second,&from);
+			p->set_to(to);
+			p->set_from(from);
 		}
-		msg.set_table(info()->table_id)
-		info()->helper->realSendInNeighbor(i, msg);
+		msg.set_table(info().table_id);
+		info().helper->realSendInNeighbor(i, msg);
 	}
 }
 
 template<class K, class V1, class V2, class V3>
-void void TypedGlobalTable<K, V1, V2, V3>::clear_ineighbor_cache(){
+void TypedGlobalTable<K, V1, V2, V3>::clear_ineighbor_cache(){
 	in_neighbor_cache.clear();
 }
 
 template<class K, class V1, class V2, class V3>
-void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor_from_in(const dsm::InNeighborData& req){
+void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor(const dsm::InNeighborData& req){
 	Marshal<K> * km = kmarshal();
-	std::map<K, std::vector<K>> buffer;
+	V1 default_v = static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel)->default_v();
 	int size=req.data_size();
 	for(int i=0;i<size;++i){
 		const InNeighborPair& p = req.data(i);
 		K to, from;
 		km->unmarshal(p.to(), &to);
 		km->unmarshal(p.from(), &from);
-		buffer[to].push_back(from);
-	}
-	// send
-	V1 v1 = static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel)->default_v();
-	for(auto it=buffer.begin(); it!=buffer.end(); ++it){
-		add_ineighbor_from_in(it->first, v1, it->end());
-	}
-}
-
-template<class K, class V1, class V2, class V3>
-void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor_from_in(const K &to, const V1 &v1, const std::vector<K>& ins){
-	int shard = this->get_shard(to);
-	CHECK(is_local_shard(shard)) << " non-local for shard: " << shard
-	StateTable *st = dynamic_cast<StateTable<K,V1,V2,V3>(localT(shard));
-	for(const K& from : ins){
-		st->add_ineighbor(from, to, v1);
+		int shard = this->get_shard(to);
+		StateTable<K, V1, V2, V3> *st = dynamic_cast<StateTable<K,V1,V2,V3>*>(localT(shard));
+		st->add_ineighbor(from, to, default_v);
 	}
 }
 

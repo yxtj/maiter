@@ -11,7 +11,6 @@
 #include "driver/MsgDriver.h"
 #include "driver/tools/ReplyHandler.h"
 #include "driver/tools/SyncUnit.h"
-#include "ineighbor.h"
 
 #include <thread>
 #include <mutex>
@@ -40,6 +39,7 @@ public:
 	void HandleSwapRequest(const std::string& d, const RPCInfo& rpc);
 	void HandleClearRequest(const std::string& d, const RPCInfo& rpc);
 
+	// step 0: evolving graph: coordinate in-neighbors
 	void HandleAddInNeighbor(const std::string& d, const RPCInfo& rpc);
 	virtual void realSendInNeighbor(int dstWorkerID, const InNeighborData& data);
 

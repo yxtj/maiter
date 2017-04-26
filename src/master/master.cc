@@ -444,7 +444,7 @@ void Master::run(RunDescriptor&& r){
 	}
 	thread t_change;
 	if(current_run_.change_graph){
-		t_term=thread(&Master::changeGraph, this);
+		t_change=thread(&Master::changeGraph, this);
 	}
 	thread t_term;
 	if(current_run_.termcheck){

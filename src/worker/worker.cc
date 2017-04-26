@@ -329,9 +329,7 @@ void Worker::HandlePutRequestReal(const KVPairData& put){
 //				<< put.table()<<","<<put.shard()<<")";
 		
 	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
-	// t->MergeUpdates(put);
-	// XXX: changes for evolving graph
-	t->MergeUpdates(put, inTable);
+	t->MergeUpdates(put);
 
 	if(put.done() && t->tainted(put.shard())){
 		VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());

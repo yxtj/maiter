@@ -81,7 +81,7 @@ void Worker::HandleAddInNeighbor(const string& d, const RPCInfo& info){
 	data.ParseFromString(d);
 	rph.input(MTYPE_ADD_INNEIGHBOR,info.source);
 	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(data.table());
-	t->add_ineighbor_from_in(data);
+	t->add_ineighbor(data);
 }
 
 void Worker::HandlePutRequest(const string& d, const RPCInfo& info){

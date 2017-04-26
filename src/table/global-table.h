@@ -74,6 +74,10 @@ public:
 	virtual void SendUpdates() = 0;
 	virtual void TermCheck() = 0;
 
+	// XXX: evolving graph
+	virtual void add_ineighbor(const dsm::InNeighborData& req) = 0;
+
+
 	bool allowProcess(){ return allow2Process_; }
 	void enableProcess(){ allow2Process_=true; }
 	void disableProcess(){ allow2Process_=false; }

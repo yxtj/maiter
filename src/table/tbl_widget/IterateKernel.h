@@ -20,7 +20,7 @@ struct IterateKernelBase {};
 
 template <class K, class V, class D>
 struct IterateKernel : public IterateKernelBase {
-	virtual void read_data(std::string& line, K& k, D& data, std::std::vector<K>& connection) = 0;
+	virtual void read_data(std::string& line, K& k, D& data, std::vector<K>& connection) = 0;
 	virtual void init_c(const K& k, V& delta,D& data) = 0;
 	virtual const V& default_v() const = 0;
 	virtual void init_v(const K& k,V& v,D& data) = 0;

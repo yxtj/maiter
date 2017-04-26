@@ -142,7 +142,6 @@ void Master::broadcastWorkerInfo(){
 
 void Master::changeGraph(){
 	for(auto& tf:current_run_.delta_graph){
-		int t=tf.first;
 		while(barrier_timer->elapsed()<tf.first){
 			this_thread::sleep_for(chrono::duration<double>(tf.first-barrier_timer->elapsed()));
 		}

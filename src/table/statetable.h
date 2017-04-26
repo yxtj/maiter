@@ -292,6 +292,7 @@ public:
 		V1& value1(){ return parent_.buckets_[pos].v1; }
 		V2& value2(){ return parent_.buckets_[pos].v2; }
 		V3& value3(){ return parent_.buckets_[pos].v3; }
+		const std::unordered_map<K, V1>& ineighbor(){ return parent_.buckets_[pos].input; }
 
 		int pos;
 		StateTable<K, V1, V2, V3> &parent_;
@@ -750,7 +751,7 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 	}
 //	DVLOG(3)<<"key: "<<k<<" delta: "<<v1<<" value: "<<v2<<"   "<<v3.size();
 	if(buckets_[b].in_use == false){
-		buckets_[b].in_use == true;
+		buckets_[b].in_use = true;
 		++entries_;
 	}
 	buckets_[b].k = k;
@@ -773,7 +774,7 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 	}
 	// DVLOG(3)<<"key: "<<k<<" delta: "<<v1<<" value: "<<v2<<"   "<<v3.size()<<" b "<<b;
 	if(buckets_[b].in_use == false){
-		buckets_[b].in_use == true;
+		buckets_[b].in_use = true;
 		++entries_;
 	}
 	buckets_[b].k = std::forward<K>(k);
@@ -858,8 +859,8 @@ V1 StateTable<K, V1, V2, V3>::get_ineighbor(const K& from, const K& to){
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::reset_best_ineighbor(const K& k){
-	int b = bucket_for_key(to);
-	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&to) << ">";
+	int b = bucket_for_key(k);
+	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
 	IterateKernel<K, V1, V3>* kernel = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
 	buckets_[b].reset_best_pointer(kernel);
 }
