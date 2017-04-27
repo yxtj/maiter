@@ -8,6 +8,7 @@
 #include <thread>
 #include <functional>
 #include <chrono>
+#include <fstream>
 
 #include "dbg/getcallstack.h"
 

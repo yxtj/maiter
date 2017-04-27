@@ -25,13 +25,15 @@ void Master::run_maiter(MaiterKernel<K, V, D>* maiter){
 
 	run_all("MaiterKernel1", "run", maiter->table, false, false, false);
 
+	run_all("MaiterKernelLoadDeltaGraph", "run", maiter->table, false, false, false);
+
 //	if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
 //		run_all("MaiterKernel2", "map", maiter->table, true, true, true);
 //	}
 
 //	run_all("MaiterKernel3", "run", maiter->table, false, false, false);
 
-	run_all("MaiterKernel4", "run", maiter->table, false, false, false);
+	run_all("MaiterKernelDumpInNeighbor", "run", maiter->table, false, false, false);
 }
 
 template<class T>

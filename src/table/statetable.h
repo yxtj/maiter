@@ -1,5 +1,5 @@
-#ifndef TABLE_STATE_TABLE_H_
 #define TABLE_STATE_TABLE_H_
+#ifndef TABLE_STATE_TABLE_H_
 
 #include "util/noncopyable.h"
 #include "tbl_widget/IterateKernel.h"
@@ -330,6 +330,9 @@ public:
 		LOG(FATAL)<< "Not implemented.";
 		return false;
 	}
+
+	// XXX: evolving graph
+	void change_graph(const K& k, const ChangeEdgeType& type, const V3& change);
 	void add_ineighbor(const K& from, const K& to, const V1& v1);
 	void update_ineighbor(const K& from, const K& to, const V1& v1);
 	void remove_ineighbor(const K& from, const K& to);
@@ -554,6 +557,7 @@ template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeToNet(KVPairCoder *out){
 	Iterator *i = (Iterator*)get_iterator(nullptr, false);
 	string k, v1;
+	// TODO: change latter to add source
 	while(!i->done()){
 		k.clear();
 		v1.clear();
@@ -592,7 +596,7 @@ void StateTable<K, V1, V2, V3>::deserializeFromNet(KVPairCoder *in, DecodeIterat
 	K k;
 	V1 v1;
 	string kt, v1t;
-
+	// TODO: change latter to add source
 	it->clear();
 	while(in->ReadEntryFromNet(&kt, &v1t)){
 		((Marshal<K>*)info_.key_marshal)->unmarshal(kt, &k);
@@ -720,6 +724,7 @@ void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v){
 	int b = bucket_for_key(k);
 	//cout << "accumulate " << k << "\t" << v << endl;
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) <<">"<< "key: "<<k;
+	// TODO: add branches according to bunckets_[b].input
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->accumulate(buckets_[b].v1, v);
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
 			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
@@ -787,11 +792,33 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 
 // XXX: for evolving graph:
 template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeType& type, const V3& change){
+	int b=bucket_for_key(k);
+	Buncket& bk=bunckets_[b];
+	switch(type){
+	case ChangeEdgeType::ADD:
+		bk.v3.push_back(change.front());
+		break;
+	case ChangeEdgeType::REMOVE:
+		bk.v3.erase(std::find(bk.v3.begin(), bk.v3.end(), change.front()));
+		break;
+	case ChangeEdgeType::INCREASE:
+		// compare with key, assign with <key, value> pair
+		*std::find(bk.v3.begin(), bk.v3.end(), change.front())=change.front();
+		break;
+	case ChangeEdgeType::DECREASE:
+		*std::find(bk.v3.begin(), bk.v3.end(), change.front())=change.front();
+		break;
+	}
+}
+
+template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::Bucket::update_best_pointer(
 	const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel)
 {
-	V1 old = input[best_in];
+	// chagne
 	input[from]=v;
+	// maintain best pointer
 	if(kernel->better(v, input[best_in])){
 		best_in=from;
 	}

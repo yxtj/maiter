@@ -85,13 +85,14 @@ public:
 		Table::Init(td);
 	}
 
-	V1 get(const K& k);
-	bool contains(const K& k);
-	void put(const K& k, const V1& v1);
+	virtual V1 get(const K& k);
+	virtual bool contains(const K& k);
+	virtual void put(const K& k, const V1& v1);
 	void put(K&& k, V1&& v1);
-	void update(const K& k, const V1& v);
-	void accumulate(const K& k, const V1& v);
-	bool remove(const K& k){
+	virtual void update(const K& k, const V1& v);
+	virtual void accumulate(const K& k, const V1& v);
+	virtual void accumulate(const K &k, const K &from, const V1 &v);
+	virtual bool remove(const K& k){
 		LOG(FATAL)<< "Not implemented.";
 		return false;
 	}
@@ -315,8 +316,22 @@ void DeltaTable<K, V1, D>::accumulate(const K& k, const V1& v){
 	if(b == -1){
 		put(k, v);
 	}else{
-		//((IterateKernel<K, V1, D>*)info_.iterkernel)->accumulate(&buckets_[b].v1, v);
 		((IterateKernel<K, V1, D>*)info_.iterkernel)->accumulate(buckets_[b].v1, v);
+	}
+}
+
+template<class K, class V1, class D>
+void DeltaTable<K, V1, D>::accumulate(const K& k, const K& from, const V1& v){
+	int b = bucket_for_key(k);
+
+	if(b == -1){
+		put(k, v);
+	}else{
+		V1 old = buckets_[b].v1;
+		((IterateKernel<K, V1, D>*)info_.iterkernel)->accumulate(buckets_[b].v1, v);
+		if(v == buckets_[b].v1){
+			buckets_[b].src=from;
+		}
 	}
 }
 
@@ -332,9 +347,9 @@ void DeltaTable<K, V1, D>::put(const K& k, const V1& v1){
 	if(buckets_[b].in_use!=true){
 		buckets_[b].in_use = true;
 		buckets_[b].k = k;
+		++entries_;
 	}
 	buckets_[b].v1 = v1;
-	++entries_;
 	return;
 
 //	int start = bucket_idx(k);

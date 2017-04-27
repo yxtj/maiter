@@ -54,6 +54,7 @@ void Worker::registerHandlers(){
 	RegDSPProcess(MTYPE_LOOP_PNS, &Worker::HandlePnS);
 
 	RegDSPProcess(MTYPE_RESTORE, &Worker::HandleRestore);
+	RegDSPProcess(MTYPE_UPDATE_GRAPH, &Worker::HandleGraphChange);
 
 	//Synchronization control:
 	int nw=config_.num_workers();
@@ -136,6 +137,12 @@ void Worker::HandleTermCheck(const std::string&, const RPCInfo&){
 	st_will_termcheck_=false;
 }
 
+void Worker::HandleGraphChange(const std::string& d, const RPCInfo&){
+	GraphChangeReq data;
+	data.ParseFromString(d);
+	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(data.table());
+	t->loadGraphChange(d.filename())
+}
 
 void Worker::HandleSwapRequest(const string& d, const RPCInfo& rpc){
 	SwapTable req;

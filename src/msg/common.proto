@@ -1,9 +1,11 @@
+syntax = "proto2";
 package dsm;
 
 
 message Arg {
   required bytes key = 1;
   required bytes value = 2;
+  optional bytes src = 3;
 }
 
 message Args {

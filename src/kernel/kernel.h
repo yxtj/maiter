@@ -14,6 +14,8 @@
 #include <thread>
 
 DECLARE_string(graph_dir);
+DECLARE_string(init_dir);
+DECLARE_string(delta_name);
 
 namespace dsm {
 
@@ -158,28 +160,50 @@ public:
 
 	void read_file(TypedGlobalTable<K, V, V, D>* table){
 		std::string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
-		//cout<<"Unable to open file: " << patition_file<<endl;
 		std::ifstream inFile(patition_file);
 		if(!inFile){
 			LOG(FATAL) << "Unable to open file" << patition_file;
-			// cerr << system("ifconfig -a | grep 192.168.*") << endl;
-			exit(1); // terminate with error
 		}
 
 		std::string line;
 		//read a line of the input file
 		while(getline(inFile,line)){
+			if(line.empty())
+				continue;
 			K key;
 			V delta;
 			D data;
 			V value;
-			std::vector<K> connection;
-			maiter->iterkernel->read_data(line, key, data, connection); //invoke api, get the value of key field and data field
+			maiter->iterkernel->read_data(line, key, data); //invoke api, get the value of key field and data field
 			maiter->iterkernel->init_v(key, value, data); //invoke api, get the initial v field value
 			maiter->iterkernel->init_c(key, delta, data); //invoke api, get the initial delta v field value
+			std::vector<K> iconnection=maiter->iterkernel->get_keys(data);
 			// DVLOG(3)<<"key: "<<key<<" delta: "<<delta<<" value: "<<value<<"   "<<data.size();
-			table->add_ineighbor_from_out(key, value, connection);	//add "key" as an in-neighbor of all nodes in "ons"
+			table->add_ineighbor_from_out(key, value, iconnection);	//add "key" as an in-neighbor of all nodes in "ons"
 			table->put(std::move(key), std::move(delta), std::move(value), std::move(data)); //initialize a row of the state table (a node)
+		}
+	}
+
+	void loadInit(TypedGlobalTable<K, V, V, D>* table){
+		std::string init_file = StringPrintf("%s/part%d", FLAGS_init_dir.c_str(), current_shard());
+		std::ifstream inFile(patition_file);
+		if(!inFile){
+			LOG(FATAL) << "Unable to open file" << init_file;
+		}
+
+		std::string line;
+		//read a line of the input file
+		while(getline(inFile,line)){
+			if(line.empty())
+				continue;
+			K key;
+			V delta;
+			V value;
+			// same format as the output(MaiterKernel3)
+			// format: "<key>\t<value>:<delta>"
+			maiter->iterkernel->read_init(line, k, delta, value);
+			table->updateF1(key, delta);
+			table->updateF2(key, value);
 		}
 	}
 
@@ -195,12 +219,118 @@ public:
 		a->resize(maiter->num_nodes);   //create local state table based on the input size
 
 		read_file(a);               //initialize the state table fields based on the input data file
+		if(!FLAGS_init_dir.empty())
+			loadInit(a);
 		corridnate_in_neighbors(a);
 	}
 
 	void run(){
 		VLOG(0) << "initializing table ";
 		init_table(maiter->table);
+	}
+};
+
+// load and apply the delta graph
+template<class K, class V, class D>
+class MaiterKernelLoadDeltaGraph: public DSMKernel{
+private:
+	MaiterKernel<K, V, D>* maiter;                          //user-defined iteratekernel
+public:
+	void set_maiter(MaiterKernel<K, V, D>* inmaiter){
+		maiter = inmaiter;
+	}
+
+	void read_delta(TypedGlobalTable<K, V, V, D>* table){
+		std::string patition_file = StringPrintf("%s/%s-%d",
+			FLAGS_graph_dir.c_str(), FLAGS_delta_name.c_str(), current_shard());
+		std::ifstream inFile(patition_file);
+		if(!inFile){
+			LOG(FATAL) << "Unable to open file" << patition_file;
+		}
+
+		std::vector<std::tuple<K, ChangeEdgeType, D>> changes;
+
+		std::string line;
+		//read a line of the input file
+		while(getline(inFile,line)){
+			if(line.empty())
+				continue;
+			K key;
+			ChangeEdgeType type;
+			D data;
+			maiter->iterkernel->read_change(line, key, type, data);
+			// go without checking the type of changees
+			table->change_graph(key, type, data);
+			changes.emplace_back(key, type, move(data));
+			// move the value to delta, in order to start the new computatin.
+			value=table->getF2();
+		}
+		// send messages about these chagnes.
+		// CANNOT use the delta-table, because if there is multiple changes to the same dst node, only one can be sent due to the accumulation on delta
+		send_changes(table, changes);
+	}
+
+	void send_changes(TypedGlobalTable<K, V, V, D>* table, std::vector<std::tuple<K, ChangeEdgeType, D>>& changes){
+		// step 1: prepare messages
+		std::vector<KVPairData> puts;
+		for(int i = 0; i < table->num_shards(); ++i){
+			if(!table->is_local_shard(i)){
+				KVPairData& put=puts[i];
+				put.Clear();
+				put.set_shard(i);
+				put.set_source(table->helper()->id());
+				put.set_table(table->id());
+				put.set_epoch(table->helper()->epoch());
+				put.set_done(true);
+			}
+		}
+		// step 2: put changes into messages
+		Marshal<K>* mk = table->kmarshal();
+		Marshal<V>* mv = table->v1marshal();
+		string from, to, value;
+		for(auto& tup : changes){
+			K key = get<0>(tup);
+			ChangeEdgeType type = get<1>(tup);
+			D d = get<2>(tup);
+			K dst = maiter->iterkernel->get_keys(d).front();
+			V weight;
+			if(type==ChangeEdgeType::REMOVE){
+				weight=maiter->iterkernel->default_v();
+			}else{
+				ClutterRecord<K, V, V, D> c = table->get(key);
+				std::vector<std::pair<K, V>> output;
+				maiter->iterkernel->g_func(c.k, c.v1, c.v2, c.v3, &output);
+				auto it = std::find_if(output.begin(), output.end(), [&](const std::pair<K, V>& p){
+					return p.first==dst;
+				});
+				weight=it->second;
+			}
+			int shard = table->get_shard(dst);
+			Arg* a = puts[shard].add_kv_data();
+			//mk->marshal(key, &from);
+			mk->marshal(dst, &to);
+			mv->marshal(weight, &value);
+			a->set_key(to.data(), to.size());
+			a->set_value(value.data(), value.size());
+		}
+		// step 3: send messages
+		for(int i = 0; i < table->num_shards(); ++i){
+			KVPairData& put=puts[i];
+			if(put.kv_data_size() != 0){
+				table->helper()->realSendUpdates(table->owner(i),put);
+			}
+		}
+	}
+
+	void delta_table(TypedGlobalTable<K, V, V, D>* a){
+		read_delta(a);
+		//corridnate_in_neighbors(a);
+	}
+
+	void run(){
+		VLOG(0) << "load & apply delta graph";
+		if(!FLAGS_delta_name.empty())
+			delta_table(maiter->table);
 	}
 };
 
@@ -247,7 +377,7 @@ public:
 				tgt->helper()->signalToTermCheck();
 			std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
 		}
-//		DLOG(INFO)<<"pending writes: "<<tgt->pending_send_;
+		// DLOG(INFO)<<"pending writes: "<<tgt->pending_send_;
 	}
 
 	void map(){
@@ -275,8 +405,8 @@ public:
 		typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_entirepass_iterator(current_shard());
 
 		while(!it->done()){
-//			bool cont = it->Next();
-//			if(!cont) break;
+			// bool cont = it->Next();
+			// if(!cont) break;
 
 			totalF1 += it->value1();
 			totalF2 += it->value2();
@@ -295,8 +425,9 @@ public:
 	}
 };
 
+// dump the in-neighbor list together with the values on them
 template<class K, class V, class D>
-class MaiterKernel4: public DSMKernel{ //the examine phase: dumping the in-neighbor list together with the values on them
+class MaiterKernelDumpInNeighbor: public DSMKernel{
 private:
 	MaiterKernel<K, V, D>* maiter;              //user-defined iteratekernel
 public:
@@ -391,6 +522,11 @@ public:
 		MethodRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", "run",
 				&MaiterKernel1<K, V, D>::run, this);
 
+		// load and apply the delta graph
+		KernelRegistrationHelper<MaiterKernelLoadDeltaGraph<K, V, D>, K, V, D>("MaiterKernelLoadDeltaGraph", this);
+		MethodRegistrationHelper<MaiterKernelLoadDeltaGraph<K, V, D>, K, V, D>("MaiterKernelLoadDeltaGraph", "run",
+				&MaiterKernelLoadDeltaGraph<K, V, D>::run, this);
+
 		//iterative update job
 		if(iterkernel != nullptr && termchecker != nullptr){
 			KernelRegistrationHelper<MaiterKernel2<K, V, D>, K, V, D>("MaiterKernel2", this);
@@ -403,9 +539,10 @@ public:
 		MethodRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", "run",
 				&MaiterKernel3<K, V, D>::run, this);
 
-		KernelRegistrationHelper<MaiterKernel4<K, V, D>, K, V, D>("MaiterKernel4", this);
-		MethodRegistrationHelper<MaiterKernel4<K, V, D>, K, V, D>("MaiterKernel4", "run",
-				&MaiterKernel4<K, V, D>::run, this);
+		// dump neighbor
+		KernelRegistrationHelper<MaiterKernelDumpInNeighbor<K, V, D>, K, V, D>("MaiterKernelDumpInNeighbor", this);
+		MethodRegistrationHelper<MaiterKernelDumpInNeighbor<K, V, D>, K, V, D>("MaiterKernelDumpInNeighbor", "run",
+				&MaiterKernelDumpInNeighbor<K, V, D>::run, this);
 
 		return 0;
 	}

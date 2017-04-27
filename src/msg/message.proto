@@ -1,3 +1,4 @@
+syntax = "proto2";
 package dsm;
 
 import "msg/mtype.proto";
@@ -163,22 +164,39 @@ message ClearTable {
   required int32 table = 1;
 }
 
-message TableUpdata {
-  required string filename = 1;
-}
-
 message EnableTrigger {
   required int32 trigger_id = 1;
   required int32 table = 2;
   required bool enable = 3;
 }
 
-message InNeighborPair {
+// init in-neighbors
+message InNeighborUnit {
   required bytes from = 1;
   required bytes to = 2;
+  optional bytes weight = 3;
 }
 
 message InNeighborData {
   required uint32 table = 1;
-  repeated InNeighborPair data = 2;
+  repeated InNeighborUnit data = 2;
+}
+
+// load graph changes
+message GraphChangeReq {
+  required string filename = 1;
+  required uint32 table = 2;
+}
+
+message ChangedEdge{
+  required bytes src = 1;
+  required bytes dst = 2;
+  required float weight = 3;
+}
+
+message GraphChangeInfo{
+  repeated ChangedEdge added = 1;
+  repeated ChangedEdge removed = 2;
+  repeated ChangedEdge increased = 3;
+  repeated ChangedEdge decreased = 4;
 }

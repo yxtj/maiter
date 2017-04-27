@@ -16,6 +16,12 @@ struct Link{
 	int end;
 	float weight;
 };
+bool operator==(const Link& lth, const Link& rth){
+	return lth.end == rth.end;
+}
+bool operator==(const Link& lth, const int rth){
+	return lth.end == rth;
+}
 
 struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> > {
 	float imax;
@@ -24,7 +30,7 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 		imax = std::numeric_limits<float>::max();
 	}
 
-	void read_data(string& line, int& k, vector<Link>& data, vector<int>& connection){
+	void read_data(string& line, int& k, vector<Link>& data){
 		//line: "k\tai,aw bi,bw ci,cw "
 		size_t pos = line.find('\t');
 
@@ -32,7 +38,6 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 		++pos;
 
 		data.clear();
-		connection.clear();
 		size_t spacepos;
 		while((spacepos = line.find(' ', pos)) != line.npos){
 			size_t cut = line.find(',', pos + 1);
@@ -40,10 +45,45 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 			float weight=stof(line.substr(cut + 1, spacepos - cut - 1));
 			Link to(node, weight);
 			data.push_back(to);
-			connection.push_back(node);
 			pos = spacepos + 1;
 		}
+	}
+	void read_init(std::string& line, int& k, float& delta, float& value){
+		// format: "<key>\t<value>:<delta>"
+		size_t p=line.find('\t');
+		key = stoi(line.substr(0, p));
+		++p;
+		size_t p2=line.find(':', p);
+		delta = stof(line.substr(p, p2-p));
+		value = stof(line.substr(p2+1));
+	}
 
+	void read_change(std::string& line, int& k, ChangeEdgeType& type, vector<Link>& change){
+		// line: "<type>\t<src>,<dst>,<weight>"
+		// <type> is one of A, R, I, D
+		switch(line[0]){
+			case 'A': type=ChangeEdgeType::ADD;	break;
+			case 'R': type=ChangeEdgeType::REMOVE;	break;
+			case 'I': type=ChangeEdgeType::INCREASE;	break;
+			case 'D': type=ChangeEdgeType::DECREASE;	break;
+			default: LOG(FATAL)<<"Cannot parse change line: "<<line;
+		}
+		size_t p1=line.find(',', 2);
+		k=stoi(line.substr(2,p1-2));
+		size_t p2=line.find(',', p1+1);
+		int dst=stoi(line.substr(p1+1, p2-p1-1));
+		float weight=stof(line.substr(p2+1));
+		change.clear();
+		change.emplace_back(dst, weight);
+	}
+
+	vector<int> get_keys(const vector<Link>& data){
+		vector<int> res
+		res.reserve(data.size());
+		for(Link& l : data){
+			res.push_back(l.end);
+		}
+		return res;
 	}
 
 	void init_c(const int& k, float& delta, vector<Link>&){
@@ -60,6 +100,9 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 
 	void accumulate(float& a, const float& b){
 		a = std::min(a, b);
+	}
+	bool better(const float& a, const float& b){
+		return a < b;
 	}
 
 	void priority(float& pri, const float& value, const float& delta){

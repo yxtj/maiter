@@ -145,9 +145,9 @@ void Master::changeGraph(){
 		while(barrier_timer->elapsed()<tf.first){
 			this_thread::sleep_for(chrono::duration<double>(tf.first-barrier_timer->elapsed()));
 		}
-		TableUpdata req;
+		GraphChangeReq req;
 		req.set_filename(tf.second);
-		network_->Broadcast(MTYPE_UPDATE_TABLE,req);
+		network_->Broadcast(MTYPE_UPDATE_GRAPH,req);
 	}
 }
 

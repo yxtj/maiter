@@ -207,6 +207,7 @@ public:
 	virtual void put(const K &k, const V1 &v1) = 0;
 	virtual void update(const K &k, const V1 &v) = 0;
 	virtual void accumulate(const K &k, const V1 &v) = 0;
+	virtual void accumulate(const K &k, const K &from, const V1 &v) = 0;
 	virtual bool remove(const K &k) = 0;
 
 	// Default specialization for untyped methods

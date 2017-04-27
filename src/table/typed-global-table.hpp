@@ -92,6 +92,11 @@ public:
 	void clear_ineighbor_cache();
 	// receive in-neighbor information
 	virtual void add_ineighbor(const dsm::InNeighborData& req);
+	// apply graph changes
+	virtual void change_graph(const K& k, const ChangeEdgeType& type, const V3& change);
+	//virtual void update_ineighbor_cache(const K& k, const ChangeEdgeType& type, const V3& change);
+
+}
 
 	// Return the value associated with 'k', possibly blocking for a remote fetch.
 	ClutterRecord<K, V1, V2, V3> get(const K &k);
@@ -229,7 +234,7 @@ protected:
 	virtual LocalTable* create_deltaT(int shard);
 	bool binit;
 	// XXX: evolving graph
-	std::vector<std::unordered_multimap<K, K>> in_neighbor_cache;
+	std::vector<std::unordered_multimap<K, std::pair<K,V1>>> in_neighbor_cache;
 };
 
 static const int kWriteFlushCount = 1000000;
@@ -288,7 +293,7 @@ void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor_from_out(
 			StateTable<K, V1, V2, V3> *st=dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(shard));
 			st->add_ineighbor(from, to, v1);
 		}else{
-			in_neighbor_cache[shard].emplace(to, from);
+			in_neighbor_cache[shard].emplace(to, make_pair(from, v1);
 		}
 	}
 }
@@ -296,21 +301,25 @@ void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor_from_out(
 template<class K, class V1, class V2, class V3>
 void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache(){
 	Marshal<K> * km = kmarshal();
+	Marshal<K> * vm = v1marshal();
 	for(size_t i=0;i<in_neighbor_cache.size();++i){
 		if(is_local_shard(i))
 			continue;
 		auto& ref=in_neighbor_cache[i];
 		InNeighborData msg;
 		for(auto it = ref.begin(); it!=ref.end(); ++it){
-			InNeighborPair* p = msg.add_data();
-			string to, from;
+			InNeighborUnit* p = msg.add_data();
+			string to, from, weight;
 			km->marshal(it->first,&to);
-			km->marshal(it->second,&from);
+			km->marshal(it->second.first,&from);
+			vm->marshal(it->second.second,&weight);
 			p->set_to(to);
 			p->set_from(from);
+			p->set_weight(weight);
 		}
 		msg.set_table(info().table_id);
-		info().helper->realSendInNeighbor(i, msg);
+		VLOG(1)<<"sending in-neighbor message from "<<info().shard<<" to "<<i<<" with size "<<msg.data_size();
+		info().helper->realSendInNeighbor(owner(i), msg);
 	}
 }
 
@@ -332,6 +341,18 @@ void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor(const dsm::InNeighborData& r
 		int shard = this->get_shard(to);
 		StateTable<K, V1, V2, V3> *st = dynamic_cast<StateTable<K,V1,V2,V3>*>(localT(shard));
 		st->add_ineighbor(from, to, default_v);
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+void TypedGlobalTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeType& type, const V3& change){
+	int shard = this->get_shard(k);
+	if(is_local_shard(shard)){
+		StateTable<K, V1, V2, V3> *st=dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(shard));
+		st->change_graph(k, type, change);
+	}else{
+		VLOG(1) << "not local change";
+		++pending_send_;
 	}
 }
 
