@@ -87,16 +87,17 @@ public:
 
 	// load out-neighbor and generate in-neighbor
 	void add_ineighbor_from_out(const K &from, const V1 &v1, const std::vector<K>& ons);
+	// fill the in-neighbor information base on all local data. "process" means whether to send processed initial delta.
+	void fill_ineighbor_cache(bool process);
+	void allpy_inneighbor_cache_local();
 	// generate and send messages of in-neighbor information
-	void send_ineighbor_cache();
+	void send_ineighbor_cache_remote();
 	void clear_ineighbor_cache();
 	// receive in-neighbor information
 	virtual void add_ineighbor(const dsm::InNeighborData& req);
 	// apply graph changes
 	virtual void change_graph(const K& k, const ChangeEdgeType& type, const V3& change);
 	//virtual void update_ineighbor_cache(const K& k, const ChangeEdgeType& type, const V3& change);
-
-}
 
 	// Return the value associated with 'k', possibly blocking for a remote fetch.
 	ClutterRecord<K, V1, V2, V3> get(const K &k);
@@ -293,15 +294,63 @@ void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor_from_out(
 			StateTable<K, V1, V2, V3> *st=dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(shard));
 			st->add_ineighbor(from, to, v1);
 		}else{
-			in_neighbor_cache[shard].emplace(to, make_pair(from, v1);
+			in_neighbor_cache[shard].emplace(to, std::make_pair(from, v1));
 		}
 	}
 }
 
 template<class K, class V1, class V2, class V3>
-void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache(){
+void TypedGlobalTable<K, V1, V2, V3>::fill_ineighbor_cache(bool process){
+	IterateKernel<K, V1, V3>* kernel=
+			static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
+	V1 default_v=kernel->default_v();
+	for(int i = 0; i < info().num_shards; ++i){
+		if(!is_local_shard(i))
+			continue;
+		VLOG(1)<<"filling in-neighbor on "<<id()<<" for "<<i;
+		TypedTableIterator<K, V1, V2, V3>* it = get_entirepass_iterator(i);
+		while(!it->done()){
+			K key=it->key();
+			V1 delta=it->value1();
+			if(process && delta!=default_v){
+				std::vector<std::pair<K,V1> > output;
+				output.reserve(it->value3().size());
+				kernel->g_func(key, delta, it->value2(), it->value3(), &output);
+				for(auto& p : output){
+					int shard = this->get_shard(p.first);
+					in_neighbor_cache[shard].emplace(p.first, std::make_pair(key, p.second));
+				}
+			}else{
+				std::vector<K> tos=kernel->get_keys(it->value3());
+				for(auto& to : tos){
+					int shard = this->get_shard(to);
+					in_neighbor_cache[shard].emplace(to, std::make_pair(key, default_v));
+				}
+			}
+			it->Next();
+		}
+		delete it;
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+void TypedGlobalTable<K, V1, V2, V3>::allpy_inneighbor_cache_local(){
+	for(int i = 0; i < info().num_shards; ++i){
+		if(!is_local_shard(i))
+			continue;
+		StateTable<K, V1, V2, V3> *st = dynamic_cast<StateTable<K,V1,V2,V3>*>(localT(i));
+		for(auto& p : in_neighbor_cache[i]){
+			const K& to=p.first;
+			const K& from=p.second.first;
+			st->add_ineighbor(from, to, p.second.second);
+		}
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache_remote(){
 	Marshal<K> * km = kmarshal();
-	Marshal<K> * vm = v1marshal();
+	Marshal<V1> * vm = v1marshal();
 	for(size_t i=0;i<in_neighbor_cache.size();++i){
 		if(is_local_shard(i))
 			continue;
@@ -318,7 +367,7 @@ void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache(){
 			p->set_weight(weight);
 		}
 		msg.set_table(info().table_id);
-		VLOG(1)<<"sending in-neighbor message from "<<info().shard<<" to "<<i<<" with size "<<msg.data_size();
+		VLOG(1)<<"sending in-neighbor message from "<<id()<<" to "<<i<<" with size "<<msg.data_size();
 		info().helper->realSendInNeighbor(owner(i), msg);
 	}
 }
@@ -331,13 +380,16 @@ void TypedGlobalTable<K, V1, V2, V3>::clear_ineighbor_cache(){
 template<class K, class V1, class V2, class V3>
 void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor(const dsm::InNeighborData& req){
 	Marshal<K> * km = kmarshal();
+	Marshal<V1> * vm = v1marshal();
 	V1 default_v = static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel)->default_v();
 	int size=req.data_size();
 	for(int i=0;i<size;++i){
-		const InNeighborPair& p = req.data(i);
+		const InNeighborUnit& p = req.data(i);
 		K to, from;
+		V2 value;
 		km->unmarshal(p.to(), &to);
 		km->unmarshal(p.from(), &from);
+		vm->unmarshal(p.weight(), &value);
 		int shard = this->get_shard(to);
 		StateTable<K, V1, V2, V3> *st = dynamic_cast<StateTable<K,V1,V2,V3>*>(localT(shard));
 		st->add_ineighbor(from, to, default_v);

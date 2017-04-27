@@ -51,7 +51,7 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	void read_init(std::string& line, int& k, float& delta, float& value){
 		// format: "<key>\t<value>:<delta>"
 		size_t p=line.find('\t');
-		key = stoi(line.substr(0, p));
+		k = stoi(line.substr(0, p));
 		++p;
 		size_t p2=line.find(':', p);
 		delta = stof(line.substr(p, p2-p));
@@ -78,9 +78,9 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	}
 
 	vector<int> get_keys(const vector<Link>& data){
-		vector<int> res
+		vector<int> res;
 		res.reserve(data.size());
-		for(Link& l : data){
+		for(const Link& l : data){
 			res.push_back(l.end);
 		}
 		return res;

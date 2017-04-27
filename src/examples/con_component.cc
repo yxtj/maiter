@@ -33,7 +33,7 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
 	void read_init(std::string& line, int& k, int& delta, int& value){
 		// format: "<key>\t<value>:<delta>"
 		size_t p=line.find('\t');
-		key = stoi(line.substr(0, p));
+		k = stoi(line.substr(0, p));
 		++p;
 		size_t p2=line.find(':', p);
 		delta = stoi(line.substr(p, p2-p));
@@ -61,7 +61,7 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
 		change.push_back(dst);
 	}
 
-	std::vector<K> get_keys(const vector<int>& d){
+	std::vector<int> get_keys(const vector<int>& d){
 		return d;
 	}
 

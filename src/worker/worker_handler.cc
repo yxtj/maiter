@@ -53,8 +53,9 @@ void Worker::registerHandlers(){
 	RegDSPProcess(MTYPE_LOOP_TERMCHECK, &Worker::HandleTermCheck);
 	RegDSPProcess(MTYPE_LOOP_PNS, &Worker::HandlePnS);
 
+	RegDSPProcess(MTYPE_ADD_INNEIGHBOR, &Worker::HandleAddInNeighbor);
+
 	RegDSPProcess(MTYPE_RESTORE, &Worker::HandleRestore);
-	RegDSPProcess(MTYPE_UPDATE_GRAPH, &Worker::HandleGraphChange);
 
 	//Synchronization control:
 	int nw=config_.num_workers();
@@ -80,7 +81,9 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 void Worker::HandleAddInNeighbor(const string& d, const RPCInfo& info){
 	InNeighborData data;
 	data.ParseFromString(d);
-	rph.input(MTYPE_ADD_INNEIGHBOR,info.source);
+	// translate net-id to worker-id
+	int worker_id = info.source - 1;
+	rph.input(MTYPE_ADD_INNEIGHBOR, worker_id);
 	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(data.table());
 	t->add_ineighbor(data);
 }
@@ -135,13 +138,6 @@ void Worker::HandleTermCheck(const std::string&, const RPCInfo&){
 		}
 	}
 	st_will_termcheck_=false;
-}
-
-void Worker::HandleGraphChange(const std::string& d, const RPCInfo&){
-	GraphChangeReq data;
-	data.ParseFromString(d);
-	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(data.table());
-	t->loadGraphChange(d.filename())
 }
 
 void Worker::HandleSwapRequest(const string& d, const RPCInfo& rpc){

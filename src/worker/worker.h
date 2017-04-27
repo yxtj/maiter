@@ -65,9 +65,6 @@ public:
 	void HandleTermCheck(const std::string&, const RPCInfo&);	//dummy parameters
 	virtual void realSendTermCheck(int index, long updates, double current);
 
-	// XXX: evolving graph (loading)
-	void HandleGraphChange(const std::string& d, const RPCInfo& rpc);
-
 	// Barrier: wait until all table data is transmitted.
 	void HandleFlush(const std::string& d, const RPCInfo& rpc);
 	void HandleApply(const std::string& d, const RPCInfo& rpc);

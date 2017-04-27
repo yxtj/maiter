@@ -179,14 +179,14 @@ public:
 			maiter->iterkernel->init_c(key, delta, data); //invoke api, get the initial delta v field value
 			std::vector<K> iconnection=maiter->iterkernel->get_keys(data);
 			// DVLOG(3)<<"key: "<<key<<" delta: "<<delta<<" value: "<<value<<"   "<<data.size();
-			table->add_ineighbor_from_out(key, value, iconnection);	//add "key" as an in-neighbor of all nodes in "ons"
+			//table->add_ineighbor_from_out(key, value, iconnection);	//add "key" as an in-neighbor of all nodes in "ons"
 			table->put(std::move(key), std::move(delta), std::move(value), std::move(data)); //initialize a row of the state table (a node)
 		}
 	}
 
 	void loadInit(TypedGlobalTable<K, V, V, D>* table){
-		std::string init_file = StringPrintf("%s/part%d", FLAGS_init_dir.c_str(), current_shard());
-		std::ifstream inFile(patition_file);
+		std::string init_file = StringPrintf("%s/part-%d", FLAGS_init_dir.c_str(), current_shard());
+		std::ifstream inFile(init_file);
 		if(!inFile){
 			LOG(FATAL) << "Unable to open file" << init_file;
 		}
@@ -201,14 +201,16 @@ public:
 			V value;
 			// same format as the output(MaiterKernel3)
 			// format: "<key>\t<value>:<delta>"
-			maiter->iterkernel->read_init(line, k, delta, value);
+			maiter->iterkernel->read_init(line, key, delta, value);
 			table->updateF1(key, delta);
 			table->updateF2(key, value);
 		}
 	}
 
-	void corridnate_in_neighbors(TypedGlobalTable<K, V, V, D>* table){
-		table->send_ineighbor_cache();
+	void corridnate_in_neighbors(TypedGlobalTable<K, V, V, D>* table, bool processed){
+		table->fill_ineighbor_cache(processed);
+		table->allpy_inneighbor_cache_local();
+		table->send_ineighbor_cache_remote();
 		table->clear_ineighbor_cache();
 	}
 
@@ -218,14 +220,18 @@ public:
 		}
 		a->resize(maiter->num_nodes);   //create local state table based on the input size
 
+		VLOG(0)<<"loading graphs on "<<current_shard();
 		read_file(a);               //initialize the state table fields based on the input data file
-		if(!FLAGS_init_dir.empty())
+		bool initial_value=!FLAGS_init_dir.empty();
+		if(initial_value){
+			VLOG(0)<<"loading initial values on "<<current_shard();
 			loadInit(a);
-		corridnate_in_neighbors(a);
+		}
+		corridnate_in_neighbors(a, initial_value);
 	}
 
 	void run(){
-		VLOG(0) << "initializing table ";
+		VLOG(0) << "initializing table on "<<current_shard();
 		init_table(maiter->table);
 	}
 };
@@ -250,6 +256,8 @@ public:
 
 		std::vector<std::tuple<K, ChangeEdgeType, D>> changes;
 
+		VLOG(1)<<"loading delta-graph on: "<<current_shard();
+		int nChange=0;
 		std::string line;
 		//read a line of the input file
 		while(getline(inFile,line)){
@@ -262,11 +270,13 @@ public:
 			// go without checking the type of changees
 			table->change_graph(key, type, data);
 			changes.emplace_back(key, type, move(data));
-			// move the value to delta, in order to start the new computatin.
-			value=table->getF2();
+			++nChange;
 		}
+		VLOG(1)<<"loaded delta edges on "<<current_shard()<<" is "<<nChange;
 		// send messages about these chagnes.
-		// CANNOT use the delta-table, because if there is multiple changes to the same dst node, only one can be sent due to the accumulation on delta
+		// CANNOT use the delta-table
+		// because if there is multiple changes to the same dst node, only the best one can be sent due to the accumulation on delta
+		VLOG(1)<<"sending delta-graph on: "<<current_shard();
 		send_changes(table, changes);
 	}
 
@@ -289,9 +299,9 @@ public:
 		Marshal<V>* mv = table->v1marshal();
 		string from, to, value;
 		for(auto& tup : changes){
-			K key = get<0>(tup);
-			ChangeEdgeType type = get<1>(tup);
-			D d = get<2>(tup);
+			K key = std::get<0>(tup);
+			ChangeEdgeType type = std::get<1>(tup);
+			D d = std::get<2>(tup);
 			K dst = maiter->iterkernel->get_keys(d).front();
 			V weight;
 			if(type==ChangeEdgeType::REMOVE){
@@ -316,6 +326,7 @@ public:
 		// step 3: send messages
 		for(int i = 0; i < table->num_shards(); ++i){
 			KVPairData& put=puts[i];
+			VLOG(1)<<"sending graph change messages from "<<current_shard()<<" to "<<i<<", num="<<put.kv_data_size();
 			if(put.kv_data_size() != 0){
 				table->helper()->realSendUpdates(table->owner(i),put);
 			}
@@ -328,9 +339,12 @@ public:
 	}
 
 	void run(){
-		VLOG(0) << "load & apply delta graph";
-		if(!FLAGS_delta_name.empty())
+		if(!FLAGS_delta_name.empty()){
+			VLOG(0) << "load & apply delta graph on "<<current_shard();
 			delta_table(maiter->table);
+		}else{
+			VLOG(0) << "skip loading delta graph on "<<current_shard();
+		}
 	}
 };
 

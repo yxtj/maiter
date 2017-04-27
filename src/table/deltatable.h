@@ -327,7 +327,6 @@ void DeltaTable<K, V1, D>::accumulate(const K& k, const K& from, const V1& v){
 	if(b == -1){
 		put(k, v);
 	}else{
-		V1 old = buckets_[b].v1;
 		((IterateKernel<K, V1, D>*)info_.iterkernel)->accumulate(buckets_[b].v1, v);
 		if(v == buckets_[b].v1){
 			buckets_[b].src=from;

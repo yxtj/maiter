@@ -1,5 +1,5 @@
-#define TABLE_STATE_TABLE_H_
 #ifndef TABLE_STATE_TABLE_H_
+#define TABLE_STATE_TABLE_H_
 
 #include "util/noncopyable.h"
 #include "tbl_widget/IterateKernel.h"
@@ -794,7 +794,7 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeType& type, const V3& change){
 	int b=bucket_for_key(k);
-	Buncket& bk=bunckets_[b];
+	Bucket& bk=buckets_[b];
 	switch(type){
 	case ChangeEdgeType::ADD:
 		bk.v3.push_back(change.front());
