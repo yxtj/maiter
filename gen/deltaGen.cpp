@@ -29,7 +29,7 @@ struct Edge{
 };
 
 int loadGraph(const string& dir, const int deltaID, const int nPart, const int seed,
-		const double rate, const double addRate, const double rmvRate, const double incRate){
+		const float rate, const float addRate, const float rmvRate, const float incRate){
 	vector<ifstream*> fin;
 	vector<ofstream*> fout;
 	for(int i = 0; i < nPart; ++i){
@@ -46,16 +46,18 @@ int loadGraph(const string& dir, const int deltaID, const int nPart, const int s
 		}
 	}
 
-	double desRate=1-addRate-rmvRate-incRate;
+	const float maxW=numeric_limits<float>::max();
+	
+	float desRate=1-addRate-rmvRate-incRate;
 
 	mt19937 gen(seed);
-	uniform_real_distribution<double> rnd_prob(0.0, 1.0);
+	uniform_real_distribution<float> rnd_prob(0.0, 1.0);
 	uniform_int_distribution<int> ud; // 0 to numeric_limits<int>::max()
 	uniform_real_distribution<float> rnd_weight(0, 1);
 
-	double modifyProb=rate*(1-addRate);
-	double addProb=rate*addRate;
-	double addProbThreshold=modifyProb+addProb;
+	float modifyProb=rate*(1-addRate);
+	float addProb=rate*addRate;
+	float addProbThreshold=modifyProb+addProb;
 
 	vector<Edge> mSet;
 	vector<Edge> addSet;
@@ -92,7 +94,7 @@ int loadGraph(const string& dir, const int deltaID, const int nPart, const int s
 				hs.insert(e.v);
 
 				// whether to modify (remove, increase, decrease)
-				double r=rnd_prob(gen);
+				float r=rnd_prob(gen);
 				if(r < modifyProb){
 					mSet.push_back(e);
 				}else if(r < addProbThreshold){ // whether to add
@@ -118,29 +120,29 @@ int loadGraph(const string& dir, const int deltaID, const int nPart, const int s
 	} // file
 
 	int addCnt = 0, rmvCnt = 0, incCnt = 0, decCnt = 0;
-	double thRmv=rmvRate, thInc=rmvRate+incRate, thDes=rmvRate+incRate+desRate;
+	float thRmv=rmvRate, thInc=rmvRate+incRate, thDes=rmvRate+incRate+desRate;
 	for(Edge e : mSet){
-		double r=rnd_prob(gen);
+		float r=rnd_prob(gen);
 		if(r < thRmv){
-			*fout[e.u % nPart] << "R " << e.u << "," << e.v << "," << e.w << "\n";
-			//*fout[e.v % nPart] << "R " << e.v << "," << e.u << "," << e.w << "\n";
+			*fout[e.u % nPart] << "R\t" << e.u << "," << e.v << "," << maxW << "\n";
+			//*fout[e.v % nPart] << "R\t" << e.v << "," << e.u << "," << maxW << "\n";
 			rmvCnt++;
 		}else if(r < thInc){
 			float ww = stof(e.w) * (1 + rnd_prob(gen));
-			*fout[e.u % nPart] << "I " << e.u << "," << e.v << "," << ww << "\n";
-			//*fout[e.v % nPart] << "I " << e.v << "," << e.u << "," << ww << "\n";
+			*fout[e.u % nPart] << "I\t" << e.u << "," << e.v << "," << ww << "\n";
+			//*fout[e.v % nPart] << "I\t" << e.v << "," << e.u << "," << ww << "\n";
 			incCnt++;
 		}else if(r < thDes){
 			float ww = stof(e.w) * rnd_prob(gen);
-			*fout[e.u % nPart] << "D " << e.u << "," << e.v << "," << ww << "\n";
-			//*fout[e.v % nPart] << "D " << e.v << "," << e.u << "," << ww << "\n";
+			*fout[e.u % nPart] << "D\t" << e.u << "," << e.v << "," << ww << "\n";
+			//*fout[e.v % nPart] << "D\t" << e.v << "," << e.u << "," << ww << "\n";
 			decCnt++;
 		}
 	}
 
 	for(Edge e : addSet){
-		*fout[e.u % nPart] << "A " << e.u << "," << e.v << "," << e.w << "\n";
-		//*fout[e.v % nPart] << "A " << e.v << "," << e.u << "," << e.w << "\n";
+		*fout[e.u % nPart] << "A\t" << e.u << "," << e.v << "," << e.w << "\n";
+		//*fout[e.v % nPart] << "A\t" << e.v << "," << e.u << "," << e.w << "\n";
 		addCnt++;
 	}
 
@@ -163,14 +165,14 @@ int loadGraph(const string& dir, const int deltaID, const int nPart, const int s
 struct Option{
 	int nPart, nNode, deltaID;
 	string dist;
-	double alpha; // for power-law distribution
+	float alpha; // for power-law distribution
 	string weight;
-	double wmin, wmax;
+	float wmin, wmax;
 	string outDir;
 	int prop;
 	unsigned long seed;
-	double rate;	// rate of changed edges
-	double addRate, rmvRate, incRate;
+	float rate;	// rate of changed edges
+	float addRate, rmvRate, incRate;
 
 	void parse(int argc, char* argv[]);
 private:
