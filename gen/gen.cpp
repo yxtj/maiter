@@ -21,7 +21,7 @@ using namespace std;
 // ------ unweighted ------
 
 vector<vector<int> > gen_uw(const int nPart, const int nNode, const unsigned long seed,
-	function<unsigned(mt19937&)> rngDeg)
+	function<unsigned(mt19937&)> rngDeg, bool selfLoop)
 {
 	vector<vector<int> > g(nNode);
 	mt19937 gen(seed);
@@ -35,6 +35,11 @@ vector<vector<int> > gen_uw(const int nPart, const int nNode, const unsigned lon
 		}
 		sort(g[i].begin(),g[i].end());
 		g[i].erase(unique(g[i].begin(),g[i].end()),g[i].end());
+		if(selfLoop){
+			auto it=lower_bound(g[i].begin(), g[i].end(), i);
+			if(it!=g[i].end() && *it==i)
+				g[i].erase(it);
+		}
 	}
 	return g;
 }
@@ -65,7 +70,7 @@ int dump_uw(const vector<vector<int> >& g, const int nPart, const string& outDir
 // ------ weighted ------
 
 vector<vector<pair<int,double>> > gen_w(const int nPart, const int nNode, const unsigned long seed,
-	function<unsigned(mt19937&)> rngDeg, function<double(mt19937&)> rngWgt)
+	function<unsigned(mt19937&)> rngDeg, function<double(mt19937&)> rngWgt, bool selfLoop)
 {
 	vector<vector<pair<int,double>> > g(nNode);
 	mt19937 gen(seed);
@@ -85,6 +90,13 @@ vector<vector<pair<int,double>> > gen_w(const int nPart, const int nNode, const 
 			return lth.first==rth.first;
 		});
 		g[i].erase(it,g[i].end());
+		if(selfLoop){
+			auto it=lower_bound(g[i].begin(), g[i].end(), i, [](const pair<int,double>& lth, int rth){
+				return lth.first<rth;
+			});
+			if(it!=g[i].end() && it->first==i)
+				g[i].erase(it);
+		}
 	}
 	return g;
 }
@@ -121,6 +133,7 @@ struct Option{
 	string weight;
 	double wmin,wmax;
 	string outDir;
+	bool selfLoop;
 	unsigned long seed;
 
 	void parse(int argc, char* argv[]);
@@ -134,15 +147,20 @@ void Option::parse(int argc, char* argv[]){
 	outDir=".";
 	if(argc>3)
 		outDir=argv[3];
-	string distMethod="pl:2.3";
-	if(argc>4)
-		distMethod=argv[4];
+	selfLoop=true;
+	if(argc>4){
+		string temp(argv[4]);
+		selfLoop=(temp=="1" || temp=="true" || temp=="yes" || temp=="y" || temp=="t");
+	}
 	string weightMethod="no";
 	if(argc>5)
 		weightMethod=argv[5];
+	string distMethod="pl:2.3";
+	if(argc>6)
+		distMethod=argv[6];
 	seed=1535345;
-	if(argc>=7)
-		seed=stoul(string(argv[6]));
+	if(argc>7)
+		seed=stoul(string(argv[7]));
 	// check distribution
 	if(!setDist(distMethod))
 		throw invalid_argument("unsupported degree distribution: "+distMethod);
@@ -177,12 +195,15 @@ bool Option::setWeight(string& method){
 
 int main(int argc, char* argv[]){
 	if(argc<3 || argc>7){
-		cerr<<"Wrong usage.\nUsage: \"gen #parts #nodes [out-dir] [deg-dist:<param>] [weight:<min>,<max>] [random-seed]\""<<endl;
+		cerr<<"Wrong usage.\n"
+			"Usage: \"gen #parts #nodes [out-dir] [self-loop] [weight:<min>,<max>] [deg-dist:<param>] [random-seed]\""<<endl;
 		cerr<<"  [deg-dist]: the distribution of degrees. Support: uni (uniform), pl:<alpha> (power-law with alpha). Ddefault: pl:2.3\n"
+			"  [self-loop]: whether to alow self-loop edge. Default: true\n"
 			"  [weight]: the weight distribution. If unweighted graph is needed, use \"no\" here. Default: no\n"
+			"  [deg-dist]: the degree distribution. Default: powerLaw with alpha=2.3\n"
 			"  [random-seed]: seed for random numbers. Default: 1535345\n"
-			"i.e.: ./gen 2 100 pl:2.6 no out 123456\n"
-			"i.e.: ./gen 2 100 uni weight:0,1 outW\n"<<endl;
+			"i.e.: ./gen 2 100 out 0 no pl:2.6 123456 \n"
+			"i.e.: ./gen 2 100 out 0 weight:0,1 uni \n"<<endl;
 		return 1;
 	}
 	Option opt;
@@ -207,13 +228,13 @@ int main(int argc, char* argv[]){
 
 	int n;
 	if(opt.weight=="no"){
-		vector<vector<int> > g=gen_uw(opt.nPart,opt.nNode,opt.seed,rngDeg);
+		vector<vector<int> > g=gen_uw(opt.nPart,opt.nNode,opt.seed,rngDeg,opt.selfLoop);
 		cout<<"dumping"<<endl;
 		n=dump_uw(g,opt.nPart,opt.outDir);
 	}else{
 		uniform_real_distribution<double> uni_dis(opt.wmin, opt.wmax);
 		function<double(mt19937&)> rngWgt=bind(uni_dis,placeholders::_1);
-		vector<vector<pair<int,double>> > g=gen_w(opt.nPart,opt.nNode,opt.seed,rngDeg,rngWgt);
+		vector<vector<pair<int,double>> > g=gen_w(opt.nPart,opt.nNode,opt.seed,rngDeg,rngWgt,opt.selfLoop);
 		cout<<"dumping"<<endl;
 		n=dump_w(g,opt.nPart,opt.outDir);
 	}
