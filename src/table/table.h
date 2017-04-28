@@ -155,6 +155,7 @@ public:
 	virtual void updateF1(const K &k, const V1 &v) = 0;
 	virtual void updateF2(const K &k, const V2 &v) = 0;
 	virtual void updateF3(const K &k, const V3 &v) = 0;
+	virtual void accumulateF1(const K& from, const K &to, const V1 &v) = 0;
 	virtual void accumulateF1(const K &k, const V1 &v) = 0; //4 TypeTable
 	virtual void accumulateF2(const K &k, const V2 &v) = 0;
 	virtual void accumulateF3(const K &k, const V3 &v) = 0;

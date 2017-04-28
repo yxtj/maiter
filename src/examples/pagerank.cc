@@ -39,6 +39,9 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 	void accumulate(float& a, const float& b){
 		a = a + b;
 	}
+	bool better(const float& a, const float& b){
+		return true;
+	}
 
 	void priority(float& pri, const float& value, const float& delta){
 		pri = delta;

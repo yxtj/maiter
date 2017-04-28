@@ -35,11 +35,13 @@ private:
 		V3 v3;
 		V1 priority;
 		std::unordered_map<K, V1> input; // values of in-neighbors
-		K best_in; // pointer to the best neighbor
+		//K best_in; // pointer to the best neighbor
 		bool in_use;
 
-		// update the input and maintain the best_in
-		void update_best_pointer(const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel);
+		bool update_v1_with_input(const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel);
+		bool update_input(const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel);
+		void reset_v1_from_input(IterateKernel<K, V1, V3>* kernel);
+
 		void reset_best_pointer(IterateKernel<K, V1, V3>* kernel);
 	};
 #pragma pack(pop)
@@ -323,6 +325,7 @@ public:
 	void updateF1(const K& k, const V1& v);
 	void updateF2(const K& k, const V2& v);
 	void updateF3(const K& k, const V3& v);
+	void accumulateF1(const K& from, const K &to, const V1 &v);
 	void accumulateF1(const K& k, const V1& v);
 	void accumulateF2(const K& k, const V2& v);
 	void accumulateF3(const K& k, const V3& v);
@@ -720,6 +723,14 @@ void StateTable<K, V1, V2, V3>::updateF3(const K& k, const V3& v){
 }
 
 template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::accumulateF1(const K& from, const K &to, const V1 &v){
+	int b = bucket_for_key(to);
+	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
+	buckets_[b].update_v1_with_input(from, v, pk);
+	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
+}
+
+template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v){
 	int b = bucket_for_key(k);
 	//cout << "accumulate " << k << "\t" << v << endl;
@@ -813,27 +824,53 @@ void StateTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeType& t
 }
 
 template<class K, class V1, class V2, class V3>
-void StateTable<K, V1, V2, V3>::Bucket::update_best_pointer(
+bool StateTable<K, V1, V2, V3>::Bucket::update_v1_with_input(
 	const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel)
 {
-	// chagne
-	input[from]=v;
+	bool good_change = update_input(from, v, kernel);
+	if(good_change){
+		kernel->accumulate(v1, v);
+	}else{
+		reset_v1_from_input(kernel);
+	}
+	return good_change;
+}
+
+template<class K, class V1, class V2, class V3>
+bool StateTable<K, V1, V2, V3>::Bucket::update_input(
+	const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel)
+{
+	bool better = kernel->better(v, input[from]);
+	input[from] = v;
+	// remove edge
+	if(v==kernel->default_v())
+		input.erase(from);
 	// maintain best pointer
-	if(kernel->better(v, input[best_in])){
-		best_in=from;
+	//if(kernel->better(v, input[best_in])){
+	//	best_in=from;
+	//}
+	return better;
+}
+
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::Bucket::reset_v1_from_input(IterateKernel<K, V1, V3>* kernel)
+{
+	v1 = kernel->default_v();
+	for(auto& p : input){
+		kernel->accumulate(v1, p.second);
 	}
 }
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::Bucket::reset_best_pointer(IterateKernel<K, V1, V3>* kernel){
-	if(input.empty())
+	/*if(input.empty())
 		return;
 	auto itbest=input.begin(), it=input.begin(), itend=input.end();
 	for(++it; it!=itend; ++it){
 		if(kernel->better(it->second, itbest->second))
 			itbest=it;
 	}
-	best_in = itbest->first;
+	best_in = itbest->first;*/
 }
 
 template<class K, class V1, class V2, class V3>
@@ -858,16 +895,8 @@ template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::update_ineighbor(const K& from, const K& to, const V1& v){
 	int b = bucket_for_key(to);
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&to) << ">";
-	V1 old = buckets_[b].input[from];
-	buckets_[b].input[from] = v;
-	// update the pointer to the best ineighbor
-	V1 temp = old;
-	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->accumulate(temp, v);
-	if(temp == old){ // a bad change
-		//if(from == buckets_[b].ibest)
-	}else{ // a good change;
-		
-	}
+	IterateKernel<K, V1, V3>* pk=static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
+	buckets_[b].update_input(from, v, pk);
 }
 
 template<class K, class V1, class V2, class V3>

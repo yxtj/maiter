@@ -29,6 +29,7 @@
 #include <gflags/gflags.h>
 
 DECLARE_double(bufmsg_portion);
+DECLARE_bool(do_aggregate);
 
 namespace dsm{
 
@@ -64,6 +65,7 @@ public:
 				t+=partitions_[i]->capacity();
 			}
 		}
+		InitUpdateBuffer();
 		bufmsg=std::max<int64_t>(bufmsg, static_cast<int64_t>(FLAGS_bufmsg_portion*t));
 		binit = true;
 	}
@@ -81,6 +83,7 @@ public:
 	void updateF1(const K &k, const V1 &v);
 	void updateF2(const K &k, const V2 &v);
 	void updateF3(const K &k, const V3 &v);
+	void accumulateF1(const K& from, const K &to, const V1 &v);
 	void accumulateF1(const K &k, const V1 &v); // 2 TypeGloobleTable :TypeTable
 	void accumulateF2(const K &k, const V2 &v);
 	void accumulateF3(const K &k, const V3 &v);
@@ -202,10 +205,7 @@ public:
 		updateF1(k, kernel->default_v());
 
 		//send the buffered messages to remote state table
-		for(auto& kvpair : output){
-			//apply the output messages to remote state table
-			accumulateF1(kvpair.first, kvpair.second);
-		}
+		handleGeneratedInformation(k, output);
 	}
 
 	void ProcessUpdatesSingle(const int shard, const K& k){
@@ -214,6 +214,31 @@ public:
 		StateTable<K,V1,V2,V3>* pt=dynamic_cast<StateTable<K,V1,V2,V3>*>(partitions_[shard]);
 		ClutterRecord<K,V1,V2,V3> c=pt->get(k);
 		ProcessUpdatesSingle(c.k,c.v1,c.v2,c.v3);
+	}
+
+	void handleGeneratedInformation(const K& from, std::vector<std::pair<K,V1>>& output){
+		if(FLAGS_do_aggregate){
+			for(auto& kvpair : output){
+				//aggregate the output messages to local delta table and wait for sent out
+				accumulateF1(kvpair.first, kvpair.second);
+			}
+		}else{
+			for(auto& kvpair : output){
+				//aggregate the output messages to local delta table and wait for sent out
+				accumulateF1(from, kvpair.first, kvpair.second);
+			}
+		}
+	}
+
+	void bufferGeneratedMessage(const K& from, const K& to, const V1& delta){
+		Arg a;
+		string temp;
+		kmarshal()->marshal(to, &temp);
+		a.set_key(temp);
+		v1marshal()->marshal(delta, &temp);
+		a.set_value(temp);
+		kmarshal()->marshal(from, &temp);
+		a.set_src(temp);
 	}
 
 	Marshal<K> *kmarshal(){
@@ -493,6 +518,25 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF3(const K &k, const V3 &v){
 	}else{
 		VLOG(2) << "update F3 shard " << shard << " local? " << " : " << is_local_shard(shard)
 							<< " : " << helper_id();
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &from, const K &to, const V1 &v){ //3
+	int shard = this->get_shard(to);
+
+#ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
+	std::lock_guard<mutex> sl(trigger_mutex());
+	std::lock_guard<std::recursive_mutex> sl(mutex());
+#endif
+
+	if(is_local_shard(shard)){
+		//VLOG(1) << this->owner(shard) << ":" << shard << " accumulate " << v << " on local " << k;
+		localT(shard)->accumulateF1(from, to, v);  //TypeTable
+	}else{
+		//VLOG(1) << this->owner(shard) << ":" << shard << " accumulate " << v << " on remote " << k;
+		bufferGeneratedMessage(from, to, v);
+		++pending_send_;
 	}
 }
 

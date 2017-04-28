@@ -9,6 +9,7 @@
 DEFINE_int32(snapshot_interval, 99999999, "");
 DECLARE_int32(bufmsg);
 DECLARE_double(buftime);
+DECLARE_bool(do_aggregate);
 
 namespace dsm {
 
@@ -208,37 +209,41 @@ void MutableGlobalTable::BufSendUpdates(){
 }
 
 void MutableGlobalTable::SendUpdates(){
-	KVPairData put;
+	// prepare
+	if(FLAGS_do_aggregate){
+		setUpdatesFromAggregated();
+	}
+	// send
+	int n = num_shards();
+	for(int i = 0; i < n; ++i){
+		if(is_local_shard(i))
+			continue;
+		KVPairData& put=update_buffer[i];
+		helper()->realSendUpdates(owner(i), put);
+		put.clear_kv_data();
+	}
+	// reset
+	pending_send_ = 0;
+}
+
+void MutableGlobalTable::setUpdatesFromAggregated(){	// aggregated way
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
-
 		if(!is_local_shard(i) && (get_partition_info(i)->dirty || !t->empty())){
-			// Always send at least one chunk, to ensure that we clear taint on
-			// tables we own.
-//			do{
-				put.Clear();
-				put.set_shard(i);
-				put.set_source(helper()->id());
-				put.set_table(id());
-				put.set_epoch(helper()->epoch());
+			KVPairData& put=update_buffer[i];
 
-				ProtoKVPairCoder c(&put);
-				t->serializeToNet(&c);
-//				t->reset();
-				t->clear();
-				put.set_done(true);
-
-				//VLOG(3) << "Sending update for " << MP(t->id(), t->shard()) << " to " << owner(i) << " size " << put.kv_data_size();
-//				sent_bytes_ += NetworkThread::Get()->Send(owner(i) + 1, MTYPE_PUT_REQUEST, put);
-				helper()->realSendUpdates(owner(i),put);
-//			}while(!t->empty());
-
-			VLOG(3) << "Done with update for (" <<t->id()<<","<<t->shard()<<")";
-//			t->clear();
+			ProtoKVPairCoder c(&put);
+			t->serializeToNet(&c);
+			t->clear();
+			VLOG(3) << "Done with update for (" << t->id() << "," << t->shard() << ")";
 		}
 	}
+}
 
-	pending_send_ = 0;
+void MutableGlobalTable::addIntoUpdateBuffer(int shard, Arg& arg){	// non-aggregated way
+	KVPairData& put=update_buffer[shard];
+	Arg* p = put.add_kv_data();
+	*p=std::move(arg);
 }
 
 bool MutableGlobalTable::canPnS(){
@@ -301,6 +306,23 @@ void MutableGlobalTable::local_swap(GlobalTableBase *b){
 	std::swap(partitions_, mb->partitions_);
 	std::swap(cache_, mb->cache_);
 	std::swap(pending_send_, mb->pending_send_);
+}
+
+void MutableGlobalTable::InitUpdateBuffer(){
+	int n=num_shards();
+	VLOG(0)<<"num-shards: "<<n;
+	update_buffer.resize(n);
+	for(int i = 0; i < n; ++i){
+		if(is_local_shard(i))
+			continue;
+		KVPairData& put=update_buffer[i];
+		put.set_shard(i);
+		put.set_source(helper()->id());
+		put.set_table(id());
+		put.set_epoch(helper()->epoch());
+		// the field kv_data is filled and cleared in the sending function
+		put.set_done(true);
+	}
 }
 
 } // namespace dsm

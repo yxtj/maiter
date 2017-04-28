@@ -180,6 +180,8 @@ public:
 	void BufSendUpdates();
 	void BufTermCheck();
 
+	void InitUpdateBuffer();
+
 	int pending_write_bytes();
 
 	void clear();
@@ -200,6 +202,10 @@ public:
 //	int64_t sent_bytes_;
 
 protected:
+	std::vector<KVPairData> update_buffer;
+	void setUpdatesFromAggregated();	// aggregated way
+	void addIntoUpdateBuffer(int shard, Arg& arg);	// non-aggregated way
+
 	Timer tmr_process, tmr_send;
 	int64_t pending_process_;
 	int64_t pending_send_;

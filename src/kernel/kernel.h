@@ -317,11 +317,12 @@ public:
 			}
 			int shard = table->get_shard(dst);
 			Arg* a = puts[shard].add_kv_data();
-			//mk->marshal(key, &from);
+			mk->marshal(key, &from);
 			mk->marshal(dst, &to);
 			mv->marshal(weight, &value);
-			a->set_key(to.data(), to.size());
-			a->set_value(value.data(), value.size());
+			a->set_key(to);
+			a->set_value(value);
+			a->set_src(from);
 		}
 		// step 3: send messages
 		for(int i = 0; i < table->num_shards(); ++i){
