@@ -27,6 +27,9 @@ def merge_weight(gfn, dfn):
         line = [l.split(',') for l in line.split(' ') if len(l)!=0]
         g[int(key)]=[(int(e), float(w)) for e,w in line]
     # parse delta and apply
+    cntA=0
+    cntR=0
+    cntM=0
     for line in ddata:
         #print(line)
         tp = line[0]
@@ -36,13 +39,18 @@ def merge_weight(gfn, dfn):
         w=float(line[2])
         if tp == 'A':
             g[f].append((t,w))
+            cntA+=1
         elif tp == 'R':
             idx=[i for i in range(len(g[f])) if g[f][i][0]==t][0]
             del g[f][idx]
+            cntR+=1
         else:
             idx=[i for i in range(len(g[f])) if g[f][i][0]==t][0]
-            idx=idx[0]
             g[f][idx]=(t,w)
+            cntM+=1
+    print('  added change:',cntA)
+    print('  removed change:',cntR)
+    print('  modified change:',cntM)
     return g
 
 # g is dict{key, list(<to, weight>)}
@@ -70,6 +78,8 @@ def merge_unweight(gfn, dfn):
         line = [l for l in line.split(' ') if len(l)!=0]
         g[int(key)]=[int(e) for e in line]
     # parse delta and apply
+    cntA=0
+    cntR=0
     for line in ddata:
         tp = line[0]
         line=line[2:].split(',')
@@ -78,13 +88,17 @@ def merge_unweight(gfn, dfn):
         #w=float(line[2])
         if tp == 'A':
             g[f].append(t)
+            cntA+=1
         elif tp == 'R':
             idx=[i for i in range(len(g[f])) if g[f][i]==t][0]
             del g[f][idx]
+            cntR+=1
         else:
             pass
             #idx=[i for i in range(len(g[f])) if g[f][i]==t][0]
             #g[f][idx][1]=w
+    print('  added change:',cntA)
+    print('  removed change:',cntR)
     return g
     
 # g is dict{key, list(to)}
