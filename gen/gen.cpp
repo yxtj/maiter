@@ -196,12 +196,11 @@ bool Option::setWeight(string& method){
 int main(int argc, char* argv[]){
 	if(argc<3 || argc>7){
 		cerr<<"Wrong usage.\n"
-			"Usage: \"gen #parts #nodes [out-dir] [self-loop] [weight:<min>,<max>] [deg-dist:<param>] [random-seed]\""<<endl;
-		cerr<<"  [deg-dist]: the distribution of degrees. Support: uni (uniform), pl:<alpha> (power-law with alpha). Ddefault: pl:2.3\n"
-			"  [self-loop]: whether to alow self-loop edge. Default: true\n"
-			"  [weight]: the weight distribution. If unweighted graph is needed, use \"no\" here. Default: no\n"
-			"  [deg-dist]: the degree distribution. Default: powerLaw with alpha=2.3\n"
-			"  [random-seed]: seed for random numbers. Default: 1535345\n"
+			"Usage: <#parts> <#nodes> [out-dir] [self-loop] [weight:<min>,<max>] [deg-dist:<param>] [random-seed]"<<endl;
+		cerr<<"  [self-loop]: (=true) whether to alow self-loop edge.\n"
+			"  [weight]: (=no) the weight distribution. If unweighted graph is needed, use \"no\" here.\n"
+			"  [deg-dist]: the degree distribution. Support: uni (uniform), pl:<alpha> (power-law with alpha)\n"
+			"  [random-seed]: (=1535345) seed for random numbers.\n"
 			"i.e.: ./gen 2 100 out 0 no pl:2.6 123456 \n"
 			"i.e.: ./gen 2 100 out 0 weight:0,1 uni \n"<<endl;
 		return 1;

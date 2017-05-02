@@ -9,16 +9,19 @@ export CXX CC CFLAGS CPPFLAGS OPROFILE
 
 all: release 
 
-release: 
-	$(CXX) $(RELFLAGS) gen.cpp -o gen.exe
-	$(CXX) $(RELFLAGS) deltaGen.cpp -o deltaGen.exe
+gen.exe: gen.cpp
+	$(CXX) $(RELFLAGS) $^ -o $@
+
+deltaGen.exe: deltaGen.cpp
+	$(CXX) $(RELFLAGS) $^ -o $@
+
+release: gen.exe deltaGen.exe
 
 debug: 
 	$(CXX) $(DBGFLAGS) gen.cpp -o gen.exe
 	$(CXX) $(DBGFLAGS) deltaGen.cpp -o deltaGen.exe
 
 clean:
-	rm -rf bin/*
-
+	rm -rf *.exe
 
 
