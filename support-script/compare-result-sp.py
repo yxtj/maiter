@@ -32,10 +32,12 @@ def compareOne(r1, r2, show_detail):
         exit(1)
     for i in range(l1):
         if r1[i][0] != r2[i][0]:
-            print('  keys do match:', r1[i][0], r2[i][0])
+            print('  keys do not match:', r1[i][0], r2[i][0])
+            exit(1)
         diff=r1[i][1] - r2[i][1]
-        if show_detail and diff!=0:
-            print('  diff on',r1[i][0],'diff:',diff)
+        if diff!=0:
+            if show_detail:
+                print('  diff on',r1[i][0],'diff:',diff)
             res+=abs(diff)
             cnt+=1
     return (res, cnt)
@@ -87,7 +89,7 @@ def main(path1, path2, merge_parts, show_detail):
 
 if __name__=='__main__':
     if len(sys.argv) < 3:
-        print('Compare the results of two run.')
+        print('Compare the results of two runs.')
         print('Usage: <result-path-1> <result-path-1> [show-detail] [merge-parts]')
         print('  [show-detail]: (=1) Show every found difference')
         print('  [merge-pars]: (=0) Merge the graph parts before comparison, in order to work with those cases using different number of workers.')
@@ -98,8 +100,8 @@ if __name__=='__main__':
     if len(sys.argv) > 3 and sys.argv[3] in ['1', 'y', 'yes', 't', 'true']:
         merge_parts=True
     show_detail=True
-    if len(sys.argv) > 4 and sys.argv[3] not in ['1', 'y', 'yes', 't', 'true']:
-        merge_parts=False
+    if len(sys.argv) > 4 and sys.argv[4] not in ['1', 'y', 'yes', 't', 'true']:
+        show_detail=False
     #print('Merge parts before comparison =', merge_parts)
     main(path1, path2, merge_parts, show_detail)
 
