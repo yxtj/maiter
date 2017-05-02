@@ -104,6 +104,9 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	bool better(const float& a, const float& b){
 		return a < b;
 	}
+	bool is_minmax_accumulate() const{
+		return true;
+	}
 
 	void priority(float& pri, const float& value, const float& delta){
 		pri = value - std::min(value, delta);
@@ -112,6 +115,10 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	void g_func(const int& k, const float& delta, const float& value, const vector<Link>& data,
 			vector<pair<int, float> >* output){
 		for(vector<Link>::const_iterator it = data.begin(); it != data.end(); it++){
+			if(it->end == FLAGS_shortestpath_source){	// to avoid positive loop
+				continue;
+				//output->push_back(make_pair(it->end, default_v()));
+			}
 			float outv = delta + it->weight;
 			output->push_back(make_pair(it->end, outv));
 		}

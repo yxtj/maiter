@@ -166,9 +166,6 @@ private:
 	SyncUnit su_term;
 	void terminate_iteration();
 
-	// change graph
-	void changeGraph();
-
 	WorkerState* worker_for_shard(int table, int shard);
 
 	// Find a worker to run a kernel on the given table and shard.  If a worker

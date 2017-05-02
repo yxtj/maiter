@@ -3,6 +3,9 @@
  *
  *  Created on: Dec 9, 2015
  *      Author: tzhou
+ *  Modified on April 26, 2017
+ *      By: tzhou
+ *      add support for evolving graph
  */
 
 #ifndef TABLE_TYPED_GLOBAL_TABLE_HPP_
@@ -29,7 +32,7 @@
 #include <gflags/gflags.h>
 
 DECLARE_double(bufmsg_portion);
-DECLARE_bool(do_aggregate);
+DECLARE_bool(local_aggregate);
 
 namespace dsm{
 
@@ -138,19 +141,32 @@ public:
 //		VLOG(3) << "applying updates, from " << req.source();
 
 		// Changes to support centralized of triggers <CRM>
-		ProtoKVPairCoder c(&req);
 		int shard=req.shard();
+		/*ProtoKVPairCoder c(&req);
 		NetUpdateDecoder it;
 		partitions_[shard]->deserializeFromNet(&c, &it);
-
 		//TODO: optimize.
 		//it had been guaranteed received shard is local by SendUpdates. But accumulateF1 check it each time
 		for(; !it.done(); it.Next()){
 			VLOG(3) << this->owner(shard) << ":" << shard << " read from remote "
-								<< it.key() << ":" << it.value1();
-			// XXX: changes for evolving graph
+					<< it.key() << ":" << it.value1();
 			accumulateF1(it.key(), it.value1());
-//			ProcessUpdatesSingle(shard,it.key());
+		}*/
+		Marshal<K>* km = kmarshal();
+		Marshal<V1>* vm = v1marshal();
+		int size = req.kv_data_size();
+		for(int i=0;i<size;++i){
+			const Arg& it=req.kv_data(i);
+			VLOG(3) << this->owner(shard) << ":" << shard << " read from remote "
+					<< it.src() << "-" << it.key() << ":" << it.value();
+			K from, to;
+			V1 value1;
+			km->unmarshal(it.src(), &from);
+
+			km->unmarshal(it.key(), &to);
+			vm->unmarshal(it.value(), &value1);
+			accumulateF1(from, to, value1);
+			//accumulateF1(to, value1);
 		}
 		pending_process_+=req.kv_data_size();
 
@@ -194,9 +210,15 @@ public:
 				static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
 		//pre-process
 		kernel->process_delta_v(k, v1, v2, v3);
-		//perform v=v+delta_v
-		//process delta_v before accumulate
-		accumulateF2(k, v1);
+		if(kernel->is_minmax_accumulate()){
+			// replace v with delta_v
+			updateF2(k, v1);
+		}else{
+			//perform v=v+delta_v
+			//process delta_v before accumulate
+			accumulateF2(k, v1);
+		}
+
 		//invoke api, perform g(delta_v) and send messages to out-neighbors
 		std::vector<std::pair<K,V1> > output;
 		output.reserve(v3.size());
@@ -217,14 +239,14 @@ public:
 	}
 
 	void handleGeneratedInformation(const K& from, std::vector<std::pair<K,V1>>& output){
-		if(FLAGS_do_aggregate){
+		if(FLAGS_local_aggregate){
 			for(auto& kvpair : output){
-				//aggregate the output messages to local delta table and wait for sent out
+				// aggregate the output in local delta table and wait for generating a message later
 				accumulateF1(kvpair.first, kvpair.second);
 			}
 		}else{
 			for(auto& kvpair : output){
-				//aggregate the output messages to local delta table and wait for sent out
+				// directly put the changes into a message buffer
 				accumulateF1(from, kvpair.first, kvpair.second);
 			}
 		}
@@ -332,7 +354,7 @@ void TypedGlobalTable<K, V1, V2, V3>::fill_ineighbor_cache(bool process){
 	for(int i = 0; i < info().num_shards; ++i){
 		if(!is_local_shard(i))
 			continue;
-		VLOG(1)<<"filling in-neighbor on "<<id()<<" for "<<i;
+		VLOG(1)<<"filling in-neighbor cache on "<<id()<<" for "<<i;
 		TypedTableIterator<K, V1, V2, V3>* it = get_entirepass_iterator(i);
 		while(!it->done()){
 			K key=it->key();
@@ -349,7 +371,7 @@ void TypedGlobalTable<K, V1, V2, V3>::fill_ineighbor_cache(bool process){
 				std::vector<K> tos=kernel->get_keys(it->value3());
 				for(auto& to : tos){
 					int shard = this->get_shard(to);
-					in_neighbor_cache[shard].emplace(to, std::make_pair(key, default_v));
+					in_neighbor_cache[shard].emplace(to, std::make_pair(key, delta));
 				}
 			}
 			it->Next();

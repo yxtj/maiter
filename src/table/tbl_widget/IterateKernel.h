@@ -38,13 +38,14 @@ struct IterateKernel : public IterateKernelBase {
 
 	virtual void accumulate(V& a, const V& b) = 0;
 	virtual bool better(const V& a, const V& b);
+	virtual bool is_minmax_accumulate() const{ return false; };
 	virtual void process_delta_v(const K& k, V& dalta,V& value, D& data){}
 	virtual void priority(V& pri, const V& value, const V& delta) = 0;
 	virtual void g_func(const K& k,const V& delta,const V& value, const D& data, std::vector<std::pair<K, V> >* output) = 0;
 
 	virtual void read_change(std::string& line, K& k, ChangeEdgeType& type, D& change){} // only D[0] make sense
 	virtual std::vector<K> get_keys(const D& d) = 0;
-	
+
 	virtual ~IterateKernel(){}
 };
 

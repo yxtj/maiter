@@ -9,7 +9,7 @@
 DEFINE_int32(snapshot_interval, 99999999, "");
 DECLARE_int32(bufmsg);
 DECLARE_double(buftime);
-DECLARE_bool(do_aggregate);
+DECLARE_bool(local_aggregate);
 
 namespace dsm {
 
@@ -210,7 +210,7 @@ void MutableGlobalTable::BufSendUpdates(){
 
 void MutableGlobalTable::SendUpdates(){
 	// prepare
-	if(FLAGS_do_aggregate){
+	if(FLAGS_local_aggregate){
 		setUpdatesFromAggregated();
 	}
 	// send

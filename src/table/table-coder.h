@@ -156,6 +156,10 @@ struct NetDecodeIterator :
 		}
 		return vv;
 	}
+	// XXX: evolving graph
+	const K& from(){
+
+	}
 
 private:
 	std::vector<std::pair<K, V1> > decodedeque;

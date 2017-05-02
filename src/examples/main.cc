@@ -15,7 +15,7 @@ DEFINE_int32(edge_size, 1000, "");
 DEFINE_bool(build_graph, false, "");
 DEFINE_bool(dump_results, false, "");
 
-DEFINE_bool(do_aggregate, true, "whether to perform local aggregation");
+DEFINE_bool(local_aggregate, true, "whether to perform local aggregation");
 
 //DEFINE_int32(bufmsg, 10000, "expected minimum number of message per sending");
 DEFINE_double(bufmsg_portion, 0.01,"portion of buffered sending");

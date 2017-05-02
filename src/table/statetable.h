@@ -599,7 +599,7 @@ void StateTable<K, V1, V2, V3>::deserializeFromNet(KVPairCoder *in, DecodeIterat
 	K k;
 	V1 v1;
 	string kt, v1t;
-	// TODO: change latter to add source
+	// seems never be called
 	it->clear();
 	while(in->ReadEntryFromNet(&kt, &v1t)){
 		((Marshal<K>*)info_.key_marshal)->unmarshal(kt, &k);
@@ -735,10 +735,9 @@ void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v){
 	int b = bucket_for_key(k);
 	//cout << "accumulate " << k << "\t" << v << endl;
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) <<">"<< "key: "<<k;
-	// TODO: add branches according to bunckets_[b].input
-	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->accumulate(buckets_[b].v1, v);
-	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
-			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
+	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
+	pk->accumulate(buckets_[b].v1, v);
+	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
 
 }
 
@@ -840,10 +839,12 @@ template<class K, class V1, class V2, class V3>
 bool StateTable<K, V1, V2, V3>::Bucket::update_input(
 	const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel)
 {
-	bool better = kernel->better(v, input[from]);
-	input[from] = v;
-	// remove edge
-	if(v==kernel->default_v())
+	// if from is not recorded, the default value is considered
+	auto it=input.find(from);
+	const V1& old = it==input.end() ? kernel->default_v() : it->second;	// add case
+	bool better = it==input.end() || kernel->better(v, old);
+	input[from] = v;	// modify case
+	if(it!=input.end() && v==kernel->default_v())	// remove case
 		input.erase(from);
 	// maintain best pointer
 	//if(kernel->better(v, input[best_in])){

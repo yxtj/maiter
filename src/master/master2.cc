@@ -140,15 +140,4 @@ void Master::broadcastWorkerInfo(){
 	network_->Broadcast(MTYPE_WORKER_LIST,req);
 }
 
-void Master::changeGraph(){
-	for(auto& tf:current_run_.delta_graph){
-		while(barrier_timer->elapsed()<tf.first){
-			this_thread::sleep_for(chrono::duration<double>(tf.first-barrier_timer->elapsed()));
-		}
-		GraphChangeReq req;
-		req.set_filename(tf.second);
-		network_->Broadcast(MTYPE_UPDATE_GRAPH,req);
-	}
-}
-
 } //namespace dsm

@@ -442,10 +442,6 @@ void Master::run(RunDescriptor&& r){
 	if(current_run_.checkpoint_type != CP_NONE){
 		t_cp=thread(&Master::checkpoint, this);
 	}
-	thread t_change;
-	if(current_run_.change_graph){
-		t_change=thread(&Master::changeGraph, this);
-	}
 	thread t_term;
 	if(current_run_.termcheck){
 		t_term=thread(&Master::termcheck, this);
@@ -458,11 +454,6 @@ void Master::run(RunDescriptor&& r){
 		LOG(INFO)<<"Waiting for checkpoint thread to stop";
 		t_cp.join();
 		LOG(INFO)<<"Found checkpoint thread stopped";
-	}
-	if(t_change.joinable()){
-		LOG(INFO)<<"Waiting for graph changing thread to stop";
-		t_change.join();
-		LOG(INFO)<<"Found graph changing thread stopped";
 	}
 	if(t_term.joinable()){
 		LOG(INFO)<<"Waiting for termination checking thread to stop";

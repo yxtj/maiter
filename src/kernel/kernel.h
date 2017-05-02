@@ -184,7 +184,9 @@ public:
 		}
 	}
 
-	void loadInit(TypedGlobalTable<K, V, V, D>* table){
+	void load_initial(TypedGlobalTable<K, V, V, D>* table,
+			const bool use_initial_delta, const bool use_v_for_delta)
+	{
 		std::string init_file = StringPrintf("%s/part-%d", FLAGS_init_dir.c_str(), current_shard());
 		std::ifstream inFile(init_file);
 		if(!inFile){
@@ -202,13 +204,21 @@ public:
 			// same format as the output(MaiterKernel3)
 			// format: "<key>\t<value>:<delta>"
 			maiter->iterkernel->read_init(line, key, delta, value);
+			if(use_initial_delta){
+				D d = table->getF3(key);
+				maiter->iterkernel->init_c(key, delta, d);
+			}else if(use_v_for_delta){
+				// For min/max case, delta should be set to value
+				delta = value;
+			}
 			table->updateF1(key, delta);
 			table->updateF2(key, value);
 		}
 	}
 
-	void corridnate_in_neighbors(TypedGlobalTable<K, V, V, D>* table, bool processed){
-		table->fill_ineighbor_cache(processed);
+	void corridnate_in_neighbors(TypedGlobalTable<K, V, V, D>* table, const bool non_default_in_neighbor){
+		// whether to send processed (g_func) delta to out-neighbors
+		table->fill_ineighbor_cache(non_default_in_neighbor);
 		table->allpy_inneighbor_cache_local();
 		table->send_ineighbor_cache_remote();
 		table->clear_ineighbor_cache();
@@ -222,12 +232,14 @@ public:
 
 		VLOG(0)<<"loading graphs on "<<current_shard();
 		read_file(a);               //initialize the state table fields based on the input data file
-		bool initial_value=!FLAGS_init_dir.empty();
-		if(initial_value){
+		bool load_initial_value=!FLAGS_init_dir.empty();
+		bool is_minmax_accumulate = maiter->iterkernel->is_minmax_accumulate();
+		if(load_initial_value){
 			VLOG(0)<<"loading initial values on "<<current_shard();
-			loadInit(a);
+			load_initial(a, false, is_minmax_accumulate);
 		}
-		corridnate_in_neighbors(a, initial_value);
+		// if delta is loaded from an initialization file, targets should remember processed input values
+		corridnate_in_neighbors(a, load_initial_value && is_minmax_accumulate);
 	}
 
 	void run(){
@@ -246,7 +258,7 @@ public:
 		maiter = inmaiter;
 	}
 
-	void read_delta(TypedGlobalTable<K, V, V, D>* table){
+	std::vector<std::tuple<K, ChangeEdgeType, D>> read_delta(TypedGlobalTable<K, V, V, D>* table){
 		std::string patition_file = StringPrintf("%s/%s-%d",
 			FLAGS_graph_dir.c_str(), FLAGS_delta_name.c_str(), current_shard());
 		std::ifstream inFile(patition_file);
@@ -254,10 +266,8 @@ public:
 			LOG(FATAL) << "Unable to open file" << patition_file;
 		}
 
-		std::vector<std::tuple<K, ChangeEdgeType, D>> changes;
-
 		VLOG(1)<<"loading delta-graph on: "<<current_shard();
-		int nChange=0;
+		std::vector<std::tuple<K, ChangeEdgeType, D>> changes;
 		std::string line;
 		//read a line of the input file
 		while(getline(inFile,line)){
@@ -267,22 +277,29 @@ public:
 			ChangeEdgeType type;
 			D data;
 			maiter->iterkernel->read_change(line, key, type, data);
-			// go without checking the type of changees
-			table->change_graph(key, type, data);
+			// go without checking the type of changes
 			changes.emplace_back(key, type, move(data));
-			++nChange;
 		}
-		VLOG(1)<<"loaded delta edges on "<<current_shard()<<" is "<<nChange;
-		// send messages about these chagnes.
-		// CANNOT use the delta-table
-		// because if there is multiple changes to the same dst node, only the best one can be sent due to the accumulation on delta
-		VLOG(1)<<"sending delta-graph on: "<<current_shard();
-		send_changes(table, changes);
+		return changes;
 	}
 
-	void send_changes(TypedGlobalTable<K, V, V, D>* table, std::vector<std::tuple<K, ChangeEdgeType, D>>& changes){
-		// step 1: prepare messages
-		std::vector<KVPairData> puts;
+	void apply_changes_on_graph(TypedGlobalTable<K, V, V, D>* table,
+			std::vector<std::tuple<K, ChangeEdgeType, D>>& changes)
+	{
+		for(auto& tup : changes){
+			const K& key =  std::get<0>(tup);
+			const ChangeEdgeType type = std::get<1>(tup);
+			const D& data = std::get<2>(tup);
+			table->change_graph(key, type, data);
+		}
+	}
+
+	// handle the delta information related with the graph changes
+	void apply_changes_on_delta(TypedGlobalTable<K, V, V, D>* table,
+			std::vector<std::tuple<K, ChangeEdgeType, D>>& changes)
+	{
+		// step 1: prepare messages (for remote nodes)
+		std::vector<KVPairData> puts(table->num_shards());
 		for(int i = 0; i < table->num_shards(); ++i){
 			if(!table->is_local_shard(i)){
 				KVPairData& put=puts[i];
@@ -294,18 +311,16 @@ public:
 				put.set_done(true);
 			}
 		}
-		// step 2: put changes into messages
-		Marshal<K>* mk = table->kmarshal();
-		Marshal<V>* mv = table->v1marshal();
+		// step 2: put changes into messages(remote) / apply(local)
+		V default_v = maiter->iterkernel->default_v();
 		string from, to, value;
 		for(auto& tup : changes){
 			K key = std::get<0>(tup);
 			ChangeEdgeType type = std::get<1>(tup);
-			D d = std::get<2>(tup);
-			K dst = maiter->iterkernel->get_keys(d).front();
+			K dst = maiter->iterkernel->get_keys(std::get<2>(tup)).front();
 			V weight;
 			if(type==ChangeEdgeType::REMOVE){
-				weight=maiter->iterkernel->default_v();
+				weight = default_v;
 			}else{
 				ClutterRecord<K, V, V, D> c = table->get(key);
 				std::vector<std::pair<K, V>> output;
@@ -313,29 +328,43 @@ public:
 				auto it = std::find_if(output.begin(), output.end(), [&](const std::pair<K, V>& p){
 					return p.first==dst;
 				});
-				weight=it->second;
+				weight= it==output.end()? default_v : it->second;
 			}
-			int shard = table->get_shard(dst);
-			Arg* a = puts[shard].add_kv_data();
-			mk->marshal(key, &from);
-			mk->marshal(dst, &to);
-			mv->marshal(weight, &value);
-			a->set_key(to);
-			a->set_value(value);
-			a->set_src(from);
+			VLOG(1)<<"  "<<char(type)<<" "<<key<<" "<<dst<<"\t"<<weight;
+			D d=table->getF3(key);
+			auto ii=std::find_if(d.begin(), d.end(), [&](const typename D::value_type &p){
+				return p.end==dst;
+			});
+			VLOG(1)<<"  "<<char(type)<<" "<<key<<" "<<dst<<"\t"<<ii->weight<<"\t d="<<table->getF1(key)<<" v="<<table->getF2(key);
+			table->accumulateF1(key, dst, weight);
 		}
+		//VLOG(1)<<"  going to send";
 		// step 3: send messages
 		for(int i = 0; i < table->num_shards(); ++i){
 			KVPairData& put=puts[i];
-			VLOG(1)<<"sending graph change messages from "<<current_shard()<<" to "<<i<<", num="<<put.kv_data_size();
-			if(put.kv_data_size() != 0){
-				table->helper()->realSendUpdates(table->owner(i),put);
+			if(!table->is_local_shard(i)){
+				VLOG(1)<<"sending graph change messages from "<<current_shard()<<" to "<<i<<", size="<<put.kv_data_size();
+				if(put.kv_data_size() != 0){
+					table->helper()->realSendUpdates(table->owner(i),put);
+				}
 			}
 		}
+		table->helper()->signalToSend();
+		table->helper()->signalToProcess();
 	}
 
 	void delta_table(TypedGlobalTable<K, V, V, D>* a){
-		read_delta(a);
+		std::vector<std::tuple<K, ChangeEdgeType, D>> changes = read_delta(a);
+		VLOG(1)<<"number of delta edges on "<<current_shard()<<" is "<<changes.size();
+		// change the topology
+		VLOG(1)<<"change topology on: "<<current_shard();
+		apply_changes_on_graph(a, changes);
+
+		// change the delta values (for destinations of the affected edges)
+		// CANNOT use the delta-table (local aggregation) for min/max accumulators
+		// because only the best one can be sent out and the rest are permanently lost
+		VLOG(1)<<"re-initialize delta value and in-neighbor information on: "<<current_shard();
+		apply_changes_on_delta(a, changes);
 		//corridnate_in_neighbors(a);
 	}
 
@@ -397,6 +426,23 @@ public:
 
 	void map(){
 		VLOG(0) << "start performing iterative update";
+		/*
+		typename StateTable<K, V, V, D>::EntirePassIterator *it =
+			dynamic_cast<typename StateTable<K, V, V, D>::EntirePassIterator*>(
+					maiter->table->get_entirepass_iterator(current_shard()));
+		std::ofstream fout(maiter->output+"/xxx");
+		while(!it->done()){
+			fout << it->key() << "\t" << it->value1()<<"\t"<<it->value2()<<"\t";
+			const std::unordered_map<K, V>& ineigh = it->ineighbor();
+			for(auto jt=ineigh.begin(); jt!=ineigh.end(); ++jt){
+				fout<< jt->first <<','<< jt->second <<' ';
+			}
+			fout<<"\n";
+			it->Next();
+		}
+		delete it;
+		fout.close();
+		 */
 		run_loop(maiter->table);
 	}
 };
