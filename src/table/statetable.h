@@ -728,7 +728,7 @@ void StateTable<K, V1, V2, V3>::accumulateF1(const K& from, const K &to, const V
 	int b = bucket_for_key(to);
 	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
 	buckets_[b].update_v1_with_input(from, v, pk);
-	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
+	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
 }
 
 template<class K, class V1, class V2, class V3>
@@ -738,7 +738,7 @@ void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v){
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) <<">"<< "key: "<<k;
 	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
 	pk->accumulate(buckets_[b].v1, v);
-	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
+	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
 
 }
 
@@ -775,7 +775,7 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 	buckets_[b].v2 = v2;
 	buckets_[b].v3 = v3;
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
-			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
+			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
 }
 
 template<class K, class V1, class V2, class V3>
@@ -798,7 +798,7 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 	buckets_[b].v2 = std::forward<V2>(v2);
 	buckets_[b].v3 = std::forward<V3>(v3);
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
-			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1);
+			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
 }
 
 // XXX: for evolving graph:

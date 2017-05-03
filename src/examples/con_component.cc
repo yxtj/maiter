@@ -80,7 +80,7 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
             return a > b;
     }
 
-    void priority(int& pri, const int& value, const int& delta){
+    void priority(int& pri, const int& value, const int& delta, const vector<int>& data){
             pri = value-std::max(value,delta);
     }
 

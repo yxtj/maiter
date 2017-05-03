@@ -108,7 +108,7 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 		return true;
 	}
 
-	void priority(float& pri, const float& value, const float& delta){
+	void priority(float& pri, const float& value, const float& delta, const vector<Link>& data){
 		pri = value - std::min(value, delta);
 	}
 
