@@ -144,7 +144,7 @@ private:
 void Option::parse(int argc, char* argv[]){
 	nPart=stoi(string(argv[1]));
 	nNode=stoi(string(argv[2]));
-	outDir=".";
+	outDir="./";
 	if(argc>3)
 		outDir=argv[3];
 	selfLoop=true;
@@ -194,15 +194,16 @@ bool Option::setWeight(string& method){
 }
 
 int main(int argc, char* argv[]){
-	if(argc<3 || argc>7){
+	if(argc<3 || argc>8){
 		cerr<<"Wrong usage.\n"
 			"Usage: <#parts> <#nodes> [out-dir] [self-loop] [weight:<min>,<max>] [deg-dist:<param>] [random-seed]"<<endl;
-		cerr<<"  [self-loop]: (=true) whether to alow self-loop edge.\n"
+		cerr<<"  [self-loop]: (=true) whether to allow self-loop edge.\n"
+			"  [out-dir]: (=./) the folder to store the output fieles\n"
 			"  [weight]: (=no) the weight distribution. If unweighted graph is needed, use \"no\" here.\n"
-			"  [deg-dist]: the degree distribution. Support: uni (uniform), pl:<alpha> (power-law with alpha)\n"
+			"  [deg-dist]: (=pl:2.3) the degree distribution. Support: uni (uniform), pl:<alpha> (power-law with alpha)\n"
 			"  [random-seed]: (=1535345) seed for random numbers.\n"
-			"i.e.: ./gen 2 100 out 0 no pl:2.6 123456 \n"
-			"i.e.: ./gen 2 100 out 0 weight:0,1 uni \n"<<endl;
+			"i.e.: ./gen.exe 2 100 out 0 no pl:2.6 123456 \n"
+			"i.e.: ./gen.exe 2 100 out 0 weight:0,1 uni \n"<<endl;
 		return 1;
 	}
 	Option opt;

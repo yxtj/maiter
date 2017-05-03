@@ -261,8 +261,8 @@ int main(int argc, char* argv[]){
 				"among the changed edges the rate for edge-addition, edge-removal, weight-increase and weight-decrease. "
 				"They are automatically normalized.\n"
 				"  [random-seed]: (=1535345) seed for random numbers\n"
-				"i.e.: ./deltaGen graphDir 2 rd 0.05 0 0.3 0 0.7 123456\n"
-				"i.e.: ./deltaGen input 2 delta2 0.01 0.2 0.2 0.3 0.3\n"
+				"i.e.: ./deltaGen.exe graphDir 2 delta-rd 0.05 0 0.3 0 0.7 123456\n"
+				"i.e.: ./deltaGen.exe input 2 delta2 0.01 0.2 0.2 0.3 0.3\n"
 				<< endl;
 		return 1;
 	}
