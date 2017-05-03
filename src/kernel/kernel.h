@@ -162,7 +162,7 @@ public:
 		std::string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
 		std::ifstream inFile(patition_file);
 		if(!inFile){
-			LOG(FATAL) << "Unable to open file" << patition_file;
+			LOG(FATAL) << "Unable to open file: " << patition_file;
 		}
 
 		std::string line;
@@ -190,7 +190,7 @@ public:
 		std::string init_file = StringPrintf("%s/part-%d", FLAGS_init_dir.c_str(), current_shard());
 		std::ifstream inFile(init_file);
 		if(!inFile){
-			LOG(FATAL) << "Unable to open file" << init_file;
+			LOG(FATAL) << "Unable to open file: " << init_file;
 		}
 
 		std::string line;
@@ -216,14 +216,13 @@ public:
 		}
 	}
 
-	void corridnate_in_neighbors(TypedGlobalTable<K, V, V, D>* table, const bool non_default_in_neighbor){
+	void coordinate_in_neighbors(TypedGlobalTable<K, V, V, D>* table, const bool non_default_in_neighbor){
 		// whether to send processed (g_func) delta to out-neighbors
 		table->fill_ineighbor_cache(non_default_in_neighbor);
 		table->allpy_inneighbor_cache_local();
 		table->send_ineighbor_cache_remote();
 		table->clear_ineighbor_cache();
 	}
-
 	void init_table(TypedGlobalTable<K, V, V, D>* a){
 		if(!a->initialized()){
 			a->InitStateTable();        //initialize the local state table
@@ -238,13 +237,20 @@ public:
 			VLOG(0)<<"loading initial values on "<<current_shard();
 			load_initial(a, false, is_minmax_accumulate);
 		}
-		// if delta is loaded from an initialization file, targets should remember processed input values
-		corridnate_in_neighbors(a, load_initial_value && is_minmax_accumulate);
+		coord();
 	}
 
 	void run(){
 		VLOG(0) << "initializing table on "<<current_shard();
 		init_table(maiter->table);
+		VLOG(0) << "table initialized on "<<current_shard();
+	}
+
+	void coord(){
+		VLOG(0) << "building up in-neighbor list on "<<current_shard();
+		bool load_initial_value=!FLAGS_init_dir.empty();
+		bool is_minmax_accumulate = maiter->iterkernel->is_minmax_accumulate();
+		coordinate_in_neighbors(maiter->table, load_initial_value && is_minmax_accumulate);
 	}
 };
 
@@ -263,7 +269,7 @@ public:
 			FLAGS_graph_dir.c_str(), FLAGS_delta_name.c_str(), current_shard());
 		std::ifstream inFile(patition_file);
 		if(!inFile){
-			LOG(FATAL) << "Unable to open file" << patition_file;
+			LOG(FATAL) << "Unable to open file: " << patition_file;
 		}
 
 		VLOG(1)<<"loading delta-graph on: "<<current_shard();
@@ -330,13 +336,17 @@ public:
 				});
 				weight= it==output.end()? default_v : it->second;
 			}
-			VLOG(1)<<"  "<<char(type)<<" "<<key<<" "<<dst<<"\t"<<weight;
+			//VLOG(1)<<"  "<<char(type)<<" "<<key<<" "<<dst<<"\t"<<weight;
 			D d=table->getF3(key);
 			auto ii=std::find_if(d.begin(), d.end(), [&](const typename D::value_type &p){
 				return p.end==dst;
 			});
 			VLOG(1)<<"  "<<char(type)<<" "<<key<<" "<<dst<<"\t"<<ii->weight<<"\t d="<<table->getF1(key)<<" v="<<table->getF2(key);
 			table->accumulateF1(key, dst, weight);
+			if(table->canSend()){
+				table->helper()->signalToSend();
+				table->resetSendMarker();
+			}
 		}
 		//VLOG(1)<<"  going to send";
 		// step 3: send messages
@@ -582,6 +592,10 @@ public:
 		KernelRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", this);
 		MethodRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", "run",
 				&MaiterKernel1<K, V, D>::run, this);
+
+		// build up the in-neighbor list
+		MethodRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", "coord",
+				&MaiterKernel1<K, V, D>::coord, this);
 
 		// load and apply the delta graph
 		KernelRegistrationHelper<MaiterKernelLoadDeltaGraph<K, V, D>, K, V, D>("MaiterKernelLoadDeltaGraph", this);

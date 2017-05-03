@@ -81,10 +81,17 @@ void Worker::HandleReply(const std::string& d, const RPCInfo& rpc){
 void Worker::HandleAddInNeighbor(const string& d, const RPCInfo& info){
 	InNeighborData data;
 	data.ParseFromString(d);
+	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(data.table());
+	if(!t->initialized()){
+		string d2=d;
+		RPCInfo i2=info;
+		driver.pushData(d2, i2);
+		VLOG(1)<<"delay the processing of an in-neighbor message, wait until local table initialized.";
+		return;
+	}
 	// translate net-id to worker-id
 	int worker_id = info.source - 1;
 	rph.input(MTYPE_ADD_INNEIGHBOR, worker_id);
-	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(data.table());
 	t->add_ineighbor(data);
 }
 

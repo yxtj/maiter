@@ -219,6 +219,8 @@ void MutableGlobalTable::SendUpdates(){
 		if(is_local_shard(i))
 			continue;
 		KVPairData& put=update_buffer[i];
+		if(put.kv_data_size()==0)
+			continue;
 		helper()->realSendUpdates(owner(i), put);
 		put.clear_kv_data();
 	}

@@ -167,8 +167,10 @@ void Worker::runKernel(){
 
 	// Run the user kernel
 	helper->Run(d, kreq.method());
-	if(kreq.kernel()=="MaiterKernel1"){
-		rph.input(MTYPE_ADD_INNEIGHBOR,id());
+	if(kreq.kernel()=="MaiterKernel1")
+			//&& kreq.method()=="coord")
+	{
+		rph.input(MTYPE_ADD_INNEIGHBOR, id());
 		su_neigh.wait();
 	}
 
@@ -193,7 +195,7 @@ void Worker::finishKernel(){
 			removeCheckpoint(epoch_);
 		}
 	}
-	//TODO: cancel running checkpoint when kernel finished
+	//TODO: stop the currently running checkpoint when the kernel finishes
 	while(st_checkpointing_)
 		Sleep();
 	//send termination report to master

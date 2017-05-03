@@ -13,9 +13,9 @@
 DEFINE_string(checkpoint_type,"CP_NONE","Type of checkpoint mechanism");
 DEFINE_double(checkpoint_interval,0.0,"Interval of taking checkpoint(in second)");
 DEFINE_int32(restore_from,-1,"The epoch to restore from (-1 for do not restore)");
-DEFINE_string(change_graph,"","The time and file-names of apply delta graphs."
-	" Format: \"<time(second)>:<filename>,<t2>:<f2>,<...>\""
-	" Example: '100:delta-1' means applying delta-1 at 100s; or '20:d1,50:d2' means applying d1 at 20s and than applying d2 at 50s.");
+//DEFINE_string(change_graph,"","The time and file-names of apply delta graphs."
+//	" Format: \"<time(second)>:<filename>,<t2>:<f2>,<...>\""
+//	" Example: '100:delta-1' means applying delta-1 at 100s; or '20:d1,50:d2' means applying d1 at 20s and than applying d2 at 50s.");
 
 using namespace std;
 
@@ -55,7 +55,7 @@ void RunDescriptor::Init(const std::string& kernel,
 	}else{
 		this->restore=false;
 	}
-
+	/*
 	this->change_graph=!FLAGS_change_graph.empty();
 	try{
 		if(!FLAGS_change_graph.empty()){
@@ -72,7 +72,7 @@ void RunDescriptor::Init(const std::string& kernel,
 		}
 	}catch(exception& e){
 		LOG(FATAL)<<"Error when parsing parameter change_graph: "<<e.what();
-	}
+	}*/
 
 	this->kernel = kernel;
 	this->method = method;

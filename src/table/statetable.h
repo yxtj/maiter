@@ -519,7 +519,7 @@ private:
 	int64_t total_updates;
 
 	std::hash<K> hashobj_;
-
+	std::mutex m_; // mutex for resizing the table
 };
 
 template<class K, class V1, class V2, class V3>
@@ -629,6 +629,7 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size){
 	CHECK_GT(size, 0);
 	if(size_ == size)
 		return;
+	std::lock_guard<std::mutex> gl(m_);
 
 	std::vector<Bucket> old_b = move(buckets_);
 	int old_entries = entries_;
@@ -883,6 +884,9 @@ void StateTable<K, V1, V2, V3>::add_ineighbor(const K& from, const K& to, const 
 				<< " entries " << entries_;
 		resize(1 + size_ * 2);
 		b=bucket_for_access_key(to);
+		if(b==-1)
+			VLOG(2) << "failed re-access... size=" << size_ << " entries=" << entries_
+				<<" , "<<from <<"-"<<to<<" v="<<v1;
 	}
 	if(buckets_[b].in_use == false){
 		buckets_[b].in_use = true;

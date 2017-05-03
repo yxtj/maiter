@@ -33,6 +33,7 @@
 
 DECLARE_double(bufmsg_portion);
 DECLARE_bool(local_aggregate);
+DECLARE_int32(bufmsg);
 
 namespace dsm{
 
@@ -42,7 +43,7 @@ class TypedGlobalTable:
 		public TypedTable<K, V1, V2, V3>,
 		private noncopyable{
 public:
-	bool initialized(){
+	virtual bool initialized(){
 		return binit;
 	}
 
@@ -253,14 +254,15 @@ public:
 	}
 
 	void bufferGeneratedMessage(const K& from, const K& to, const V1& delta){
-		Arg a;
+		int shard = get_shard(to);
+		Arg *a = update_buffer[shard].add_kv_data();
 		string temp;
 		kmarshal()->marshal(to, &temp);
-		a.set_key(temp);
+		a->set_key(temp);
 		v1marshal()->marshal(delta, &temp);
-		a.set_value(temp);
+		a->set_value(temp);
 		kmarshal()->marshal(from, &temp);
-		a.set_src(temp);
+		a->set_src(temp);
 	}
 
 	Marshal<K> *kmarshal(){
@@ -354,7 +356,7 @@ void TypedGlobalTable<K, V1, V2, V3>::fill_ineighbor_cache(bool process){
 	for(int i = 0; i < info().num_shards; ++i){
 		if(!is_local_shard(i))
 			continue;
-		VLOG(1)<<"filling in-neighbor cache on "<<id()<<" for "<<i;
+		VLOG(1)<<"filling in-neighbor cache on "<<i;
 		TypedTableIterator<K, V1, V2, V3>* it = get_entirepass_iterator(i);
 		while(!it->done()){
 			K key=it->key();
@@ -398,11 +400,14 @@ template<class K, class V1, class V2, class V3>
 void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache_remote(){
 	Marshal<K> * km = kmarshal();
 	Marshal<V1> * vm = v1marshal();
+	int size=std::max<int>(bufmsg, 100);
 	for(size_t i=0;i<in_neighbor_cache.size();++i){
 		if(is_local_shard(i))
 			continue;
 		auto& ref=in_neighbor_cache[i];
+		int n=0;
 		InNeighborData msg;
+		msg.set_table(info().table_id);
 		for(auto it = ref.begin(); it!=ref.end(); ++it){
 			InNeighborUnit* p = msg.add_data();
 			string to, from, weight;
@@ -412,10 +417,16 @@ void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache_remote(){
 			p->set_to(to);
 			p->set_from(from);
 			p->set_weight(weight);
+			if(++n%size == 0){
+				VLOG(1)<<"sending in-neighbor message from "<<helper_id()<<" to "<<i<<" with size "<<msg.data_size();
+				info().helper->realSendInNeighbor(owner(i), msg);
+				msg.clear_data();
+			}
 		}
-		msg.set_table(info().table_id);
-		VLOG(1)<<"sending in-neighbor message from "<<id()<<" to "<<i<<" with size "<<msg.data_size();
-		info().helper->realSendInNeighbor(owner(i), msg);
+		if(msg.data_size()!=0){
+			VLOG(1)<<"sending in-neighbor message from "<<helper_id()<<" to "<<i<<" with size "<<msg.data_size();
+			info().helper->realSendInNeighbor(owner(i), msg);
+		}
 	}
 }
 

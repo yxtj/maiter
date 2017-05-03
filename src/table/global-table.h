@@ -83,6 +83,7 @@ public:
 
 	virtual int pending_write_bytes() = 0;
 
+	virtual bool initialized() = 0;
 	virtual void resize(int64_t new_size) = 0;
 
 	virtual void clear() = 0;
@@ -211,7 +212,7 @@ protected:
 	int64_t pending_send_;
 	int snapshot_index;
 
-	int64_t bufmsg;	//updated while init local table shards
+	int64_t bufmsg;	//updated at InitStateTable with (state-table-size * bufmsg_portion)
 };
 
 }

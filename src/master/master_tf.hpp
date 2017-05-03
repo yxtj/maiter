@@ -10,6 +10,7 @@
 
 #include "master.h"
 #include <string>
+#include <iostream>
 
 using namespace std;
 
@@ -24,6 +25,8 @@ void Master::run_maiter(MaiterKernel<K, V, D>* maiter){
 	}
 
 	run_all("MaiterKernel1", "run", maiter->table, false, false, false);
+	//run_all("MaiterKernelDumpInNeighbor", "run", maiter->table, false, false, false);
+//	run_all("MaiterKernel1", "coord", maiter->table, false, false, false);
 
 	run_all("MaiterKernelLoadDeltaGraph", "run", maiter->table, false, false, false);
 
