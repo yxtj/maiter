@@ -615,11 +615,11 @@ void StateTable<K, V1, V2, V3>::deserializeFromNet(KVPairCoder *in, DecodeIterat
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f, long* updates,
 		double* totalF2){
-	total_curr = 0;
-	EntirePassIterator* entireIter = new EntirePassIterator(*this);
-	total_curr = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)->estimate_prog(
-			entireIter));
-	delete entireIter;
+	//total_curr = 0;
+	//EntirePassIterator* entireIter = new EntirePassIterator(*this);
+	//total_curr = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)
+	//		->estimate_prog(entireIter));
+	//delete entireIter;
 	*updates = total_updates;
 	*totalF2 = total_curr;
 }
@@ -711,6 +711,7 @@ void StateTable<K, V1, V2, V3>::updateF2(const K& k, const V2& v){
 
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
 
+	total_curr += -buckets_[b].v2 + v;
 	buckets_[b].v2 = v;
 }
 
@@ -747,7 +748,9 @@ void StateTable<K, V1, V2, V3>::accumulateF2(const K& k, const V2& v){
 	int b = bucket_for_key(k);
 
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
+	V2 old = buckets_[b].v2;
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->accumulate(buckets_[b].v2, v);
+	total_curr += -old + buckets_[b].v2;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -769,6 +772,9 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 	if(buckets_[b].in_use == false){
 		buckets_[b].in_use = true;
 		++entries_;
+		total_curr += v2;
+	}else{
+		total_curr += -buckets_[b].v2 + v2;
 	}
 	buckets_[b].k = k;
 	buckets_[b].v1 = v1;
@@ -792,6 +798,9 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 	if(buckets_[b].in_use == false){
 		buckets_[b].in_use = true;
 		++entries_;
+		total_curr += v2;
+	}else{
+		total_curr += -buckets_[b].v2 + v2;
 	}
 	buckets_[b].k = std::forward<K>(k);
 	buckets_[b].v1 = std::forward<V1>(v1);
