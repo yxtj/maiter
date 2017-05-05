@@ -32,6 +32,7 @@ DEFINE_double(portion, 1, "");
 DEFINE_double(termcheck_threshold, 1000000000, "");
 DEFINE_double(sleep_time, 0.001, "");
 
+DEFINE_bool(priority_degree, false, "whether to multiple the degree to the priority");
 
 int main(int argc, char** argv){
 	FLAGS_log_prefix = false;

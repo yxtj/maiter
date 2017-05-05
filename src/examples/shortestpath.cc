@@ -8,6 +8,8 @@ DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
 DEFINE_int64(shortestpath_source, 0, "");
+DEFINE_double(weight_alpha, 1, "the factor for the bad news");
+DECLARE_bool(priority_degree);
 
 struct Link{
 	Link(int inend, float inweight) :
@@ -109,7 +111,12 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	}
 
 	void priority(float& pri, const float& value, const float& delta, const vector<Link>& data){
-		pri = value - std::min(value, delta);
+		//pri = value - std::min(value, delta);
+		float dif = abs(delta - value) * (FLAGS_priority_degree? data.size(): 1);
+		if(dif<=0)	// good news
+			pri = dif;
+		else
+			pri = FLAGS_weight_alpha * dif;
 	}
 
 	void g_func(const int& k, const float& delta, const float& value, const vector<Link>& data,
