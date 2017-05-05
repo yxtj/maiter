@@ -5,7 +5,7 @@ set(EXAMPLE_LIBS
   	${PROTOBUF_LIBS})  	  	
 set(EXAMPLE_LIBS ${EXAMPLE_LIBS} util z lzo2 pthread rt)
 
-add_custom_target(example_proto DEPENDS ${EXAMPLE_PB_HDR})
+#add_custom_target(example_proto DEPENDS ${EXAMPLE_PB_HDR})
 
 add_library(example 
             #pagerank.cc
@@ -17,7 +17,7 @@ add_library(example
             ${EXAMPLE_PB_HDR} 
             ${EXAMPLE_PB_SRC})
             
-add_dependencies(example worker_proto common_proto)
+#add_dependencies(example worker_proto common_proto)
 add_executable(maiter main.cc)
 
 # we need to resolve static initializers, so glob all the symbols together with -whole-archive
