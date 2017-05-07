@@ -1,5 +1,4 @@
 #include "global-table.h"
-#include "statetable.h"
 #include "util/timer.h"
 #include <gflags/gflags.h>
 

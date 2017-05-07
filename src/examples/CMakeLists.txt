@@ -24,7 +24,7 @@ add_executable(maiter main.cc)
 target_link_libraries(maiter
 		-Wl,-whole-archive dbg common net msg driver table kernel worker master example
 		-Wl,-no-whole-archive)
-target_link_libraries(maiter gflags glog webgraph)
+target_link_libraries(maiter gflags glog)
 
 target_link_libraries(maiter ${EXAMPLE_LIBS})
 

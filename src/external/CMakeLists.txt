@@ -9,5 +9,5 @@ SET(GLOG_DIR "${GLOG_DIR}" PARENT_SCOPE)
 add_subdirectory ("${GFLAGS_DIR}")
 include_directories(${GFLAGS_DIR})
 add_subdirectory (${GLOG_DIR})
-add_subdirectory (webgraph)
+#add_subdirectory (webgraph)
 
