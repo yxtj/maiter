@@ -6,6 +6,7 @@
 #include "DSMKernel.h"
 #include "table/table-registry.h"
 #include "table/typed-global-table.hpp"
+#include "table/table-create.h"
 #include "table/tbl_widget/IterateKernel.h"
 
 #include <fstream>
