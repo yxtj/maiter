@@ -10,6 +10,7 @@
 #include <thread>
 #include <chrono>
 #include <functional>
+#include <algorithm>
 
 //DEFINE_string(dead_workers, "",
 //		"For failure testing; comma delimited list of workers to pretend have died.");

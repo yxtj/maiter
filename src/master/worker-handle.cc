@@ -8,6 +8,8 @@
 #include "worker-handle.h"
 #include "table/table-registry.h"
 
+#include <algorithm>
+
 using namespace std;
 
 namespace dsm {
