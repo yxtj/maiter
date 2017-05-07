@@ -817,6 +817,8 @@ void StateTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeType& t
 	Bucket& bk=buckets_[b];
 	switch(type){
 	case ChangeEdgeType::ADD:
+		VLOG(1)<<k<<"\t"<<change[0].end<<" - "<<change[0].weight<<" | "<<
+			bk.k<<" "<<bk.v1<<" "<<bk.v2<<" "<<bk.v3.size()<<" "<<bk.input.size()<<" "<<bk.priority;
 		bk.v3.push_back(change.front());
 		break;
 	case ChangeEdgeType::REMOVE:

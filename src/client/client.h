@@ -9,7 +9,7 @@
 #include "master/master.h"
 #include "master/master_tf.hpp"
 
-#include "kernel/kernel.h"
+#include "kernel/maiter-kernel.h"
 #include "table/tbl_widget/sharder_impl.hpp"
 #include "table/tbl_widget/term_checker_impl.hpp"
 

@@ -3,9 +3,6 @@
 
 #include "util/common.h"
 #include "table/TableHelper.h"
-//#include "table/table.h"
-//#include "table/local-table.h"
-//#include "table/global-table.h"
 #include "msg/message.pb.h"
 #include "net/RPCInfo.h"
 #include "driver/MsgDriver.h"

@@ -6,6 +6,7 @@
 #include "kernel/kernel.h"
 #include "table/TableHelper.h"
 #include "table/table-registry.h"
+#include "table/tbl_widget/trigger.h"
 #include "net/NetworkThread.h"
 #include "net/RPCInfo.h"
 
@@ -16,6 +17,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <fstream>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -24,6 +26,8 @@ namespace dsm {
 
 class WorkerState;
 class TaskState;
+template<class K, class V, class D>
+class MaiterKernel;
 
 class Master: public TableHelper{
 public:
@@ -37,9 +41,8 @@ public:
 	int epoch() const{
 		return kernel_epoch_;
 	}
-	int ownerOfShard(int table, int shard) const{
-		return tables_[table]->owner(shard);
-	}
+	int ownerOfShard(int table, int shard) const;
+
 	// the following 3 work-loop-related-function will not to be called by master under normal condition
 	virtual void signalToProcess();
 	virtual void signalToSend();
@@ -78,29 +81,8 @@ public:
 	//maiter program
 	template<class K, class V, class D>
 	void run_maiter(MaiterKernel<K, V, D>* maiter);
-//	{
-//		if(maiter->sharder == nullptr){
-//			LOG(FATAL)<<"sharder is not specified in current kernel";
-//			return;
-//		}
-//
-//		run_all("MaiterKernel1", "run", maiter->table, false, false, false);
-//
-////		if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
-////			run_all("MaiterKernel2", "map", maiter->table, true, true, true);
-////		}
-//
-////		run_all("MaiterKernel3", "run", maiter->table, false, false, false);
-//	}
-
 	template<class T>
 	T& get_cp_var(const string& key, T defval = T());
-//	{
-//		if(!cp_vars_.contains(key)){
-//			cp_vars_.put(key, defval);
-//		}
-//		return cp_vars_.get<T>(key);
-//	}
 
 	void enable_trigger(const TriggerID triggerid, int table, bool enable);
 

@@ -9,6 +9,8 @@
 #define MASTER_MASTER_TF_HPP_
 
 #include "master.h"
+#include "kernel/maiter-kernel.h"
+
 #include <string>
 #include <iostream>
 

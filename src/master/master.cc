@@ -1,8 +1,7 @@
 #include "master.h"
 #include "master/worker-handle.h"
-#include "table/local-table.h"
-#include "table/table.h"
 #include "table/global-table.h"
+#include "table/tbl_widget/term_checker.h"
 #include "net/Task.h"
 
 #include <set>
@@ -128,6 +127,10 @@ void Master::MsgLoop(){
 		}
 		Sleep();
 	}
+}
+
+int Master::ownerOfShard(int table, int shard) const{
+	return tables_[table]->owner(shard);
 }
 
 void Master::termcheck(){

@@ -3,10 +3,6 @@
 
 #include "table/TableDescriptor.h"
 #include "global-table.h"
-#include "typed-global-table.hpp"
-#include "statetable.h"
-#include "deltatable.h"
-#include "util/marshal.hpp"
 #include "util/noncopyable.h"
 
 #include <map>
@@ -14,6 +10,9 @@
 static const int kStatsTableId = 1000000;
 
 namespace dsm {
+
+class GlobalTableBase;
+class MutableGlobalTableBase;
 
 class TableRegistry: private noncopyable{
 public:

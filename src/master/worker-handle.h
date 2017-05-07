@@ -9,7 +9,10 @@
 #define MASTER_WORKER_HANDLE_H_
 
 #include "run-descriptor.h"
-#include "table/table-registry.h"
+#include "util/noncopyable.h"
+#include "util/timer.h"
+#include <glog/logging.h>
+
 #include <vector>
 #include <set>
 #include <map>

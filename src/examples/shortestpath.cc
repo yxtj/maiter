@@ -140,7 +140,8 @@ static int Shortestpath(ConfigData& conf){
 	Sharders::Mod vS;
 	ShortestpathIterateKernel vSIK;
 	TermCheckers<int, float>::Diff vTC;
-	MaiterKernel<int, float, vector<Link> >* kernel = new MaiterKernel<int, float, vector<Link> >(
+	MaiterKernel<int, float, vector<Link> >* kernel =
+		new MaiterKernel<int, float, vector<Link> >(
 			conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
 			&vS, &vSIK, &vTC);
 

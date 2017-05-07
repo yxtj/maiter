@@ -2,6 +2,7 @@
 #include "table/table-registry.h"
 #include "util/common.h"
 #include "kernel/kernel.h"
+#include "kernel/DSMKernel.h"
 #include "net/NetworkThread.h"
 #include "net/Task.h"
 #include <string>
