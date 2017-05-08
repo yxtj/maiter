@@ -474,8 +474,9 @@ void TypedGlobalTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeT
 template<class K, class V1, class V2, class V3>
 inline void TypedGlobalTable<K, V1, V2, V3>::ProcessRequest(const ValueRequest & req)
 {
-	K key = kmarshal()->unmarshal(req.key());
-	K src = kmarshal()->unmarshal(req.key());
+	K key, src;
+	kmarshal()->unmarshal(req.key(), &key);
+	kmarshal()->unmarshal(req.source(), &src);
 	int shard = this->get_shard(key);
 	if(is_local_shard(shard)) {
 		StateTable<K, V1, V2, V3> *st = dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(shard));
@@ -484,8 +485,9 @@ inline void TypedGlobalTable<K, V1, V2, V3>::ProcessRequest(const ValueRequest &
 		} else { // reply current value to the source
 			IterateKernel<K, V1, V3>* kernel =
 				static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
+			ClutterRecord<K,V1,V2,V3> c=get(key);
 			std::vector<std::pair<K, V1> > output;
-			kernel->g_func(k, v1, v2, v3, &output);
+			kernel->g_func(key, c.v1, c.v2, c.v3, &output);
 			auto it = std::find_if(output.begin(), output.end(), [&](const std::pair<K, V2>& p) {
 				return p.first == src;
 			});
@@ -502,17 +504,21 @@ inline void TypedGlobalTable<K, V1, V2, V3>::ProcessRequest(const ValueRequest &
 template<class K, class V1, class V2, class V3>
 inline void TypedGlobalTable<K, V1, V2, V3>::sendRequest(const K & local, const K & source)
 {
+	int shard = get_shard(local);
 	StateTable<K, V1, V2, V3> *st = dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(shard));
 	IterateKernel<K, V1, V3>* kernel =
 		static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
 	Marshal<K> *km = kmarshal();
-	ValueQuest req;
-	req.set_source(km->marshal(local));
-	std::vector<int> inneighbors = kernel->get_keys(st->getF3(local));
-	for(int s : inneighbors) {
+	ValueRequest req;
+	string temp;
+	km->marshal(local, &temp);
+	req.set_source(temp);
+	std::vector<K> inneighbors = kernel->get_keys(st->getF3(local));
+	for(auto& s : inneighbors) {
 		if(s == source || s == local)
 			continue;
-		req.set_key(km->marshal(s));
+		km->marshal(s, &temp);
+		req.set_key(temp);
 		int shard = get_shard(s);
 		helper()->realSendRequest(owner(shard), req);
 	}
