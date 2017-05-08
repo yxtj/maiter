@@ -44,6 +44,9 @@ public:
 
 	// step 1: get input PutRequest data and merge it into current local table
 	void HandlePutRequest(const std::string& data, const RPCInfo& info);
+	// step 1': request approach for graph change/bad message
+	void HandleValueRequest(const std::string& data, const RPCInfo& info);
+	virtual void realSendRequest(int dstWorkerID, const ValueRequest& req);
 
 	// step 2: process current local table, and store updates into their local mirror table
 	virtual void signalToProcess();
@@ -107,7 +110,7 @@ private:
 	void finishKernel();
 
 	void sendReply(const RPCInfo& rpc, const bool res=true);
-
+	void HandleRequest(const ValueRequest& req);
 	void HandlePutRequestReal(const KVPairData& put);
 
 //functions for checkpoint

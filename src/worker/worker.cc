@@ -260,6 +260,10 @@ void Worker::realSendInNeighbor(int dstWorkerID, const InNeighborData& data){
 	network_->Send(peers_[dstWorkerID].net_id , MTYPE_ADD_INNEIGHBOR, data);
 }
 
+void Worker::realSendRequest(int dstWorkerID, const ValueRequest& req) {
+	network_->Send(peers_[dstWorkerID].net_id, MTYPE_VALUE_REQUEST, req);
+}
+
 void Worker::realSendTermCheck(int snapshot, long updates, double current){
 	lock_guard<recursive_mutex> sl(state_lock_);
 
@@ -326,6 +330,12 @@ void Worker::signalToPnS(){
 //	return;
 //	RPCInfo info{0,0,MTYPE_LOOP_PNS};
 //	driver.pushData(string(),info);
+}
+
+void Worker::HandleRequest(const ValueRequest& req) {
+	// we only have one table
+	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(0);
+	t->ProcessRequest(req);
 }
 
 void Worker::HandlePutRequestReal(const KVPairData& put){

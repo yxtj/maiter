@@ -55,6 +55,8 @@ void Worker::registerHandlers(){
 
 	RegDSPProcess(MTYPE_ADD_INNEIGHBOR, &Worker::HandleAddInNeighbor);
 
+	RegDSPProcess(MTYPE_VALUE_REQUEST, &Worker::HandleValueRequest);
+
 	RegDSPProcess(MTYPE_RESTORE, &Worker::HandleRestore);
 
 	//Synchronization control:
@@ -93,6 +95,13 @@ void Worker::HandleAddInNeighbor(const string& d, const RPCInfo& info){
 	int worker_id = info.source - 1;
 	rph.input(MTYPE_ADD_INNEIGHBOR, worker_id);
 	t->add_ineighbor(data);
+}
+
+void Worker::HandleValueRequest(const std::string & data, const RPCInfo & info){
+	ValueRequest req;
+	req.ParseFromString(data);
+	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(0);
+	t->ProcessRequest(req);
 }
 
 void Worker::HandlePutRequest(const string& d, const RPCInfo& info){

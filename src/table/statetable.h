@@ -35,14 +35,14 @@ private:
 		V3 v3;
 		V1 priority;
 		std::unordered_map<K, V1> input; // values of in-neighbors
-		//K best_in; // pointer to the best neighbor
+		K bp; // pointer to the best neighbor
 		bool in_use;
 
 		bool update_v1_with_input(const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel);
 		bool update_input(const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel);
 		void reset_v1_from_input(IterateKernel<K, V1, V3>* kernel);
 
-		void reset_best_pointer(IterateKernel<K, V1, V3>* kernel);
+		//void reset_best_pointer(IterateKernel<K, V1, V3>* kernel);
 	};
 #pragma pack(pop)
 
@@ -334,13 +334,18 @@ public:
 		return false;
 	}
 
+	bool is_best_source(const K& k, const K& src) {
+		int b = bucket_for_key(k);
+		CHECK(b != -1);
+		return buckets_[b].bp == src;
+	}
+
 	// XXX: evolving graph
 	void change_graph(const K& k, const ChangeEdgeType& type, const V3& change);
 	void add_ineighbor(const K& from, const K& to, const V1& v1);
 	void update_ineighbor(const K& from, const K& to, const V1& v1);
 	void remove_ineighbor(const K& from, const K& to);
 	V1 get_ineighbor(const K& from, const K& to);
-	void reset_best_ineighbor(const K& k);
 
 	void resize(int64_t size);
 
@@ -838,10 +843,13 @@ template<class K, class V1, class V2, class V3>
 bool StateTable<K, V1, V2, V3>::Bucket::update_v1_with_input(
 	const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel)
 {
-	bool good_change = update_input(from, v, kernel);
+	bool good_change = update_input(from, v, kernel); // m_ji < u_ji
 	if(good_change){
-		kernel->accumulate(v1, v);
-	}else{
+		if(kernel->better(v, input[from])) { // m_ji < u_i
+			kernel->accumulate(v1, v);
+			bp = from;
+		}
+	}else if(from == bp){
 		reset_v1_from_input(kernel);
 	}
 	return good_change;
@@ -858,10 +866,6 @@ bool StateTable<K, V1, V2, V3>::Bucket::update_input(
 	input[from] = v;	// modify case
 	if(it!=input.end() && v==kernel->default_v())	// remove case
 		input.erase(from);
-	// maintain best pointer
-	//if(kernel->better(v, input[best_in])){
-	//	best_in=from;
-	//}
 	return better;
 }
 
@@ -870,21 +874,24 @@ void StateTable<K, V1, V2, V3>::Bucket::reset_v1_from_input(IterateKernel<K, V1,
 {
 	v1 = kernel->default_v();
 	for(auto& p : input){
-		kernel->accumulate(v1, p.second);
+		if(kernel->better(p.second, v1)) {
+			kernel->accumulate(v1, p.second);
+			bp = p.first;
+		}
 	}
 }
-
+/*
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::Bucket::reset_best_pointer(IterateKernel<K, V1, V3>* kernel){
-	/*if(input.empty())
+	if(input.empty())
 		return;
 	auto itbest=input.begin(), it=input.begin(), itend=input.end();
 	for(++it; it!=itend; ++it){
 		if(kernel->better(it->second, itbest->second))
 			itbest=it;
 	}
-	best_in = itbest->first;*/
-}
+	bp = itbest->first;
+}*/
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::add_ineighbor(const K& from, const K& to, const V1& v1){
@@ -927,14 +934,6 @@ V1 StateTable<K, V1, V2, V3>::get_ineighbor(const K& from, const K& to){
 	int b = bucket_for_key(to);
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&to) << ">";
 	return buckets_[b].input[from];
-}
-
-template<class K, class V1, class V2, class V3>
-void StateTable<K, V1, V2, V3>::reset_best_ineighbor(const K& k){
-	int b = bucket_for_key(k);
-	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
-	IterateKernel<K, V1, V3>* kernel = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
-	buckets_[b].reset_best_pointer(kernel);
 }
 
 } //namespace dsm

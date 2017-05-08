@@ -106,6 +106,8 @@ public:
 	virtual void change_graph(const K& k, const ChangeEdgeType& type, const V3& change);
 	//virtual void update_ineighbor_cache(const K& k, const ChangeEdgeType& type, const V3& change);
 
+	virtual void ProcessRequest(const ValueRequest& req);
+
 	// Return the value associated with 'k', possibly blocking for a remote fetch.
 	ClutterRecord<K, V1, V2, V3> get(const K &k);
 	V1 getF1(const K &k);
@@ -239,6 +241,7 @@ public:
 		ProcessUpdatesSingle(c.k,c.v1,c.v2,c.v3);
 	}
 
+	// generalized message sending function
 	void handleGeneratedInformation(const K& from, std::vector<std::pair<K,V1>>& output){
 		if(FLAGS_local_aggregate){
 			for(auto& kvpair : output){
@@ -264,6 +267,8 @@ public:
 		kmarshal()->marshal(from, &temp);
 		a->set_src(temp);
 	}
+
+	void sendRequest(const K& local, const K& source);
 
 	Marshal<K> *kmarshal(){
 		return ((Marshal<K>*)info_.key_marshal);
@@ -463,6 +468,53 @@ void TypedGlobalTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeT
 	}else{
 		VLOG(1) << "not local change";
 		++pending_send_;
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+inline void TypedGlobalTable<K, V1, V2, V3>::ProcessRequest(const ValueRequest & req)
+{
+	K key = kmarshal()->unmarshal(req.key());
+	K src = kmarshal()->unmarshal(req.key());
+	int shard = this->get_shard(key);
+	if(is_local_shard(shard)) {
+		StateTable<K, V1, V2, V3> *st = dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(shard));
+		if(st->is_best_source(key, src)) {	// the best source sends request: re-send to all other in-neighbors
+			sendRequest(key, src);
+		} else { // reply current value to the source
+			IterateKernel<K, V1, V3>* kernel =
+				static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
+			std::vector<std::pair<K, V1> > output;
+			kernel->g_func(k, v1, v2, v3, &output);
+			auto it = std::find_if(output.begin(), output.end(), [&](const std::pair<K, V2>& p) {
+				return p.first == src;
+			});
+			std::vector<std::pair<K, V1> > temp;
+			temp.push_back(*it);
+			handleGeneratedInformation(src, output);
+		}
+	} else {
+		VLOG(1) << "not local request";
+		++pending_send_;
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+inline void TypedGlobalTable<K, V1, V2, V3>::sendRequest(const K & local, const K & source)
+{
+	StateTable<K, V1, V2, V3> *st = dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(shard));
+	IterateKernel<K, V1, V3>* kernel =
+		static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
+	Marshal<K> *km = kmarshal();
+	ValueQuest req;
+	req.set_source(km->marshal(local));
+	std::vector<int> inneighbors = kernel->get_keys(st->getF3(local));
+	for(int s : inneighbors) {
+		if(s == source || s == local)
+			continue;
+		req.set_key(km->marshal(s));
+		int shard = get_shard(s);
+		helper()->realSendRequest(owner(shard), req);
 	}
 }
 

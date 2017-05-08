@@ -50,7 +50,7 @@ public:
 
 	virtual void realSendUpdates(int dstWorkerID, const KVPairData& put){}
 	virtual void realSendTermCheck(int index, long updates, double current){}
-
+	virtual void realSendRequest(int dstWorkerID, const ValueQuest& req) {}
 	virtual void realSendInNeighbor(int dstWorkerID, const InNeighborData& data){}
 
 	virtual void realSwap(const int tid1, const int tid2);

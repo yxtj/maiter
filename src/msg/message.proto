@@ -200,3 +200,8 @@ message GraphChangeInfo{
   repeated ChangedEdge increased = 3;
   repeated ChangedEdge decreased = 4;
 }
+
+message ValueRequest{
+  required bytes key = 1;
+  required bytes source = 2;
+}

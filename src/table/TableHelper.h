@@ -16,6 +16,7 @@ namespace dsm{
 
 class KVPairData;
 class InNeighborData;
+class ValueRequest;
 
 // This interface is used by global tables to communicate with the outside
 // world and determine the current state of a computation.
@@ -34,6 +35,7 @@ struct TableHelper{
 	}
 
 	virtual void realSendUpdates(int dstWorkerID, const KVPairData& put) = 0;
+	virtual void realSendRequest(int dstWorkerID, const ValueRequest& req) = 0;
 //	virtual void HandlePutRequest() = 0;
 //	virtual void FlushUpdates() = 0;
 	virtual void realSendTermCheck(int index, long updates, double current) = 0;
