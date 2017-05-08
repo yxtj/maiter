@@ -38,6 +38,7 @@ private:
 		K bp; // pointer to the best neighbor
 		bool in_use;
 
+		// return whether it is a normal update (do not need to send further requests)
 		bool update_v1_with_input(const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel);
 		bool update_input(const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel);
 		void reset_v1_from_input(IterateKernel<K, V1, V3>* kernel);
@@ -325,7 +326,7 @@ public:
 	void updateF1(const K& k, const V1& v);
 	void updateF2(const K& k, const V2& v);
 	void updateF3(const K& k, const V3& v);
-	void accumulateF1(const K& from, const K &to, const V1 &v);
+	bool accumulateF1(const K& from, const K &to, const V1 &v);
 	void accumulateF1(const K& k, const V1& v);
 	void accumulateF2(const K& k, const V2& v);
 	void accumulateF3(const K& k, const V3& v);
@@ -730,11 +731,12 @@ void StateTable<K, V1, V2, V3>::updateF3(const K& k, const V3& v){
 }
 
 template<class K, class V1, class V2, class V3>
-void StateTable<K, V1, V2, V3>::accumulateF1(const K& from, const K &to, const V1 &v){
+bool StateTable<K, V1, V2, V3>::accumulateF1(const K& from, const K &to, const V1 &v){
 	int b = bucket_for_key(to);
 	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
-	buckets_[b].update_v1_with_input(from, v, pk);
+	bool flag = buckets_[b].update_v1_with_input(from, v, pk);
 	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
+	return flag;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -843,16 +845,15 @@ template<class K, class V1, class V2, class V3>
 bool StateTable<K, V1, V2, V3>::Bucket::update_v1_with_input(
 	const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel)
 {
-	bool good_change = update_input(from, v, kernel); // m_ji < u_ji
-	if(good_change){
-		if(kernel->better(v, input[from])) { // m_ji < u_i
-			kernel->accumulate(v1, v);
-			bp = from;
-		}
+	if(kernel->better(v, input[from])) { // m_ji < u_i
+		kernel->accumulate(v1, v);
+		bp = from;
 	}else if(from == bp){
-		reset_v1_from_input(kernel);
+		bp = from;
+		v2 = v1;
+		return false;
 	}
-	return good_change;
+	return true;
 }
 
 template<class K, class V1, class V2, class V3>

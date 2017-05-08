@@ -10,6 +10,8 @@ DECLARE_int32(bufmsg);
 DECLARE_double(buftime);
 DECLARE_bool(local_aggregate);
 
+using namespace std;
+
 namespace dsm {
 
 
@@ -214,6 +216,7 @@ void MutableGlobalTable::SendUpdates(){
 	}
 	// send
 	int n = num_shards();
+	lock_guard<std::mutex> lg(mub);
 	for(int i = 0; i < n; ++i){
 		if(is_local_shard(i))
 			continue;
@@ -228,6 +231,7 @@ void MutableGlobalTable::SendUpdates(){
 }
 
 void MutableGlobalTable::setUpdatesFromAggregated(){	// aggregated way
+	lock_guard<std::mutex> lg(mub);
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
 		if(!is_local_shard(i) && (get_partition_info(i)->dirty || !t->empty())){
@@ -312,6 +316,7 @@ void MutableGlobalTable::local_swap(GlobalTableBase *b){
 void MutableGlobalTable::InitUpdateBuffer(){
 	int n=num_shards();
 	VLOG(0)<<"num-shards: "<<n;
+	lock_guard<std::mutex> lg(mub);
 	update_buffer.resize(n);
 	for(int i = 0; i < n; ++i){
 		if(is_local_shard(i))

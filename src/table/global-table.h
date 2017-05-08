@@ -204,6 +204,7 @@ public:
 //	int64_t sent_bytes_;
 
 protected:
+	std::mutex mub; // mutex for update_buffer
 	std::vector<KVPairData> update_buffer;
 	void setUpdatesFromAggregated();	// aggregated way
 	void addIntoUpdateBuffer(int shard, Arg& arg);	// non-aggregated way

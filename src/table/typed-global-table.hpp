@@ -87,7 +87,7 @@ public:
 	void updateF1(const K &k, const V1 &v);
 	void updateF2(const K &k, const V2 &v);
 	void updateF3(const K &k, const V3 &v);
-	void accumulateF1(const K& from, const K &to, const V1 &v);
+	bool accumulateF1(const K& from, const K &to, const V1 &v);
 	void accumulateF1(const K &k, const V1 &v); // 2 TypeGloobleTable :TypeTable
 	void accumulateF2(const K &k, const V2 &v);
 	void accumulateF3(const K &k, const V3 &v);
@@ -613,7 +613,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF3(const K &k, const V3 &v){
 }
 
 template<class K, class V1, class V2, class V3>
-void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &from, const K &to, const V1 &v){ //3
+bool TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &from, const K &to, const V1 &v){ //3
 	int shard = this->get_shard(to);
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
@@ -623,12 +623,17 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &from, const K &to, c
 
 	if(is_local_shard(shard)){
 		//VLOG(1) << this->owner(shard) << ":" << shard << " accumulate " << v << " on local " << k;
-		localT(shard)->accumulateF1(from, to, v);  //TypeTable
+		StateTable<K, V1, V2, V3> *st = dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(shard));
+		if(!st->accumulateF1(from, to, v)){  //send request to others
+			sendRequest(to, from);
+		}
+		return false;
 	}else{
 		//VLOG(1) << this->owner(shard) << ":" << shard << " accumulate " << v << " on remote " << k;
 		bufferGeneratedMessage(from, to, v);
 		++pending_send_;
 	}
+	return true;
 }
 
 template<class K, class V1, class V2, class V3>
