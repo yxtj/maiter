@@ -96,12 +96,12 @@ if __name__=='__main__':
         exit()
     path1=sys.argv[1]
     path2=sys.argv[2]
-    merge_parts=False
-    if len(sys.argv) > 3 and sys.argv[3] in ['1', 'y', 'yes', 't', 'true']:
-        merge_parts=True
     show_detail=True
-    if len(sys.argv) > 4 and sys.argv[4] not in ['1', 'y', 'yes', 't', 'true']:
+    if len(sys.argv) > 3 and sys.argv[3] not in ['1', 'y', 'yes', 't', 'true']:
         show_detail=False
+    merge_parts=False
+    if len(sys.argv) > 4 and sys.argv[4] in ['1', 'y', 'yes', 't', 'true']:
+        merge_parts=True
     #print('Merge parts before comparison =', merge_parts)
     main(path1, path2, merge_parts, show_detail)
 

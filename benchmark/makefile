@@ -5,14 +5,14 @@ CPPFLAGS = -std=c++11
 DBGFLAGS = $(CPPFLAGS) -g
 RELFLAGS = $(CPPFLAGS) -O2
 
-SRC=sssp pagerank 
+SRC = sssp #pagerank 
 
 #export CXX CC CFLAGS CPPFLAGS
 
 all: release
 
 %.exe: %.cpp
-        $(CXX) $(RELFLAGS) $^ -o $@
+	$(CXX) $(RELFLAGS) $^ -o $@
 
 release: $(SRC:=.exe)
 
