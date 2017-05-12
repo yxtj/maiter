@@ -28,19 +28,19 @@ struct Edge{
 	string w;
 };
 
-int loadGraph(const string& dir, const string& deltaName, const int nPart, const int seed,
+int loadGraph(const string& dir, const string& deltaPrefix, const int nPart, const int seed,
 		const double rate, const double addRate, const double rmvRate, const double incRate){
 	vector<ifstream*> fin;
 	vector<ofstream*> fout;
 	for(int i = 0; i < nPart; ++i){
 		fin.push_back(new ifstream(dir + "/part" + to_string(i)));
-		fout.push_back(new ofstream(dir + "/" + deltaName + "-" + to_string(i)));
+		fout.push_back(new ofstream(deltaPrefix + "-" + to_string(i)));
 		if(!fin.back()->is_open()){
 			cerr << "failed in opening file: " << dir + "/part" + to_string(i) << endl;
 			return -i;
 		}
 		if(!fout.back()->is_open()){
-			cerr << "failed in opening file: " << dir + "/delta" + to_string(i) << endl;
+			cerr << "failed in opening file: " << deltaPrefix + "-" + to_string(i) << endl;
 			return -i;
 		}
 	}
@@ -161,7 +161,7 @@ int loadGraph(const string& dir, const string& deltaName, const int nPart, const
 
 struct Option{
 	int nPart, nNode;
-	string deltaName;
+	string deltaPrefix;
 	string dist;
 	double alpha; // for power-law distribution
 	string weight;
@@ -185,7 +185,7 @@ void Option::parse(int argc, char* argv[]){
 //	nNode=stoi(string(argv[2]));
 //	string distMethod="pl:2.3";
 //	string weightMethod="no";
-	deltaName = argv[3];
+	deltaPrefix = argv[3];
 	rate = stof(string(argv[4]));
 	addRate = stof(string(argv[5]));
 	rmvRate = stof(string(argv[6]));
@@ -251,18 +251,18 @@ bool Option::normalizeRates(){
 int main(int argc, char* argv[]){
 	if(argc < 3 || argc > 10){
 		cerr<< "Wrong usage.\n"
-				"Usage: \"deltaGen <dir> <#parts> <delta-name> <deltaRate> <addRate> <rmvRate> <incRate> <desRate> [random-seed]\""
+				"Usage: \"deltaGen <dir> <#parts> <delta-prefix> <deltaRate> <addRate> <rmvRate> <incRate> <desRate> [random-seed]\""
 				<< endl;
 		cerr << "  <dir>: the folder of graphs.\n"
 				"  <#parts>: number of parts the graphs are separated (the number of files to operate).\n"
-				"  <delta-name>: the name of generated delta graphs, naming format: \"<delta-name>-<part>\".\n"
+				"  <delta-prefix>: the path and name prefix of generated delta graphs, naming format: \"<delta-prefix>-<part>\".\n"
 				"  <deltaRate>: the rate of changed edges.\n"
 				"  <addRate>, <rmvRate>, <incRate>, <desRate>: "
 				"among the changed edges the rate for edge-addition, edge-removal, weight-increase and weight-decrease. "
 				"They are automatically normalized.\n"
 				"  [random-seed]: (=1535345) seed for random numbers\n"
 				"i.e.: ./deltaGen.exe graphDir 2 delta-rd 0.05 0 0.3 0 0.7 123456\n"
-				"i.e.: ./deltaGen.exe input 2 delta2 0.01 0.2 0.2 0.3 0.3\n"
+				"i.e.: ./deltaGen.exe input 2 ../delta/d2 0.01 0.2 0.2 0.3 0.3\n"
 				<< endl;
 		return 1;
 	}
@@ -276,7 +276,7 @@ int main(int argc, char* argv[]){
 	ios_base::sync_with_stdio(false);
 	cout << "Loading " << opt.nPart << " parts, from folder: " << opt.outDir << endl;
 
-	int n = loadGraph(opt.outDir, opt.deltaName, opt.nPart, opt.seed, opt.rate,
+	int n = loadGraph(opt.outDir, opt.deltaPrefix, opt.nPart, opt.seed, opt.rate,
 			opt.addRate, opt.rmvRate, opt.incRate);
 
 	cout << "success " << n << " files.\n fail " << opt.nPart - n << " files." << endl;
