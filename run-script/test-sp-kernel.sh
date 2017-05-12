@@ -21,21 +21,21 @@ SNAPSHOT=$7
 # delta parameters
 DELTA_RATIOS=$8
 GOOD_RATIOS=$9
-EW_RATIOS=$10
+EW_RATIOS=${10}
 
-K_START=$11
-K_END=$12
+K_START=${11}
+K_END=${12}
 
 # run parameters
-PORTIONS=$13
-ALPHAS=$14
+PORTIONS=${13}
+ALPHAS=${14}
 
 for dr in $DELTA_RATIOS; do
 	drn=$( printf '%.0f\n' $(echo "100*$dr"|bc))
 	for gr in $GOOD_RATIOS; do for ew in $EW_RATIOS; do
 		grn=$( printf '%.0f\n' $(echo "10*$gr"|bc))
 		ewn=$( printf '%.0f\n' $(echo "10*$ew"|bc))
-		dname=gr-$drn-$grn-$ewn
+		dname=d$drn-$grn-$ewn
 #		echo $(seq $K_START $K_END)
 		for k in $(seq $K_START $K_END); do
 			temp_result_fdr=$RESULT_FDR/$k
@@ -47,7 +47,7 @@ for dr in $DELTA_RATIOS; do
 			
 			echo "generating delta graph: $log_name_prefix"
 			delta_4_ratios=$(cal_delta_gen_ratio $gr $ew)
-			./deltaGen.exe $GRAPH_FDR $PARTS $DELTA_FDR/$k $dr $delta_4_ratios $k > /dev/null
+			../gen/deltaGen.exe $GRAPH_FDR $PARTS $DELTA_FDR/$k $dr $delta_4_ratios $k > /dev/null
 			#echo "  calculating"
 			for po in $PORTIONS; do for al in $ALPHAS; do
 				echo "  calculating p=$po a=$al"

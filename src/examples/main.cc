@@ -21,6 +21,8 @@ DEFINE_bool(local_aggregate, true, "whether to perform local aggregation");
 DEFINE_double(bufmsg_portion, 0.01,"portion of buffered sending");
 DEFINE_double(buftime, 3.0, "maximum time interval between 2 sendings");
 
+DEFINE_double(snapshot_interval, 20, "termination checking interval, in seconds");
+
 DEFINE_string(graph_dir, "subgraphs", "");
 DEFINE_string(result_dir, "result", "");
 DEFINE_string(init_dir, "", "the folder used to load initial values of each node");

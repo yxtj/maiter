@@ -5,7 +5,7 @@
 //static const int kMaxNetworkPending = 1 << 26;
 //static const int kMaxNetworkChunk = 1 << 20;
 
-DEFINE_int32(snapshot_interval, 99999999, "");
+DECLARE_double(snapshot_interval);
 DECLARE_int32(bufmsg);
 DECLARE_double(buftime);
 DECLARE_bool(local_aggregate);
