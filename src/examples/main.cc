@@ -24,7 +24,7 @@ DEFINE_double(buftime, 3.0, "maximum time interval between 2 sendings");
 DEFINE_string(graph_dir, "subgraphs", "");
 DEFINE_string(result_dir, "result", "");
 DEFINE_string(init_dir, "", "the folder used to load initial values of each node");
-DEFINE_string(delta_name, "", "the file-name prefix for the delta graph");
+DEFINE_string(delta_prefix, "", "the prefix (path and name prefix) for delta graphs. <-0>, <-1>, ... are added for each part");
 
 DEFINE_int32(max_iterations, 100, "");
 DEFINE_int64(num_nodes, 100, "");

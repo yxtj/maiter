@@ -19,7 +19,8 @@
 
 DECLARE_string(graph_dir);
 DECLARE_string(init_dir);
-DECLARE_string(delta_name);
+DECLARE_string(delta_prefix);
+DECLARE_double(sleep_time)
 
 
 namespace dsm{
@@ -52,7 +53,7 @@ public:
 		std::string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
 		std::ifstream inFile(patition_file);
 		if(!inFile){
-			LOG(FATAL) << "Unable to open file: " << patition_file;
+			LOG(FATAL) << "Unable to open graph file: " << patition_file;
 		}
 
 		std::string line;
@@ -80,7 +81,7 @@ public:
 		std::string init_file = StringPrintf("%s/part-%d", FLAGS_init_dir.c_str(), current_shard());
 		std::ifstream inFile(init_file);
 		if(!inFile){
-			LOG(FATAL) << "Unable to open file: " << init_file;
+			LOG(FATAL) << "Unable to open initializing file: " << init_file;
 		}
 
 		std::string line;
@@ -155,11 +156,11 @@ public:
 	}
 
 	std::vector<std::tuple<K, ChangeEdgeType, D>> read_delta(TypedGlobalTable<K, V, V, D>* table){
-		std::string patition_file = StringPrintf("%s/%s-%d",
-			FLAGS_graph_dir.c_str(), FLAGS_delta_name.c_str(), current_shard());
+		std::string patition_file = StringPrintf("%s-%d",
+			FLAGS_delta_prefix.c_str(), current_shard());
 		std::ifstream inFile(patition_file);
 		if(!inFile){
-			LOG(FATAL) << "Unable to open file: " << patition_file;
+			LOG(FATAL) << "Unable to open delta file: " << patition_file;
 		}
 
 		VLOG(1)<<"loading delta-graph on: "<<current_shard();
@@ -319,7 +320,7 @@ public:
 			}
 			if(tgt->canTermCheck())
 				tgt->helper()->signalToTermCheck();
-			std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
+			// std::this_thread::sleep_for(std::chrono::duration<double>(FLAGS_sleep_time));
 		}
 		// DLOG(INFO)<<"pending writes: "<<tgt->pending_send_;
 	}
