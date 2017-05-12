@@ -18,6 +18,8 @@ LOG_FDR=$6
 
 SNAPSHOT=$7
 
+FOLDER=$(basename $GRAPH_FDR)
+
 # delta parameters
 DELTA_RATIOS=$8
 GOOD_RATIOS=$9
@@ -40,15 +42,17 @@ for dr in $DELTA_RATIOS; do
 		for k in $(seq $K_START $K_END); do
 			temp_result_fdr=$RESULT_FDR/$k
 			temp_delta_fdr=$DELTA_FDR/$k	# use temporary folders for output
+			#echo $temp_result_fdr
+			#echo $temp_delta_fdr
 			mkdir -p $temp_result_fdr
 			mkdir -p $temp_delta_fdr
 			delta_pre=$temp_delta_fdr/delta
 			log_name_prefix=$(printf '%s_%s_%d_' $FOLDER $dname $k)
 			
 			echo "generating delta graph: $log_name_prefix"
-			delta_4_ratios=$(cal_delta_gen_ratio $gr $ew)
-			../gen/deltaGen.exe $GRAPH_FDR $PARTS $DELTA_FDR/$k $dr $delta_4_ratios $k > /dev/null
-			#echo "  calculating"
+			delta_4_ratios=$(./cal_delta_gen_ratio.sh $gr $ew)
+			../gen/deltaGen.exe $GRAPH_FDR $PARTS $delta_pre $dr $delta_4_ratios $k > /dev/null
+#			break
 			for po in $PORTIONS; do for al in $ALPHAS; do
 				echo "  calculating p=$po a=$al"
 				#echo 'Usage: <#-parts> <graph-fdr> <init-fdr> <delta-prefix> <result-fdr> [portion] [alpha] [snapshot] [verbose] [hostfile]'

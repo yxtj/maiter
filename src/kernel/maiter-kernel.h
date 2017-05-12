@@ -20,7 +20,7 @@
 DECLARE_string(graph_dir);
 DECLARE_string(init_dir);
 DECLARE_string(delta_prefix);
-DECLARE_double(sleep_time)
+DECLARE_double(sleep_time);
 
 
 namespace dsm{
@@ -270,7 +270,7 @@ public:
 	}
 
 	void run(){
-		if(!FLAGS_delta_name.empty()){
+		if(!FLAGS_delta_prefix.empty()){
 			VLOG(0) << "load & apply delta graph on "<<current_shard();
 			delta_table(maiter->table);
 		}else{

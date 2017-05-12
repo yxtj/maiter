@@ -55,6 +55,6 @@ mkdir -p $RESULT
 ../maiter --hostfile=../conf/maiter-cluster --runner=Shortestpath --workers=$WORKERS --num_nodes=$NODES\
   --graph_dir=$GRAPH_FDR --result_dir=$RESULT_FDR --init_dir=$INIT_FDR --delta_prefix=$DELTA_PRE\
   --local_aggregate=0 --snapshot_interval=$SNAPSHOT --portion=$PORTION --weight_alpha=$ALPHA\
-  --sleep_time=0.01 --termcheck_threshold=$TERMTHRESH --buftime=$BUFTIME\
-  --checkpoint_type=$CP_TYPE --checkpoint_interval=$CP_TIME --v=$VERBOSE_LVL 
+  --sleep_time=0.01 --termcheck_threshold=$TERMTHRESH --buftime=$BUFTIME
+#  --checkpoint_type=$CP_TYPE --checkpoint_interval=$CP_TIME --v=$VERBOSE_LVL
 
