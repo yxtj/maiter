@@ -40,7 +40,7 @@ def get_time_one_file(fn):
             total_t=m[1]
             #shard_t=m[2]
             res[idx]=total_t
-        return res
+        return res if all(isinstance(v, str) for v in res) else None
     return None
 
 def get_statistics(folder):
@@ -52,8 +52,12 @@ def get_statistics(folder):
         if os.path.isfile(folder+fn):
             key=get_key_from_name(fn)
             if key is None:
-                continue;
+                print('Error on file name:', key)
+                continue
             value=get_time_one_file(folder+fn)
+            if value is None:
+                print('Error in file content:', key)
+                continue
             res[key]=value
     return res
 
@@ -62,8 +66,8 @@ def main(folder, out_file, append):
     res=get_statistics(folder)
     print('  load %d files' % len(res), file=sys.stderr)
 
-    put_header = not os.path.exists(out_file) or append
     mode = 'a' if append else 'w'
+    put_header = mode == 'w' or not os.path.exists(out_file)
     try:
         f=open(out_file, mode)
         if put_header:
