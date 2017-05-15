@@ -106,9 +106,9 @@ vector<float> cal_sp(vector<vector<Edge>>& g, int source, const string& method){
 int main(int argc, char* argv[]){
 	if(argc<=3){
 		cerr<<"Calculate SSSP."<<endl;
-		cerr<<"Usage: <#parts> <in-prefix> <out-prefix> [source] [algorithm]\n"
-			<<"  <in-prefix>: input file prefix, '<id>' is automatically added, as <in-prefix><id>\n"
-			<<"  <out-prefix>: output file prefix, '-<id>' is automatically added, as <out-prefix>-<id>\n"
+		cerr<<"Usage: <#parts> <in-folder> <out-folder> [source] [algorithm]\n"
+			<<"  <in-folder>: input file prefix, file name: 'part<id>' is automatically used\n"
+			<<"  <out-folder>: output file prefix, file name 'part-<id>' is automatically used\n"
 			<<"  [source]: (=0) the source node in the graph\n"
 			<<"  [algorithm]: (=dijkstra) the algorithm for SSSP. Supports: dijkstra, spfa"<<endl;
 		return 1;
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]){
     start_t = chrono::system_clock::now();
 	vector<vector<Edge>> g;
 	for(int i=0;i<parts;++i){
-		string fn=inprefix+to_string(i);
+		string fn=inprefix+"/part"+to_string(i);
 		cout<<"  loading "<<fn<<endl;
 		if(!load_graph_weight(g, fn)){
 			cerr<<"Error: cannot open input file: "<<fn<<endl;
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]){
 	start_t = chrono::system_clock::now();
 	vector<string> fnout;
 	for(int i=0;i<parts;++i){
-		fnout.push_back(outprefix+"-"+to_string(i));
+		fnout.push_back(outprefix+"/part-"+to_string(i));
 	}
 	if(!dump(fnout, sp)){
 		cerr<<"Error: cannot write to given file(s)"<<endl;
