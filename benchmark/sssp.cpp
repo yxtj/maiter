@@ -6,50 +6,9 @@
 #include <functional>
 #include <chrono>
 
+#include "common.h"
+
 using namespace std;
-
-struct Edge{
-	int node;
-	float weight;
-};
-
-bool operator<(const Edge &a,const Edge &b){
-	return a.weight < b.weight;
-}
-bool operator>(const Edge &a,const Edge &b){
-	return a.weight > b.weight;
-}
-
-vector<vector<Edge>> load_graph(const string& fn){
-	vector<vector<Edge>> res;
-	ifstream fin(fn);
-	if(!fin){
-		cerr<<"Error: cannot open input file: "<<fn<<endl;
-		exit(0);
-	}
-	string line;
-	while(getline(fin, line)){
-		if(line.size()<2)
-			continue;
-		size_t pos = line.find('\t');
-		int k = stoi(line.substr(0, pos));
-		++pos;
-		vector<Edge> temp;
-		size_t spacepos;
-		while((spacepos = line.find(' ', pos)) != line.npos){
-			size_t cut = line.find(',', pos + 1);
-			int node=stoi(line.substr(pos, cut - pos));
-			float weight=stof(line.substr(cut + 1, spacepos - cut - 1));
-			Edge e{node, weight};
-			temp.push_back(e);
-			pos = spacepos + 1;
-		}
-		if(res.size() < k)	// k starts from 0
-			res.resize(k);	// fill the empty holes
-		res.push_back(move(temp));
-	}
-	return res;
-}
 
 vector<float> cal_sp_dijkstra(vector<vector<Edge>>& g, int source){
 	size_t n=g.size();
@@ -144,34 +103,26 @@ vector<float> cal_sp(vector<vector<Edge>>& g, int source, const string& method){
 		return cal_sp_spfa(g, source);
 }
 
-bool dump(const string& fn, const vector<float>& res){
-	ofstream fout(fn);
-	if(!fout)
-		return false;
-	size_t size=res.size();
-	for(size_t i=0;i<size;++i){
-		fout<<i<<"\t0:"<<res[i]<<"\n";
-	}
-	return true;
-}
-
 int main(int argc, char* argv[]){
-	if(argc<3){
+	if(argc<=3){
 		cerr<<"Calculate SSSP."<<endl;
-		cerr<<"Usage: <in-file> <out-file> [source] [algorithm]\n"
+		cerr<<"Usage: <#parts> <in-prefix> <out-prefix> [source] [algorithm]\n"
+			<<"  <in-prefix>: input file prefix, '<id>' is automatically added, as <in-prefix><id>\n"
+			<<"  <out-prefix>: output file prefix, '-<id>' is automatically added, as <out-prefix>-<id>\n"
 			<<"  [source]: (=0) the source node in the graph\n"
 			<<"  [algorithm]: (=dijkstra) the algorithm for SSSP. Supports: dijkstra, spfa"<<endl;
 		return 1;
 	}
-	string infile=argv[1];
-	string outfile=argv[2];
+	int parts=stoi(argv[1]);
+	string inprefix=argv[2];
+	string outprefix=argv[3];
 	int source=0;
-	if(argc>3){
-		source=stoi(argv[3]);
+	if(argc>4){
+		source=stoi(argv[4]);
 	}
 	string method="dijkstra";
-	if(argc>4){
-		method=argv[4];
+	if(argc>5){
+		method=argv[5];
 	}
 	if(method!="dijkstra" && method!="spfa"){
 		cerr<<"Error: unsupported algorithm: "<<method<<endl;
@@ -180,22 +131,36 @@ int main(int argc, char* argv[]){
 	chrono::time_point<std::chrono::system_clock> start_t;
 	chrono::duration<double> elapsed;
 	
+	// load
 	cout<<"loading graph"<<endl;
     start_t = chrono::system_clock::now();
-	vector<vector<Edge>> g = load_graph(infile);
+	vector<vector<Edge>> g;
+	for(int i=0;i<parts;++i){
+		string fn=inprefix+to_string(i);
+		cout<<"  loading "<<fn<<endl;
+		if(!load_graph_weight(g, fn)){
+			cerr<<"Error: cannot open input file: "<<fn<<endl;
+		}
+	}
     elapsed = chrono::system_clock::now()-start_t;
 	cout<<"  load "<<g.size()<<" nodes in "<<elapsed.count()<<" seconds"<<endl;
 	
-	cout<<"processing"<<endl;
+	// calculate
+	cout<<"calculating"<<endl;
 	start_t = chrono::system_clock::now();
 	vector<float> sp = cal_sp(g, source, method);
     elapsed = chrono::system_clock::now()-start_t;
 	cout<<"  finished in "<<elapsed.count()<<" seconds"<<endl;
 	
+	// dump
 	cout<<"dumping"<<endl;
 	start_t = chrono::system_clock::now();
-	if(!dump(outfile, sp)){
-		cerr<<"Error: cannot write to given fine"<<endl;
+	vector<string> fnout;
+	for(int i=0;i<parts;++i){
+		fnout.push_back(outprefix+"-"+to_string(i));
+	}
+	if(!dump(fnout, sp)){
+		cerr<<"Error: cannot write to given file(s)"<<endl;
 		return 3;
 	}
     elapsed = chrono::system_clock::now()-start_t;
