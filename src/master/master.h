@@ -49,7 +49,7 @@ public:
 	virtual void signalToTermCheck();
 
 	virtual void realSendUpdates(int dstWorkerID, const KVPairData& put){}
-	virtual void realSendTermCheck(int index, long updates, double current){}
+	virtual void realSendTermCheck(int index, uint64_t updates, double current, uint64_t ndefault){}
 
 	virtual void realSendInNeighbor(int dstWorkerID, const InNeighborData& data){}
 
@@ -188,7 +188,6 @@ private:
 	double last_checkpoint_;
 	double last_termcheck_;
 	Timer* barrier_timer;
-	ofstream conv_track_log;
 	ofstream sync_track_log;
 	int iter;
 

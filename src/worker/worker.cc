@@ -260,14 +260,15 @@ void Worker::realSendInNeighbor(int dstWorkerID, const InNeighborData& data){
 	network_->Send(peers_[dstWorkerID].net_id , MTYPE_ADD_INNEIGHBOR, data);
 }
 
-void Worker::realSendTermCheck(int snapshot, long updates, double current){
+void Worker::realSendTermCheck(int snapshot, uint64_t updates, double current, uint64_t ndefault){
 	lock_guard<recursive_mutex> sl(state_lock_);
 
 	TermcheckDelta req;
 	req.set_wid(id());
 	req.set_index(snapshot);
-	req.set_delta(current);
 	req.set_updates(updates);
+	req.set_delta(current);
+	req.set_ndefault(ndefault);
 	network_->Send(config_.master_id(), MTYPE_TERMCHECK_LOCAL, req);
 
 	VLOG(1) << "termination condition of subpass " << snapshot << " worker " << id()

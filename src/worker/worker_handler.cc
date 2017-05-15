@@ -105,7 +105,7 @@ void Worker::HandleProcessUpdates(const std::string&, const RPCInfo&){
 	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
-		if(t){
+		if(t && !t->is_processing()){
 			t->ProcessUpdates();
 		}
 	}

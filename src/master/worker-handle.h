@@ -72,6 +72,7 @@ struct WorkerState: private noncopyable{
 		checkpointing = false;
 		current = 0;
 		updates = 0;
+		ndefault = 0;
 	}
 
 	TaskMap work;
@@ -90,8 +91,10 @@ struct WorkerState: private noncopyable{
 	double total_runtime;
 
 	bool checkpointing;
+
 	double current;
-	long updates;
+	uint64_t updates;
+	uint64_t ndefault;
 
 	// Order by number of pending tasks and last update time.
 	static bool PendingCompare(WorkerState *a, WorkerState* b){

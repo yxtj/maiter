@@ -2,11 +2,7 @@
 #include "util/timer.h"
 #include <gflags/gflags.h>
 
-//static const int kMaxNetworkPending = 1 << 26;
-//static const int kMaxNetworkChunk = 1 << 20;
-
 DECLARE_double(snapshot_interval);
-DECLARE_int32(bufmsg);
 DECLARE_double(buftime);
 DECLARE_bool(local_aggregate);
 
@@ -97,6 +93,15 @@ int64_t GlobalTable::shard_size(int shard){
 	}
 }
 
+MutableGlobalTable::MutableGlobalTable(){
+//	sent_bytes_ = 0;
+	pending_process_ = 0;
+	pending_send_ = 0;
+	snapshot_index = 0;
+	bufmsg=1;
+	buftime=std::min(FLAGS_buftime, FLAGS_snapshot_interval/4);
+}
+
 void MutableGlobalTable::resize(int64_t new_size){
 	for(int i = 0; i < partitions_.size(); ++i){
 		if(is_local_shard(i)){
@@ -178,7 +183,7 @@ void MutableGlobalTable::resetProcessMarker(){
 
 bool MutableGlobalTable::canProcess(){
 	return pending_process_ > bufmsg
-			|| (pending_process_ !=0 && tmr_process.elapsed() > FLAGS_buftime);
+			|| (pending_process_ !=0 && tmr_process.elapsed() > buftime);
 }
 
 void MutableGlobalTable::BufProcessUpdates(){
@@ -196,7 +201,7 @@ void MutableGlobalTable::resetSendMarker(){
 
 bool MutableGlobalTable::canSend(){
 	return pending_send_ > bufmsg
-			|| (pending_send_ != 0 && tmr_send.elapsed() > FLAGS_buftime);
+			|| (pending_send_ != 0 && tmr_send.elapsed() > buftime);
 }
 
 void MutableGlobalTable::BufSendUpdates(){
@@ -248,10 +253,10 @@ void MutableGlobalTable::addIntoUpdateBuffer(int shard, Arg& arg){	// non-aggreg
 }
 
 bool MutableGlobalTable::canPnS(){
-	auto m = pending_process_ >= pending_send_ ? pending_process_ : pending_send_;
+	auto m = std::max(pending_process_, pending_send_);
 	return// m > FLAGS_bufmsg
 			//||
-			(m != 0 && tmr_send.elapsed() > FLAGS_buftime);
+			(m != 0 && tmr_send.elapsed() > buftime);
 }
 
 bool MutableGlobalTable::canTermCheck(){
@@ -268,27 +273,30 @@ void MutableGlobalTable::BufTermCheck(){
 }
 
 void MutableGlobalTable::TermCheck(){
+	uint64_t total_updates = 0;
 	double total_current = 0;
-	long total_updates = 0;
+	uint64_t total_default = 0;
 	for(int i = 0; i < partitions_.size(); ++i){
 		if(is_local_shard(i)){
 			LocalTable *t = partitions_[i];
-			double partF2;
-			long partUpdates;
+			uint64_t part_update;
+			double part_sum;
+			uint64_t part_def;
 			t->termcheck(StringPrintf("snapshot/iter%d-part%d", snapshot_index, i),
-					&partUpdates, &partF2);
-			total_current += partF2;
-			total_updates += partUpdates;
+					&part_update, &part_sum, &part_def);
+			total_updates += part_update;
+			total_current += part_sum;
+			total_default += part_def;
 		}
 	}
 	if(helper()){
-		helper()->realSendTermCheck(snapshot_index, total_updates, total_current);
+		helper()->realSendTermCheck(snapshot_index, total_updates, total_current, total_default);
 	}
 
 	snapshot_index++;
 }
 
-int MutableGlobalTable::pending_write_bytes(){
+int64_t MutableGlobalTable::pending_write_bytes(){
 	int64_t s = 0;
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];

@@ -31,7 +31,7 @@ public:
 	void finish_checkpoint();
 	void restore(const std::string& f);
 
-	void termcheck(const std::string& f, long *updates, double *totalF2);
+	void termcheck(const std::string& f, uint64_t* updates, double* totalF2, uint64_t* defaultF2);
 
 	virtual int64_t size() = 0;
 	virtual int64_t capacity() = 0;
