@@ -16,9 +16,6 @@
 //		"For failure testing; comma delimited list of workers to pretend have died.");
 DEFINE_bool(work_stealing, true, "Enable work stealing to load-balance tasks between machines.");
 
-DEFINE_string(track_log, "track_log", "");
-DEFINE_bool(sync_track, false, "");
-
 DECLARE_double(sleep_time);
 
 using namespace std;
@@ -45,11 +42,6 @@ Master::Master(const ConfigData &conf) :
 	running_ = true;
 	network_ = NetworkThread::Get();
 	shards_assigned_ = false;
-	conv_track_log.open(FLAGS_track_log.c_str());
-	if(FLAGS_sync_track){
-		sync_track_log.open("sync_track_log");
-		iter = 0;
-	}
 
 	//initial workers_ before message loop because handleRegisterWorker will use it
 	for(int i = 0; i < config_.num_workers(); ++i){
@@ -82,8 +74,6 @@ Master::Master(const ConfigData &conf) :
 }
 
 Master::~Master(){
-	conv_track_log.close();
-	if(FLAGS_sync_track) sync_track_log.close();
 	LOG(INFO)<< "Total runtime: " << runtime_.elapsed();
 
 	ostringstream buff;
@@ -144,12 +134,12 @@ void Master::termcheck(){
 			break;
 
 		Timer cp_timer;
-		long total_updates = 0;
-		vector<double> partials;
+		uint64_t total_updates = 0;
+		vector<pair<double, uint64_t>> partials;
 		partials.reserve(workers_.size());
 		for(int i = 0; i < workers_.size(); ++i){
 			total_updates += workers_[i]->updates;
-			partials.push_back(workers_[i]->current);
+			partials.emplace_back(workers_[i]->current, workers_[i]->ndefault);
 		}
 
 		//we only have one table
@@ -159,10 +149,6 @@ void Master::termcheck(){
 		LOG(INFO) << "Termination check at " << barrier_timer->elapsed() << " finished in "
 				<< cp_timer.elapsed() << " total current "<< StringPrintf("%.05f",ptc->get_curr())
 				<< " total updates " << total_updates;
-		conv_track_log << "Termination check at " << barrier_timer->elapsed() << " finished in "
-				<< cp_timer.elapsed() << " total current "<< StringPrintf("%.05f",ptc->get_curr())
-				<< " total updates " << total_updates << "\n";
-		conv_track_log.flush();
 
 		kernel_terminated_=bterm;
 		if(kernel_terminated_){
@@ -357,12 +343,6 @@ int Master::reap_one_task(){
 		w.set_finished(task_id);
 
 		w.total_runtime += Now() - w.last_task_start;
-
-		if(FLAGS_sync_track){
-			sync_track_log << "iter " << iter << " worker_id " << w_id << " iter_time "
-					<< barrier_timer->elapsed() << " total_time " << w.total_runtime << "\n";
-			sync_track_log.flush();
-		}
 
 		mstats.set_shard_time(mstats.shard_time() + Now() - w.last_task_start);
 		mstats.set_shard_calls(mstats.shard_calls() + 1);

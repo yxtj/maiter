@@ -81,7 +81,7 @@ public:
 	void enableProcess(){ allow2Process_=true; }
 	void disableProcess(){ allow2Process_=false; }
 
-	virtual int pending_write_bytes() = 0;
+	virtual int64_t pending_write_bytes() = 0;
 
 	virtual bool initialized() = 0;
 	virtual void resize(int64_t new_size) = 0;
@@ -153,13 +153,7 @@ class MutableGlobalTable:
 		virtual public MutableGlobalTableBase,
 		virtual public Checkpointable{
 public:
-	MutableGlobalTable(){
-//		sent_bytes_ = 0;
-		pending_process_ = 0;
-		pending_send_ = 0;
-		snapshot_index = 0;
-		bufmsg=1;
-	}
+	MutableGlobalTable();
 
 	//main working loop
 	virtual void MergeUpdates(const KVPairData& req) = 0;
@@ -182,11 +176,11 @@ public:
 	void BufTermCheck();
 
 	void InitUpdateBuffer();
-
-	int pending_write_bytes();
+	int64_t pending_write_bytes();
 
 	void clear();
 	void resize(int64_t new_size);
+	bool is_processing() const;
 
 	//override from Checkpointable
 	void start_checkpoint(const string& pre);
@@ -213,6 +207,9 @@ protected:
 	int snapshot_index;
 
 	int64_t bufmsg;	//updated at InitStateTable with (state-table-size * bufmsg_portion)
+	double buftime; //initialized in the constructor with min(FLAGS_buftime, FLAGS_snapshot_interval/2)
+
+	bool processing;
 };
 
 }

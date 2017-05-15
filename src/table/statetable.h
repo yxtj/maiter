@@ -313,6 +313,9 @@ public:
 
 	void Init(const TableDescriptor* td){
 		Table::Init(td);
+
+		IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
+		default_v = pk->default_v();
 	}
 
 	V1 getF1(const K& k);
@@ -393,16 +396,16 @@ public:
 //				delete iter;
 //				EntirePassIterator* entireIter = new EntirePassIterator(*this);
 //
-//				total_curr = 0;
+//				total_curr_value = 0;
 //				while (!entireIter->done()){
 //					bool cont = entireIter->Next();
 //					if(!cont) break;
 //
-//					total_curr += entireIter->value2();
+//					total_curr_value += entireIter->value2();
 //				}
 //
-////				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
-////				helper->realSendTermcheck(-1, total_updates, total_curr);
+////				VLOG(1) << "send term check since many times trials " << total_curr_value << "and perform a pass of the current table";
+////				helper->realSendTermcheck(-1, total_updates, total_curr_value);
 //
 //				return entireIter;
 //			}
@@ -437,14 +440,14 @@ public:
 //				delete iter;
 //				EntirePassIterator* entireIter = new EntirePassIterator(*this);
 //
-//				total_curr = 0;
+//				total_curr_value = 0;
 //				while (!entireIter->done()){
 //					entireIter->Next();
-//					total_curr += entireIter->value2();
+//					total_curr_value += entireIter->value2();
 //				}
 //
-////				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
-////				helper->realSendTermcheck(-1, total_updates, total_curr);
+////				VLOG(1) << "send term check since many times trials " << total_curr_value << "and perform a pass of the current table";
+////				helper->realSendTermcheck(-1, total_updates, total_curr_value);
 //
 //				return entireIter;
 //			}
@@ -461,7 +464,7 @@ public:
 	void serializeToNet(KVPairCoder *out);
 	void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
 	void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase);
-	void serializeToSnapshot(const string& f, long *updates, double *totalF2);
+	void serializeToSnapshot(const string& f, uint64_t* updates, double* totalF2, uint64_t* defaultF2);
 
 	Marshal<K>* kmarshal(){return ((Marshal<K>*)info_.key_marshal);}
 	Marshal<V1>* v1marshal(){return ((Marshal<V1>*)info_.value1_marshal);}
@@ -513,18 +516,40 @@ private:
 
 	std::vector<Bucket> buckets_;
 
-	int64_t entries_;
-	int64_t size_;
-	double total_curr;
-	int64_t total_updates;
+	uint64_t entries_;
+	uint64_t size_;
 
 	std::hash<K> hashobj_;
 	std::mutex m_; // mutex for resizing the table
+
+private:
+	// local sum, for termination checking
+	V2 default_v;
+	double total_curr_value;
+	int64_t total_curr_default;
+	int64_t total_updates;
+
+	void update_local_sum(const V2& oldV, const V2& newV){
+		if(oldV == default_v)
+			--total_curr_default;
+		else
+			total_curr_value -= oldV;
+		if(newV == default_v)
+			++total_curr_default;
+		else
+			total_curr_value += newV;
+	}
+	void update_local_sum(const V2& newV){
+		if(newV == default_v)
+			++total_curr_default;
+		else
+			total_curr_value += newV;
+	}
 };
 
 template<class K, class V1, class V2, class V3>
 StateTable<K, V1, V2, V3>::StateTable(int size) :
-	buckets_(0), entries_(0), size_(0), total_curr(0), total_updates(0)
+	buckets_(0), entries_(0), size_(0), total_curr_value(0.0), total_curr_default(0), total_updates(0)
 {
 	clear();
 
@@ -613,15 +638,16 @@ void StateTable<K, V1, V2, V3>::deserializeFromNet(KVPairCoder *in, DecodeIterat
 //it can also be used to generate snapshot, but currently in order to measure the performance we skip this step, 
 //but focus on termination check
 template<class K, class V1, class V2, class V3>
-void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f, long* updates,
-		double* totalF2){
-	//total_curr = 0;
+void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f,
+		uint64_t* updates, double* totalF2, uint64_t* defaultF2){
+	//total_curr_value = 0;
 	//EntirePassIterator* entireIter = new EntirePassIterator(*this);
-	//total_curr = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)
+	//total_curr_value = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)
 	//		->estimate_prog(entireIter));
 	//delete entireIter;
 	*updates = total_updates;
-	*totalF2 = total_curr;
+	*totalF2 = total_curr_value;
+	*defaultF2 = total_curr_default;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -702,7 +728,7 @@ void StateTable<K, V1, V2, V3>::updateF1(const K& k, const V1& v){
 
 	buckets_[b].v1 = v;
 	buckets_[b].priority = 0;	//didn't use priority function, assume the smallest priority is 0
-	total_updates++;
+	++total_updates;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -711,7 +737,7 @@ void StateTable<K, V1, V2, V3>::updateF2(const K& k, const V2& v){
 
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
 
-	total_curr += -buckets_[b].v2 + v;
+	update_local_sum(buckets_[b].v2, v);
 	buckets_[b].v2 = v;
 }
 
@@ -750,7 +776,7 @@ void StateTable<K, V1, V2, V3>::accumulateF2(const K& k, const V2& v){
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
 	V2 old = buckets_[b].v2;
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->accumulate(buckets_[b].v2, v);
-	total_curr += -old + buckets_[b].v2;
+	update_local_sum(old, v);
 }
 
 template<class K, class V1, class V2, class V3>
@@ -772,9 +798,10 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 	if(buckets_[b].in_use == false){
 		buckets_[b].in_use = true;
 		++entries_;
-		total_curr += v2;
+		update_local_sum(v2);
 	}else{
-		total_curr += -buckets_[b].v2 + v2;
+		update_local_sum(buckets_[b].v2, v2);
+
 	}
 	buckets_[b].k = k;
 	buckets_[b].v1 = v1;
@@ -798,9 +825,9 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 	if(buckets_[b].in_use == false){
 		buckets_[b].in_use = true;
 		++entries_;
-		total_curr += v2;
+		update_local_sum(v2);
 	}else{
-		total_curr += -buckets_[b].v2 + v2;
+		update_local_sum(buckets_[b].v2, v2);
 	}
 	buckets_[b].k = std::forward<K>(k);
 	buckets_[b].v1 = std::forward<V1>(v1);

@@ -195,20 +195,7 @@ public:
 	void apply_changes_on_delta(TypedGlobalTable<K, V, V, D>* table,
 			std::vector<std::tuple<K, ChangeEdgeType, D>>& changes)
 	{
-		// step 1: prepare messages (for remote nodes)
-		std::vector<KVPairData> puts(table->num_shards());
-		for(int i = 0; i < table->num_shards(); ++i){
-			if(!table->is_local_shard(i)){
-				KVPairData& put=puts[i];
-				put.Clear();
-				put.set_shard(i);
-				put.set_source(table->helper()->id());
-				put.set_table(table->id());
-				put.set_epoch(table->helper()->epoch());
-				put.set_done(true);
-			}
-		}
-		// step 2: put changes into messages(remote) / apply(local)
+		// put changes into messages(remote) / apply(local)
 		V default_v = maiter->iterkernel->default_v();
 		string from, to, value;
 		for(auto& tup : changes){
@@ -239,19 +226,8 @@ public:
 				table->resetSendMarker();
 			}
 		}
-		//VLOG(1)<<"  going to send";
-		// step 3: send messages
-		for(int i = 0; i < table->num_shards(); ++i){
-			KVPairData& put=puts[i];
-			if(!table->is_local_shard(i)){
-				VLOG(1)<<"sending graph change messages from "<<current_shard()<<" to "<<i<<", size="<<put.kv_data_size();
-				if(put.kv_data_size() != 0){
-					table->helper()->realSendUpdates(table->owner(i),put);
-				}
-			}
-		}
-		table->helper()->signalToSend();
 		table->helper()->signalToProcess();
+		table->helper()->signalToSend();
 	}
 
 	void delta_table(TypedGlobalTable<K, V, V, D>* a){
@@ -283,8 +259,6 @@ template<class K, class V, class D>
 class MaiterKernel2: public DSMKernel{ //the second phase: iterative processing of the local state table
 private:
 	MaiterKernel<K, V, D>* maiter;                  //user-defined iteratekernel
-	std::vector<std::pair<K, V> > output;                    //the output buffer
-
 public:
 	void set_maiter(MaiterKernel<K, V, D>* inmaiter){
 		maiter = inmaiter;

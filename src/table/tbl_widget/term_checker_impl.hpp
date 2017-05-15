@@ -10,7 +10,6 @@
 
 #include "term_checker.h"
 
-#include <vector>
 #include <algorithm>
 
 #include <gflags/gflags.h>
@@ -37,13 +36,20 @@ struct TermCheckers{
 			}
 			return partial_curr;
 		}
-		virtual bool terminate(const std::vector<double>& local_reports){
+		virtual bool terminate(const std::vector<std::pair<double, uint64_t> >& local_reports){
 			//your aggregation logic for using local reports here (e.g summation)
-			curr = std::accumulate(local_reports.begin(),local_reports.end(),0.0);
-			VLOG(0) << "terminate check : last progress " << last << " current progress " << curr
-					<< " difference " << abs(curr - last);
+			curr = std::accumulate(local_reports.begin(),local_reports.end(),
+					pair<double, uint64_t>(0.0, 0),
+					[](const std::pair<double, uint64_t>& a, const std::pair<double, uint64_t>& b){
+				return make_pair(a.first+b.first, a.second+b.second);
+			});
+			VLOG(0) << "terminate check : last progress (" << last.first <<" , "<<last.second
+					<< ") current progress (" << curr.first<<" , "<<curr.second
+					<< ") difference (" << (curr.first - last.first) <<" , "
+					<< (curr.second - last.second)<<")";
 			//your termination condition here (e.g. difference to last)
-			if(std::abs(curr - last) <= FLAGS_termcheck_threshold){
+			if(curr.second == last.second &&
+					std::abs(curr.first - last.first) <= FLAGS_termcheck_threshold){
 				return true;
 			}else{
 				last = curr;
@@ -54,11 +60,18 @@ struct TermCheckers{
 	struct Diff : public TermChecker<K, V> {
 		using TermChecker<K,V>::last;
 		using TermChecker<K,V>::curr;
-		bool terminate(const std::vector<double>& local_reports){
-			curr = std::accumulate(local_reports.begin(),local_reports.end(),0.0);
-			VLOG(0) << "terminate check : last progress " << last << " current progress " << curr
-					<< " difference " << abs(curr - last);
-			if(std::abs(curr - last) <= FLAGS_termcheck_threshold){
+		bool terminate(const std::vector<std::pair<double, uint64_t>>& local_reports){
+			curr = std::accumulate(local_reports.begin(),local_reports.end(),
+					pair<double, uint64_t>(0.0, 0),
+					[](const std::pair<double, uint64_t>& a, const std::pair<double, uint64_t>& b){
+				return make_pair(a.first+b.first, a.second+b.second);
+			});
+			VLOG(0) << "terminate check : last progress (" << last.first <<" , "<<last.second
+					<< ") current progress (" << curr.first<<" , "<<curr.second
+					<< ") difference (" << (curr.first - last.first) <<" , "
+					<< (curr.second - last.second)<<")";
+			if(curr.second == last.second &&
+					std::abs(curr.first - last.first) <= FLAGS_termcheck_threshold){
 				return true;
 			}else{
 				last = curr;
@@ -69,11 +82,17 @@ struct TermCheckers{
 	struct Sum : public TermChecker<K, V> {
 		using TermChecker<K,V>::last;
 		using TermChecker<K,V>::curr;
-		bool terminate(const std::vector<double>& local_reports){
-			curr = std::accumulate(local_reports.begin(),local_reports.end(),0.0);
-			VLOG(0) << "terminate check : last progress " << last << " current progress " << curr
-					<< " difference " << abs(curr-last);
-			if(abs(curr) >= FLAGS_termcheck_threshold){
+		bool terminate(const std::vector<std::pair<double, uint64_t>>& local_reports){
+			curr = std::accumulate(local_reports.begin(),local_reports.end(),
+					pair<double, uint64_t>(0.0, 0),
+					[](const std::pair<double, uint64_t>& a, const std::pair<double, uint64_t>& b){
+				return make_pair(a.first+b.first, a.second+b.second);
+			});
+			VLOG(0) << "terminate check : last progress (" << last.first <<" , "<<last.second
+					<< ") current progress (" << curr.first<<" , "<<curr.second
+					<< ") difference (" << (curr.first - last.first) <<" , "
+					<< (curr.second - last.second)<<")";
+			if(abs(curr.first) >= FLAGS_termcheck_threshold){
 				return true;
 			}else{
 				last = curr;

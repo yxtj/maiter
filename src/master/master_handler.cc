@@ -18,8 +18,6 @@
 #include <chrono>
 #include <functional>
 
-DECLARE_bool(sync_track);
-
 using namespace std;
 using namespace std::placeholders;
 
@@ -138,12 +136,6 @@ void Master::handleKernelDone(const std::string& d, const RPCInfo& info){
 	w.set_finished(task_id);
 	w.total_runtime += Now() - w.last_task_start;
 
-	if(FLAGS_sync_track){
-		sync_track_log << "iter " << iter << " worker_id " << w_id << " iter_time "
-				<< barrier_timer->elapsed() << " total_time " << w.total_runtime << "\n";
-		sync_track_log.flush();
-	}
-
 	MethodStats &mstats = method_stats_[current_run_.kernel + ":" + current_run_.method];
 	mstats.set_shard_time(mstats.shard_time() + Now() - w.last_task_start);
 	mstats.set_shard_calls(mstats.shard_calls() + 1);
@@ -190,6 +182,7 @@ void Master::handleTermcheckDone(const std::string& d, const RPCInfo& info){
 	VLOG(1) << "receive from " << resp.wid() << " with " << resp.delta();
 	workers_[worker_id]->current = resp.delta();
 	workers_[worker_id]->updates = resp.updates();
+	workers_[worker_id]->ndefault = resp.ndefault();
 
 	rph_.input(MTYPE_TERMCHECK_LOCAL, resp.wid());
 }

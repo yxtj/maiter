@@ -181,6 +181,11 @@ public:
 		std::lock_guard<std::recursive_mutex> sl(mutex());
 		if(!allowProcess())
 			return;
+		processing=true;
+		// automatically reset processing to false when this function exits
+		std::shared_ptr<bool> guard_process(&processing, [](bool* p){
+			*p=false;
+		});
 //		Timer t;
 		//handle multiple shards
 		for(int i=0;i<partitions_.size();++i){

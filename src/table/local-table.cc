@@ -54,10 +54,10 @@ void LocalTableCoder::WriteEntryToFile(StringPiece k, StringPiece v1, StringPiec
  * Local Table:
  */
 //snapshot
-void LocalTable::termcheck(const string& f, long* updates, double* currF2){
+void LocalTable::termcheck(const string& f, uint64_t* updates, double* totalF2, uint64_t* defaultF2){
 	VLOG(1) << "Start snapshot " << f;
 //	Timer t;
-	serializeToSnapshot(f, updates, currF2);
+	serializeToSnapshot(f, updates, totalF2, defaultF2);
 //	VLOG(1) << "Flushed snapshot " << f << " in: " << t.elapsed();
 
 //  DLOG(INFO)<<getcallstack();
