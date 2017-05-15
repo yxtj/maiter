@@ -77,9 +77,10 @@ public:
 	// XXX: evolving graph
 	virtual void add_ineighbor(const InNeighborData& req) = 0;
 
-	bool allowProcess(){ return allow2Process_; }
+	bool allowProcess() const { return allow2Process_; }
 	void enableProcess(){ allow2Process_=true; }
 	void disableProcess(){ allow2Process_=false; }
+	bool is_processing() const { return processing; }
 
 	virtual int64_t pending_write_bytes() = 0;
 
@@ -90,8 +91,9 @@ public:
 	// Exchange the content of this table with that of table 'b'.
 	virtual void swap(GlobalTableBase *b) = 0;
 	virtual void local_swap(GlobalTableBase *b) = 0;
-private:
+protected:
 	bool allow2Process_=true;
+	bool processing;
 };
 
 class GlobalTable: virtual public GlobalTableBase{
@@ -180,7 +182,6 @@ public:
 
 	void clear();
 	void resize(int64_t new_size);
-	bool is_processing() const;
 
 	//override from Checkpointable
 	void start_checkpoint(const string& pre);
@@ -207,9 +208,7 @@ protected:
 	int snapshot_index;
 
 	int64_t bufmsg;	//updated at InitStateTable with (state-table-size * bufmsg_portion)
-	double buftime; //initialized in the constructor with min(FLAGS_buftime, FLAGS_snapshot_interval/2)
-
-	bool processing;
+	double buftime; //initialized in the constructor with min(FLAGS_buftime, FLAGS_snapshot_interval/4)
 };
 
 }

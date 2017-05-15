@@ -99,7 +99,7 @@ MutableGlobalTable::MutableGlobalTable(){
 	pending_send_ = 0;
 	snapshot_index = 0;
 	bufmsg=1;
-	buftime=std::min(FLAGS_buftime, FLAGS_snapshot_interval/2);
+	buftime=std::min(FLAGS_buftime, FLAGS_snapshot_interval/4);
 }
 
 void MutableGlobalTable::resize(int64_t new_size){
@@ -129,10 +129,6 @@ void MutableGlobalTable::clear(){
 //	VLOG(2) << StringPrintf("Sending clear request (%d)", req.table());
 //
 //	helper()->SyncClearRequest(req);
-}
-
-bool MutableGlobalTable::is_processing() const{
-	return processing;
 }
 
 void MutableGlobalTable::start_checkpoint(const string& pre){
@@ -187,7 +183,7 @@ void MutableGlobalTable::resetProcessMarker(){
 
 bool MutableGlobalTable::canProcess(){
 	return pending_process_ > bufmsg
-			|| (pending_process_ !=0 && tmr_process.elapsed() > FLAGS_buftime);
+			|| (pending_process_ !=0 && tmr_process.elapsed() > buftime);
 }
 
 void MutableGlobalTable::BufProcessUpdates(){
@@ -205,7 +201,7 @@ void MutableGlobalTable::resetSendMarker(){
 
 bool MutableGlobalTable::canSend(){
 	return pending_send_ > bufmsg
-			|| (pending_send_ != 0 && tmr_send.elapsed() > FLAGS_buftime);
+			|| (pending_send_ != 0 && tmr_send.elapsed() > buftime);
 }
 
 void MutableGlobalTable::BufSendUpdates(){
@@ -260,7 +256,7 @@ bool MutableGlobalTable::canPnS(){
 	auto m = std::max(pending_process_, pending_send_);
 	return// m > FLAGS_bufmsg
 			//||
-			(m != 0 && tmr_send.elapsed() > FLAGS_buftime);
+			(m != 0 && tmr_send.elapsed() > buftime);
 }
 
 bool MutableGlobalTable::canTermCheck(){
