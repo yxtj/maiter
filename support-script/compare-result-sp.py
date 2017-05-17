@@ -28,7 +28,7 @@ def compareOne(r1, r2, show_detail):
     res=0
     cnt=0
     if l1!=l2:
-        print('Error: number of nodes does match')
+        print('Error: number of nodes does match (',l1,'vs',l2,')')
         exit(1)
     for i in range(l1):
         if r1[i][0] != r2[i][0]:
@@ -54,7 +54,7 @@ def main(path1, path2, merge_parts, show_detail):
         print('Error: cannot find result files in folder 2')
         exit(1)
     elif not merge_parts and len(files1) != len(files2):
-        print('Error: number of parts does not match. Please try to enable option: merge_parts')
+        print('Error: number of parts does not match. (',len(files1),'vs',len(files2),') Please try to enable option: merge_parts')
         exit(1)
     total=0
     cnt=0
@@ -96,12 +96,12 @@ if __name__=='__main__':
         exit()
     path1=sys.argv[1]
     path2=sys.argv[2]
-    merge_parts=False
-    if len(sys.argv) > 3 and sys.argv[3] in ['1', 'y', 'yes', 't', 'true']:
-        merge_parts=True
     show_detail=True
-    if len(sys.argv) > 4 and sys.argv[4] not in ['1', 'y', 'yes', 't', 'true']:
+    if len(sys.argv) > 3 and sys.argv[3] not in ['1', 'y', 'yes', 't', 'true']:
         show_detail=False
+    merge_parts=False
+    if len(sys.argv) > 4 and sys.argv[4] in ['1', 'y', 'yes', 't', 'true']:
+        merge_parts=True
     #print('Merge parts before comparison =', merge_parts)
     main(path1, path2, merge_parts, show_detail)
 

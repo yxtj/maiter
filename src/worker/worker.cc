@@ -144,7 +144,7 @@ void Worker::KernelProcess(){
 //	DumpProfile();
 	DVLOG(1)<<"Finish kernel process";
 
-	tmr_.Reset();
+	tmr_.reset();
 }
 
 void Worker::runKernel(){
@@ -264,14 +264,15 @@ void Worker::realSendRequest(int dstWorkerID, const ValueRequest& req) {
 	network_->Send(peers_[dstWorkerID].net_id, MTYPE_VALUE_REQUEST, req);
 }
 
-void Worker::realSendTermCheck(int snapshot, long updates, double current){
+void Worker::realSendTermCheck(int snapshot, uint64_t updates, double current, uint64_t ndefault){
 	lock_guard<recursive_mutex> sl(state_lock_);
 
 	TermcheckDelta req;
 	req.set_wid(id());
 	req.set_index(snapshot);
-	req.set_delta(current);
 	req.set_updates(updates);
+	req.set_delta(current);
+	req.set_ndefault(ndefault);
 	network_->Send(config_.master_id(), MTYPE_TERMCHECK_LOCAL, req);
 
 	VLOG(1) << "termination condition of subpass " << snapshot << " worker " << id()
@@ -394,4 +395,4 @@ bool StartWorker(const ConfigData& conf){
 	return true;
 }
 
-} // end namespace
+}

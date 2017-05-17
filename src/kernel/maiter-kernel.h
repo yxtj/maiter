@@ -19,7 +19,8 @@
 
 DECLARE_string(graph_dir);
 DECLARE_string(init_dir);
-DECLARE_string(delta_name);
+DECLARE_string(delta_prefix);
+DECLARE_double(sleep_time);
 
 
 namespace dsm{
@@ -52,7 +53,7 @@ public:
 		std::string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
 		std::ifstream inFile(patition_file);
 		if(!inFile){
-			LOG(FATAL) << "Unable to open file: " << patition_file;
+			LOG(FATAL) << "Unable to open graph file: " << patition_file;
 		}
 
 		std::string line;
@@ -80,7 +81,7 @@ public:
 		std::string init_file = StringPrintf("%s/part-%d", FLAGS_init_dir.c_str(), current_shard());
 		std::ifstream inFile(init_file);
 		if(!inFile){
-			LOG(FATAL) << "Unable to open file: " << init_file;
+			LOG(FATAL) << "Unable to open initializing file: " << init_file;
 		}
 
 		std::string line;
@@ -92,7 +93,7 @@ public:
 			V delta;
 			V value;
 			// same format as the output(MaiterKernel3)
-			// format: "<key>\t<value>:<delta>"
+			// format: "<key>\t<delta>:<value>"
 			maiter->iterkernel->read_init(line, key, delta, value);
 			if(use_initial_delta){
 				D d = table->getF3(key);
@@ -119,28 +120,33 @@ public:
 		}
 		a->resize(maiter->num_nodes);   //create local state table based on the input size
 
+		// step 1: load graph
 		VLOG(0)<<"loading graphs on "<<current_shard();
 		read_file(a);               //initialize the state table fields based on the input data file
+
+		// step 2: load initial value & delta
 		bool load_initial_value=!FLAGS_init_dir.empty();
-		bool is_minmax_accumulate = maiter->iterkernel->is_minmax_accumulate();
+		bool is_selective = maiter->iterkernel->is_selective();
 		if(load_initial_value){
 			VLOG(0)<<"loading initial values on "<<current_shard();
-			load_initial(a, false, is_minmax_accumulate);
+			load_initial(a, false, is_selective);
 		}
+
+		// step 3: coordinate in-neighbors
 		coord();
+	}
+
+	void coord(){
+		VLOG(0) << "building up in-neighbor list on "<<current_shard();
+		bool load_initial_value=!FLAGS_init_dir.empty();
+		bool is_selective = maiter->iterkernel->is_selective();
+		coordinate_in_neighbors(maiter->table, load_initial_value && is_selective);
 	}
 
 	void run(){
 		VLOG(0) << "initializing table on "<<current_shard();
 		init_table(maiter->table);
 		VLOG(0) << "table initialized on "<<current_shard();
-	}
-
-	void coord(){
-		VLOG(0) << "building up in-neighbor list on "<<current_shard();
-		bool load_initial_value=!FLAGS_init_dir.empty();
-		bool is_minmax_accumulate = maiter->iterkernel->is_minmax_accumulate();
-		coordinate_in_neighbors(maiter->table, load_initial_value && is_minmax_accumulate);
 	}
 };
 
@@ -155,11 +161,11 @@ public:
 	}
 
 	std::vector<std::tuple<K, ChangeEdgeType, D>> read_delta(TypedGlobalTable<K, V, V, D>* table){
-		std::string patition_file = StringPrintf("%s/%s-%d",
-			FLAGS_graph_dir.c_str(), FLAGS_delta_name.c_str(), current_shard());
+		std::string patition_file = StringPrintf("%s-%d",
+			FLAGS_delta_prefix.c_str(), current_shard());
 		std::ifstream inFile(patition_file);
 		if(!inFile){
-			LOG(FATAL) << "Unable to open file: " << patition_file;
+			LOG(FATAL) << "Unable to open delta file: " << patition_file;
 		}
 
 		VLOG(1)<<"loading delta-graph on: "<<current_shard();
@@ -194,20 +200,7 @@ public:
 	void apply_changes_on_delta(TypedGlobalTable<K, V, V, D>* table,
 			std::vector<std::tuple<K, ChangeEdgeType, D>>& changes)
 	{
-		// step 1: prepare messages (for remote nodes)
-		std::vector<KVPairData> puts(table->num_shards());
-		for(int i = 0; i < table->num_shards(); ++i){
-			if(!table->is_local_shard(i)){
-				KVPairData& put=puts[i];
-				put.Clear();
-				put.set_shard(i);
-				put.set_source(table->helper()->id());
-				put.set_table(table->id());
-				put.set_epoch(table->helper()->epoch());
-				put.set_done(true);
-			}
-		}
-		// step 2: put changes into messages(remote) / apply(local)
+		// put changes into messages(remote) / apply(local)
 		V default_v = maiter->iterkernel->default_v();
 		string from, to, value;
 		for(auto& tup : changes){
@@ -238,19 +231,8 @@ public:
 				table->resetSendMarker();
 			}
 		}
-		//VLOG(1)<<"  going to send";
-		// step 3: send messages
-		for(int i = 0; i < table->num_shards(); ++i){
-			KVPairData& put=puts[i];
-			if(!table->is_local_shard(i)){
-				VLOG(1)<<"sending graph change messages from "<<current_shard()<<" to "<<i<<", size="<<put.kv_data_size();
-				if(put.kv_data_size() != 0){
-					table->helper()->realSendUpdates(table->owner(i),put);
-				}
-			}
-		}
-		table->helper()->signalToSend();
 		table->helper()->signalToProcess();
+		table->helper()->signalToSend();
 	}
 
 	void delta_table(TypedGlobalTable<K, V, V, D>* a){
@@ -269,7 +251,7 @@ public:
 	}
 
 	void run(){
-		if(!FLAGS_delta_name.empty()){
+		if(!FLAGS_delta_prefix.empty()){
 			VLOG(0) << "load & apply delta graph on "<<current_shard();
 			delta_table(maiter->table);
 		}else{
@@ -282,8 +264,6 @@ template<class K, class V, class D>
 class MaiterKernel2: public DSMKernel{ //the second phase: iterative processing of the local state table
 private:
 	MaiterKernel<K, V, D>* maiter;                  //user-defined iteratekernel
-	std::vector<std::pair<K, V> > output;                    //the output buffer
-
 public:
 	void set_maiter(MaiterKernel<K, V, D>* inmaiter){
 		maiter = inmaiter;
@@ -310,16 +290,18 @@ public:
 			}else{
 				if(tgt->canProcess()){
 					tgt->helper()->signalToProcess();
-					tgt->resetProcessMarker();
+//					tgt->resetProcessMarker();
 				}
 				if(tgt->canSend()){
 					tgt->helper()->signalToSend();
-					tgt->resetSendMarker();
+//					tgt->resetSendMarker();
 				}
+//				tgt->helper()->signalToProcess();
+//				tgt->helper()->signalToSend();
 			}
 			if(tgt->canTermCheck())
 				tgt->helper()->signalToTermCheck();
-			std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
+			//std::this_thread::sleep_for(std::chrono::duration<double>(FLAGS_sleep_time));
 		}
 		// DLOG(INFO)<<"pending writes: "<<tgt->pending_send_;
 	}

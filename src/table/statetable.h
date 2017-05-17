@@ -35,7 +35,7 @@ private:
 		V3 v3;
 		V1 priority;
 		std::unordered_map<K, V1> input; // values of in-neighbors
-		K bp; // pointer to the best neighbor
+		K bp; // pointer to the best in-neighbor
 		bool in_use;
 
 		// return whether it is a normal update (do not need to send further requests)
@@ -59,6 +59,15 @@ public:
 			 * If there is no such control, many useless parsing will occur.
 			 * It will degrading the performance a lot
 			 */
+			if(static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->is_selective()){
+				pick_pred=[&](int b){
+					return parent_.buckets_[b].v1 != parent_.buckets_[b].v2;
+				};
+			}else{
+				pick_pred=[&](int b){
+					return parent_.buckets_[b].v1 != defaultv;
+				};
+			}
 			if(bfilter){
 				std::mt19937 gen(std::chrono::system_clock::now().time_since_epoch().count());
 				//DVLOG(1)<<"bunket size="<<parent_.buckets_.size();
@@ -67,14 +76,14 @@ public:
 
 				//check if there is a change
 				b_no_change = true;
-				int end_i=SAMPLE_SIZE<=parent_.entries_*2?SAMPLE_SIZE:parent_.entries_*2;
-				for(int i = 0; i < end_i && b_no_change; i++){
+				size_t end_i = std::min<size_t>(SAMPLE_SIZE, parent_.entries_ * 2);
+				for(size_t i = 0; i < end_i && b_no_change; i++){
 					int rand_pos = rand_num();
 					while(!parent_.buckets_[rand_pos].in_use){
 						rand_pos = rand_num();
 					}
 
-					b_no_change &= parent_.buckets_[rand_pos].v1 != defaultv;
+					b_no_change &= pick_pred(rand_pos);
 				}
 			}else{
 				b_no_change = false;
@@ -89,9 +98,8 @@ public:
 		bool Next(){
 			do{
 				++pos;
-				//cout << "pos now is " << pos << " v1 " << parent_.buckets_[pos].v1 << endl;
 			}while(pos < parent_.size_
-					&& (!parent_.buckets_[pos].in_use || parent_.buckets_[pos].v1 == defaultv));
+					&& (!parent_.buckets_[pos].in_use || !pick_pred(pos)));
 			return pos < parent_.size_;
 		}
 
@@ -109,6 +117,7 @@ public:
 		StateTable<K, V1, V2, V3> &parent_;
 		bool b_no_change;
 		V1 defaultv;
+		std::function<bool(int)> pick_pred;
 	};
 
 	struct ScheduledIterator: public TypedTableIterator<K, V1, V2, V3> {
@@ -116,10 +125,20 @@ public:
 				pos(-1), parent_(parent){
 
 			b_no_change = true;
-			V1 defaultv=static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->default_v();
+			const V1 defaultv=static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->default_v();
+			
+			if(static_cast<IterateKernel<K, V1, V3>*>(parent_.info_.iterkernel)->is_selective()){
+				pick_pred=[&](int b){
+					return parent_.buckets_[b].v1 != parent_.buckets_[b].v2;
+				};
+			}else{
+				pick_pred=[&](int b){
+					return parent_.buckets_[b].v1 != defaultv;
+				};
+			}
 
 			//random number generator
-			std::mt19937 gen(time(0));
+			std::mt19937 gen(std::chrono::system_clock::now().time_since_epoch().count());
 			std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
 			auto rand_num = [&](){return dist(gen);};
 
@@ -130,7 +149,7 @@ public:
 				for(i = 0; i < parent_.size_; i++){
 					if(parent_.buckets_[i].in_use){
 						scheduled_pos.push_back(i);
-						b_no_change = b_no_change && parent_.buckets_[i].v1 != defaultv;
+						b_no_change = b_no_change && pick_pred(i);
 					}
 				}
 				if(!bfilter) b_no_change = false;
@@ -147,7 +166,7 @@ public:
 					}
 					sampled_pos.push_back(rand_pos);
 
-					b_no_change = b_no_change && parent_.buckets_[rand_pos].v1 == defaultv;
+					b_no_change = b_no_change && !pick_pred(rand_pos);
 				}
 
 				if(b_no_change && bfilter) return;
@@ -178,8 +197,7 @@ public:
 				if(cut_index == 0 || parent_.buckets_[sampled_pos[0]].priority == threshold){
 					//to avoid non eligible records
 					for(int i = 0; i < parent_.size_; i++){
-						if(!parent_.buckets_[i].in_use) continue;
-						if(parent_.buckets_[i].v1 == defaultv) continue;
+						if(!parent_.buckets_[i].in_use || !pick_pred(i)) continue;
 
 						if(parent_.buckets_[i].priority >= threshold){// >=
 							scheduled_pos.push_back(i);
@@ -187,8 +205,7 @@ public:
 					}
 				}else{
 					for(int i = 0; i < parent_.size_; i++){
-						if(!parent_.buckets_[i].in_use) continue;
-						if(parent_.buckets_[i].v1 == defaultv) continue;
+						if(!parent_.buckets_[i].in_use || !pick_pred(i)) continue;
 
 						if(parent_.buckets_[i].priority > threshold){// >
 							scheduled_pos.push_back(i);
@@ -197,8 +214,8 @@ public:
 				}
 			}
 
-			VLOG(2) << "table size " << parent_.buckets_.size() << " workerid " << parent_.id()
-								<< " scheduled " << scheduled_pos.size();
+			VLOG(2) << "table size " << parent_.buckets_.size() << " worker-id " << parent_.id()
+						<< " scheduled " << scheduled_pos.size();
 			Next();
 		}
 
@@ -249,6 +266,7 @@ public:
 		double portion;
 		std::vector<int> scheduled_pos;
 		bool b_no_change;
+		std::function<bool(int)> pick_pred;
 	};
 
 	//for termination check
@@ -275,11 +293,6 @@ public:
 			total++;
 
 			return pos<parent_.size_;
-			// if(pos >= parent_.size_){
-			// 	return false;
-			// }else{
-			// 	return true;
-			// }
 		}
 
 		bool done(){
@@ -314,6 +327,9 @@ public:
 
 	void Init(const TableDescriptor* td){
 		Table::Init(td);
+
+		IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
+		default_v = pk->default_v();
 	}
 
 	V1 getF1(const K& k);
@@ -347,6 +363,7 @@ public:
 	void update_ineighbor(const K& from, const K& to, const V1& v1);
 	void remove_ineighbor(const K& from, const K& to);
 	V1 get_ineighbor(const K& from, const K& to);
+	std::vector<K> get_ineighbor(const K& k);
 
 	void resize(int64_t size);
 
@@ -376,86 +393,13 @@ public:
 
 	TableIterator *get_iterator(TableHelper* helper, bool bfilter){
 		if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
-//		helper->FlushUpdates();
-//		std::this_thread::sleep_for(std::chrono::duration<double>(0.1) );
-//		helper->HandlePutRequest();
-//		DLOG_EVERY_N(INFO,100)<<getcallstack();
-
 		Iterator* iter = new Iterator(*this, false);
-//		int trial = 0;
-//		while(iter->b_no_change){
-//			VLOG(1) << "wait for put";
-//			delete iter;
-////			helper->FlushUpdates();
-//			std::this_thread::sleep_for(std::chrono::seconds(1) );
-////			helper->HandlePutRequest();
-//
-//			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
-//
-//			iter = new Iterator(*this, bfilter);
-//
-//			trial++;
-//			if(trial >= 10){
-//				delete iter;
-//				EntirePassIterator* entireIter = new EntirePassIterator(*this);
-//
-//				total_curr = 0;
-//				while (!entireIter->done()){
-//					bool cont = entireIter->Next();
-//					if(!cont) break;
-//
-//					total_curr += entireIter->value2();
-//				}
-//
-////				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
-////				helper->realSendTermcheck(-1, total_updates, total_curr);
-//
-//				return entireIter;
-//			}
-//
-//		}
-
 		return iter;
 	}
 
 	TableIterator *schedule_iterator(TableHelper* helper, bool bfilter){
 		if(terminated_) return nullptr;
-//		helper->FlushUpdates();
-//		std::this_thread::sleep_for(std::chrono::duration<double>(0.1) );
-//		helper->HandlePutRequest();
-//		DLOG_EVERY_N(INFO,100)<<getcallstack();
-
 		ScheduledIterator* iter = new ScheduledIterator(*this, bfilter);
-//		int trial = 0;
-//		while(iter->b_no_change){
-//			VLOG(1) << "wait for put, send buffered updates";
-//			delete iter;
-////			helper->FlushUpdates();
-//			std::this_thread::sleep_for(std::chrono::seconds(1) );
-////			helper->HandlePutRequest();
-//
-//			if(terminated_) return nullptr; //if get term signal, return nullptr to tell program terminate
-//
-//			iter = new ScheduledIterator(*this, bfilter);
-//
-//			trial++;
-//			if(trial >= 10){
-//				delete iter;
-//				EntirePassIterator* entireIter = new EntirePassIterator(*this);
-//
-//				total_curr = 0;
-//				while (!entireIter->done()){
-//					entireIter->Next();
-//					total_curr += entireIter->value2();
-//				}
-//
-////				VLOG(1) << "send term check since many times trials " << total_curr << "and perform a pass of the current table";
-////				helper->realSendTermcheck(-1, total_updates, total_curr);
-//
-//				return entireIter;
-//			}
-//		}
-
 		return iter;
 	}
 
@@ -467,7 +411,7 @@ public:
 	void serializeToNet(KVPairCoder *out);
 	void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
 	void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase);
-	void serializeToSnapshot(const string& f, long *updates, double *totalF2);
+	void serializeToSnapshot(const string& f, uint64_t* updates, double* totalF2, uint64_t* defaultF2);
 
 	Marshal<K>* kmarshal(){return ((Marshal<K>*)info_.key_marshal);}
 	Marshal<V1>* v1marshal(){return ((Marshal<V1>*)info_.value1_marshal);}
@@ -519,22 +463,44 @@ private:
 
 	std::vector<Bucket> buckets_;
 
-	int64_t entries_;
-	int64_t size_;
-	double total_curr;
-	int64_t total_updates;
+	uint64_t entries_;
+	uint64_t size_;
 
 	std::hash<K> hashobj_;
-	std::mutex m_; // mutex for resizing the table
+	std::recursive_mutex m_; // mutex for resizing the table
+
+private:
+	// local sum, for termination checking
+	V2 default_v;
+	double total_curr_value;
+	int64_t total_curr_default;
+	int64_t total_updates;
+
+	void update_local_sum(const V2& oldV, const V2& newV){
+		if(oldV == default_v)
+			--total_curr_default;
+		else
+			total_curr_value -= oldV;
+		if(newV == default_v)
+			++total_curr_default;
+		else
+			total_curr_value += newV;
+	}
+	void update_local_sum(const V2& newV){
+		if(newV == default_v)
+			++total_curr_default;
+		else
+			total_curr_value += newV;
+	}
 };
 
 template<class K, class V1, class V2, class V3>
 StateTable<K, V1, V2, V3>::StateTable(int size) :
-	buckets_(0), entries_(0), size_(0), total_curr(0), total_updates(0)
+	buckets_(0), entries_(0), size_(0), total_curr_value(0.0), total_curr_default(0), total_updates(0)
 {
 	clear();
 
-	VLOG(1) << "new statetable size " << size;
+	VLOG(2) << "new statetable size " << size;
 	resize(size);
 }
 
@@ -619,15 +585,16 @@ void StateTable<K, V1, V2, V3>::deserializeFromNet(KVPairCoder *in, DecodeIterat
 //it can also be used to generate snapshot, but currently in order to measure the performance we skip this step, 
 //but focus on termination check
 template<class K, class V1, class V2, class V3>
-void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f, long* updates,
-		double* totalF2){
-	//total_curr = 0;
+void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f,
+		uint64_t* updates, double* totalF2, uint64_t* defaultF2){
+	//total_curr_value = 0;
 	//EntirePassIterator* entireIter = new EntirePassIterator(*this);
-	//total_curr = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)
+	//total_curr_value = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)
 	//		->estimate_prog(entireIter));
 	//delete entireIter;
 	*updates = total_updates;
-	*totalF2 = total_curr;
+	*totalF2 = total_curr_value;
+	*defaultF2 = total_curr_default;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -635,7 +602,6 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size){
 	CHECK_GT(size, 0);
 	if(size_ == size)
 		return;
-	std::lock_guard<std::mutex> gl(m_);
 
 	std::vector<Bucket> old_b = move(buckets_);
 	int old_entries = entries_;
@@ -648,7 +614,7 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size){
 	// LOG(INFO) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
 	for(int i = 0; i < old_b.size(); ++i){
 		if(old_b[i].in_use){
-			put(old_b[i].k, old_b[i].v1, old_b[i].v2, old_b[i].v3);
+			put(move(old_b[i].k), move(old_b[i].v1), move(old_b[i].v2), move(old_b[i].v3));
 			// LOG(INFO)<< "copy: " << old_b[i].k;
 		}
 	}
@@ -708,7 +674,7 @@ void StateTable<K, V1, V2, V3>::updateF1(const K& k, const V1& v){
 
 	buckets_[b].v1 = v;
 	buckets_[b].priority = 0;	//didn't use priority function, assume the smallest priority is 0
-	total_updates++;
+	++total_updates;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -717,7 +683,7 @@ void StateTable<K, V1, V2, V3>::updateF2(const K& k, const V2& v){
 
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
 
-	total_curr += -buckets_[b].v2 + v;
+	update_local_sum(buckets_[b].v2, v);
 	buckets_[b].v2 = v;
 }
 
@@ -757,7 +723,7 @@ void StateTable<K, V1, V2, V3>::accumulateF2(const K& k, const V2& v){
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
 	V2 old = buckets_[b].v2;
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->accumulate(buckets_[b].v2, v);
-	total_curr += -old + buckets_[b].v2;
+	update_local_sum(old, v);
 }
 
 template<class K, class V1, class V2, class V3>
@@ -767,6 +733,8 @@ void StateTable<K, V1, V2, V3>::accumulateF3(const K& k, const V3& v){
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, const V3& v3){
+	DVLOG(2)<<"lock in put ";//<<getcallstack();
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b=bucket_for_access_key(k);
 	if(b==-1 /* || (!buckets_[b].in_use && entries_ >= size_*kLoadFactor) */){
 		//doesn't consider loadfactor, the tablesize is pre-defined
@@ -779,9 +747,10 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 	if(buckets_[b].in_use == false){
 		buckets_[b].in_use = true;
 		++entries_;
-		total_curr += v2;
+		update_local_sum(v2);
 	}else{
-		total_curr += -buckets_[b].v2 + v2;
+		update_local_sum(buckets_[b].v2, v2);
+
 	}
 	buckets_[b].k = k;
 	buckets_[b].v1 = v1;
@@ -789,10 +758,13 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 	buckets_[b].v3 = v3;
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
 			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
+	DVLOG(2)<<"unlock in put";
 }
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
+	DVLOG(2)<<"lock in put& ";//<<getcallstack();
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b=bucket_for_access_key(k);
 	if(b==-1 /* || (!buckets_[b].in_use && entries_ >= size_*kLoadFactor) */){
 		//doesn't consider loadfactor, the tablesize is pre-defined
@@ -805,9 +777,9 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 	if(buckets_[b].in_use == false){
 		buckets_[b].in_use = true;
 		++entries_;
-		total_curr += v2;
+		update_local_sum(v2);
 	}else{
-		total_curr += -buckets_[b].v2 + v2;
+		update_local_sum(buckets_[b].v2, v2);
 	}
 	buckets_[b].k = std::forward<K>(k);
 	buckets_[b].v1 = std::forward<V1>(v1);
@@ -815,11 +787,14 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 	buckets_[b].v3 = std::forward<V3>(v3);
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
 			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
+	DVLOG(2)<<"unlock in put&";
 }
 
 // XXX: for evolving graph:
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeType& type, const V3& change){
+	DVLOG(2)<<"lock in change";
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b=bucket_for_key(k);
 	Bucket& bk=buckets_[b];
 	switch(type){
@@ -839,6 +814,7 @@ void StateTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeType& t
 		*std::find(bk.v3.begin(), bk.v3.end(), change.front())=change.front();
 		break;
 	}
+	DVLOG(2)<<"unlock in change";
 }
 
 template<class K, class V1, class V2, class V3>
@@ -892,19 +868,20 @@ void StateTable<K, V1, V2, V3>::Bucket::reset_best_pointer(IterateKernel<K, V1, 
 			itbest=it;
 	}
 	bp = itbest->first;
-}*/
-
+}
+*/
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::add_ineighbor(const K& from, const K& to, const V1& v1){
+	DVLOG(2)<<"lock in add";
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b=bucket_for_access_key(to);
-	if(b==-1 /* || (!buckets_[b].in_use && entries_ >= size_*kLoadFactor) */){
+	if(b==-1){
 		//doesn't consider loadfactor, the tablesize is pre-defined
 		VLOG(2) << "resizing... " << size_ << " : " << (int)(1 + size_ * 2)
 				<< " entries " << entries_;
 		resize(1 + size_ * 2);
 		b=bucket_for_access_key(to);
-		if(b==-1)
-			VLOG(2) << "failed re-access... size=" << size_ << " entries=" << entries_
+		CHECK_NE(b, -1) << "failed re-access... size=" << size_ << " entries=" << entries_
 				<<" , "<<from <<"-"<<to<<" v="<<v1;
 	}
 	if(buckets_[b].in_use == false){
@@ -913,28 +890,41 @@ void StateTable<K, V1, V2, V3>::add_ineighbor(const K& from, const K& to, const 
 	}
 	buckets_[b].k = to;
 	buckets_[b].input[from] = v1;
+	DVLOG(2)<<"unlock in add";
 }
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::update_ineighbor(const K& from, const K& to, const V1& v){
 	int b = bucket_for_key(to);
-	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&to) << ">";
-	IterateKernel<K, V1, V3>* pk=static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
+	CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&to) << ">";
+	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
 	buckets_[b].update_input(from, v, pk);
 }
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::remove_ineighbor(const K& from, const K& to){
 	int b = bucket_for_key(to);
-	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&to) << ">";
+	CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&to) << ">";
 	buckets_[b].input.erase(from);
 }
 
 template<class K, class V1, class V2, class V3>
 V1 StateTable<K, V1, V2, V3>::get_ineighbor(const K& from, const K& to){
 	int b = bucket_for_key(to);
-	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&to) << ">";
+	CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&to) << ">";
 	return buckets_[b].input[from];
+}
+
+template<class K, class V1, class V2, class V3>
+std::vector<K> StateTable<K, V1, V2, V3>::get_ineighbor(const K& k){
+	int b = bucket_for_key(k);
+	CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
+	vector<K> res;
+	res.reserve(buckets_[b].input.size());
+	for(auto& p :buckets_[b].input){
+		res.push_back(p.first);
+	}
+	return res;
 }
 
 } //namespace dsm

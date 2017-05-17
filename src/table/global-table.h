@@ -68,21 +68,41 @@ protected:
 
 class MutableGlobalTableBase: virtual public GlobalTableBase{
 public:
+	MutableGlobalTableBase();
+
 	// Four main working steps: merge - process - send - term
 	virtual void MergeUpdates(const KVPairData& req) = 0;
 	virtual void ProcessUpdates() = 0;
 	virtual void SendUpdates() = 0;
 	virtual void TermCheck() = 0;
 
+	//helpers for main working loop (for conditional invocation)
+	void BufProcessUpdates();
+	void BufSendUpdates();
+	void BufTermCheck();
+
 	// XXX: evolving graph
 	virtual void add_ineighbor(const InNeighborData& req) = 0;
 	virtual void ProcessRequest(const ValueRequest& req) = 0;
 
-	bool allowProcess(){ return allow2Process_; }
+	bool allowProcess() const { return allow2Process_; }
 	void enableProcess(){ allow2Process_=true; }
 	void disableProcess(){ allow2Process_=false; }
+	bool is_processing() const { return processing_; }
+	bool is_sending() const { return sending_; }
+	bool is_termchecking() const { return termchecking_; }
 
-	virtual int pending_write_bytes() = 0;
+	//helpers for main working loop
+	void resetProcessMarker();
+	void resetSendMarker();
+	void resetTermMarker();
+	//helpers for main working loop (for checking availability)
+	bool canProcess();
+	bool canSend();
+	bool canPnS();
+	bool canTermCheck();
+
+	virtual int64_t pending_write_bytes() = 0;
 
 	virtual bool initialized() = 0;
 	virtual void resize(int64_t new_size) = 0;
@@ -91,8 +111,19 @@ public:
 	// Exchange the content of this table with that of table 'b'.
 	virtual void swap(GlobalTableBase *b) = 0;
 	virtual void local_swap(GlobalTableBase *b) = 0;
-private:
-	bool allow2Process_=true;
+
+protected:
+	bool allow2Process_ = true;
+	bool processing_ = false;
+	bool sending_ = false;
+	bool termchecking_ = false;
+
+	Timer tmr_process, tmr_send, tmr_term;
+	int64_t pending_process_;
+	int64_t pending_send_;
+
+	int64_t bufmsg;	//updated at InitStateTable with (state-table-size * bufmsg_portion)
+	double buftime; //initialized in the constructor with min(FLAGS_buftime, FLAGS_snapshot_interval/4)
 };
 
 class GlobalTable: virtual public GlobalTableBase{
@@ -132,7 +163,7 @@ protected:
 
 	std::recursive_mutex m_;
 	std::mutex m_trig_;
-	std::recursive_mutex& mutex(){
+	std::recursive_mutex& get_mutex(){
 		return m_;
 	}
 	std::mutex& trigger_mutex(){
@@ -154,37 +185,16 @@ class MutableGlobalTable:
 		virtual public MutableGlobalTableBase,
 		virtual public Checkpointable{
 public:
-	MutableGlobalTable(){
-//		sent_bytes_ = 0;
-		pending_process_ = 0;
-		pending_send_ = 0;
-		snapshot_index = 0;
-		bufmsg=1;
-	}
+	MutableGlobalTable();
 
 	//main working loop
 	virtual void MergeUpdates(const KVPairData& req) = 0;
 	virtual void ProcessUpdates() = 0;
 	virtual void SendUpdates();
 	virtual void TermCheck();
-	//helpers for main working loop
-	void resetProcessMarker();
-	void resetSendMarker();
-	//helpers for main working loop (for checking availability)
-	bool canProcess();
-	bool canSend();
-	bool canPnS();
-	bool canTermCheck();
-	bool noPendingProcess(){ return pending_process_==0; }
-	bool noPendingSend(){ return pending_send_==0; }
-	//helpers for main working loop (for conditional invocation)
-	void BufProcessUpdates();
-	void BufSendUpdates();
-	void BufTermCheck();
 
 	void InitUpdateBuffer();
-
-	int pending_write_bytes();
+	int64_t pending_write_bytes();
 
 	void clear();
 	void resize(int64_t new_size);
@@ -209,12 +219,7 @@ protected:
 	void setUpdatesFromAggregated();	// aggregated way
 	void addIntoUpdateBuffer(int shard, Arg& arg);	// non-aggregated way
 
-	Timer tmr_process, tmr_send;
-	int64_t pending_process_;
-	int64_t pending_send_;
 	int snapshot_index;
-
-	int64_t bufmsg;	//updated at InitStateTable with (state-table-size * bufmsg_portion)
 };
 
 }

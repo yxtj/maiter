@@ -1,31 +1,24 @@
 #ifndef TIMER_H_
 #define TIMER_H_
 
-#include <time.h>
-#include <stdint.h>
+#include <cstdint>
+#include <ratio>
 
 namespace dsm {
-static uint64_t rdtsc() {
-  uint32_t hi, lo;
-  __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
-  return (((uint64_t)hi)<<32) | ((uint64_t)lo);
-}
 
-inline double Now() {
-  timespec tp;
-  clock_gettime(CLOCK_MONOTONIC, &tp);
-  return tp.tv_sec + 1e-9 * tp.tv_nsec;
-}
+uint64_t NowNanoseconds();
 
-double get_processor_frequency();
+double Now();
+
+//double get_processor_frequency();
 
 class Timer {
 public:
   Timer() {
-    Reset();
+    reset();
   }
 
-  void Reset() {
+  void reset() {
     start_time_ = Now();
 //    start_cycle_ = rdtsc();
   }
@@ -55,22 +48,32 @@ private:
 }
 
 #define EVERY_N(interval, operation)\
-{ static int COUNT = 0;\
+{ static unsigned COUNT = 0;\
   if (COUNT++ % interval == 0) {\
     operation;\
   }\
 }
 
+/*
 #define PERIODIC(interval, operation)\
-{ static int64_t last = 0;\
-  static int64_t cycles = (int64_t)(interval * get_processor_frequency());\
-  int64_t now = rdtsc(); \
+{ static uint64_t last = 0;\
+  static uint64_t cycles = (int64_t)(interval * get_processor_frequency());\
+  uint64_t now = rdtsc(); \
   if (now - last > cycles) {\
     last = now;\
     operation;\
   }\
 }
+*/
 
-
+#define PERIODIC(interval, operation)\
+{ static uint64_t last = 0;\
+  static uint64_t cycles = (int64_t)(interval * std::giga::num);\
+  uint64_t now = NowNanoseconds(); \
+  if (now - last > cycles) {\
+    last = now;\
+    operation;\
+  }\
+}
 
 #endif /* TIMER_H_ */

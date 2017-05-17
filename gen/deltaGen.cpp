@@ -1,5 +1,5 @@
 /*
- * main.cpp
+ * deltaGen.cpp
  *
  *  Created on: Jan 11, 2016
  *      Author: tzhou
@@ -13,10 +13,8 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
-#include <sys/stat.h>
 #include <random>
 #include <functional>
-#include "pl-dis.hpp"
 #include <unordered_set>
 
 using namespace std;
@@ -28,132 +26,187 @@ struct Edge{
 	string w;
 };
 
-int loadGraph(const string& dir, const string& deltaName, const int nPart, const int seed,
-		const double rate, const double addRate, const double rmvRate, const double incRate){
+struct ModifyThreshold{
+	double trivial;
+	double add;
+	double rmv;
+	double inc;
+	double dec;
+};
+
+struct ModifyEdges{
+	vector<Edge> addSet;
+	vector<Edge> rmvSet;
+	vector<Edge> incSet;
+	vector<Edge> decSet;
+};
+
+pair<int, vector<Edge>> parseFromLine(const string& line){
+	int key;
+	vector<Edge> data;
+	size_t pos = line.find('\t');
+	key = stoi(line.substr(0, pos));
+	++pos;
+
+	size_t spacepos;
+	while((spacepos = line.find(' ', pos)) != line.npos){
+		size_t cut = line.find(',', pos + 1);
+		int node = stoi(line.substr(pos, cut - pos));
+		string weight = line.substr(cut + 1, spacepos - cut - 1);
+		Edge e{ key, node, weight };
+		data.push_back(e);
+		pos = spacepos + 1;
+	}
+	return make_pair(key, data);
+}
+
+// normal return: (totalV, totalE, maxV)
+// return by reference: resultSet = {addSet, rmvSet, incSet, decSet}
+tuple<int, int, int> loadChanges(ifstream& fin, int maxV, const ModifyThreshold& threshold,
+		uniform_real_distribution<double>& rnd_prob, uniform_int_distribution<int>& rnd_node,
+		uniform_real_distribution<float>& rnd_weight, mt19937& gen,
+		ModifyEdges& resultSet)
+{
+	vector<Edge>& addSet = resultSet.addSet;
+	vector<Edge>& rmvSet = resultSet.rmvSet;
+	vector<Edge>& incSet = resultSet.incSet;
+	vector<Edge>& decSet = resultSet.decSet;
+
+	int totalV = 0;
+	int totalE = 0;
+
+	string line;
+	while(getline(fin, line)){
+		int addCnt = 0;
+		totalV++;
+		// cout << line << endl;
+		int u;
+		vector<Edge> hs;
+		tie(u, hs) = parseFromLine(line);
+		maxV = max(maxV, u);
+		unordered_set<int> dests;
+		for(Edge& e : hs){
+			dests.insert(e.v);
+			maxV = max(maxV, e.v);
+			double r = rnd_prob(gen);
+			if(r < threshold.trivial){
+				continue;
+			}else if(r < threshold.add){
+				++addCnt;
+			}else if(r < threshold.rmv){
+				rmvSet.push_back(move(e));
+			}else if(r < threshold.inc){
+				e.w = to_string(stof(e.w) * (1 + rnd_weight(gen)));
+				incSet.push_back(move(e));
+			}else if(r < threshold.dec){
+				e.w = to_string(stof(e.w) * rnd_weight(gen));
+				decSet.push_back(move(e));
+			}
+		}
+		totalE += hs.size();
+		dests.insert(u);
+		//cout << hs.size() << endl;
+		// add
+		while(addCnt--){
+			int rpt = 0;
+			int newV;
+			do{
+				newV = rnd_node(gen) % maxV;
+			}while(dests.find(newV) != dests.end() && rpt++ < 10);
+			if(rpt < 10){
+				Edge e{ u, newV, to_string(rnd_weight(gen)) };
+				addSet.push_back(move(e));
+			}else{
+				// ++failAdd;
+			}
+		}
+	} // line
+	return make_tuple(totalV, totalE, maxV);
+}
+
+void dumpChangeOneSet(ofstream& fout, const vector<Edge>& edgeSet, char type, bool bidir){
+	if(!bidir){
+		for(const Edge& e : edgeSet){
+			fout << type << " " << e.u << "," << e.v << "," << e.w << "\n";
+		}
+	}else{
+		for(const Edge& e : edgeSet){
+			fout << type << " " << e.u << "," << e.v << "," << e.w << "\n";
+			fout << type << " " << e.v << "," << e.u << "," << e.w << "\n";
+		}
+	}
+}
+
+int changeGraph(const string& dir, const string& deltaPrefix,
+		const int nPart, const int seed, const double rate,
+		const double addRate, const double rmvRate, const double incRate, const double decRate)
+{
 	vector<ifstream*> fin;
 	vector<ofstream*> fout;
 	for(int i = 0; i < nPart; ++i){
 		fin.push_back(new ifstream(dir + "/part" + to_string(i)));
-		fout.push_back(new ofstream(dir + "/" + deltaName + "-" + to_string(i)));
+		fout.push_back(new ofstream(deltaPrefix + "-" + to_string(i)));
 		if(!fin.back()->is_open()){
-			cerr << "failed in opening file: " << dir + "/part" + to_string(i) << endl;
-			return -i;
+			cerr << "failed in opening input file: " << dir + "/part" + to_string(i) << endl;
+			return 0;
 		}
 		if(!fout.back()->is_open()){
-			cerr << "failed in opening file: " << dir + "/delta" + to_string(i) << endl;
-			return -i;
+			cerr << "failed in opening output file: " << deltaPrefix + "-" + to_string(i) << endl;
+			return 0;
 		}
 	}
-
-	double desRate=1-addRate-rmvRate-incRate;
 
 	mt19937 gen(seed);
 	uniform_real_distribution<double> rnd_prob(0.0, 1.0);
-	uniform_int_distribution<int> ud; // 0 to numeric_limits<int>::max()
+	uniform_int_distribution<int> rnd_node; // 0 to numeric_limits<int>::max()
 	uniform_real_distribution<float> rnd_weight(0, 1);
 
-	double modifyProb=rate*(1-addRate);
-	double addProb=rate*addRate;
-	double addProbThreshold=modifyProb+addProb;
+	//double modProb=rate*(1-addRate);
+	double addProb = rate * addRate, rmvProb = rate * rmvRate;
+	double incProb = rate * incRate, decProb = rate * decRate;
 
-	vector<Edge> mSet;
-	vector<Edge> addSet;
+	ModifyThreshold threshold; //{ addTh, rmvTh, incTh, decTh };
+	threshold.trivial = (1 - rate);
+	threshold.add = threshold.trivial + addProb;
+	threshold.rmv = threshold.add + rmvProb;
+	threshold.inc = threshold.rmv + incProb;
+	threshold.dec = threshold.inc + decProb;
+
 	int totalV = 0, totalE = 0;
-	int failAdd=0;
+	// int failAdd = 0;
+	int addCnt = 0, rmvCnt = 0, incCnt = 0, decCnt = 0;
 
-	int maxV=0;
+	int maxV = 0;
 	string line;
 	for(int i = 0; i < nPart; i++){
-		while(getline(*fin[i], line)){
-			// *fout[i] << line << endl;
-			totalV++;
-			//cout << line << endl;
+		// generate
+		ModifyEdges modifiedSet;
+		tuple<int, int, int> ret = loadChanges(
+				*fin[i], maxV, threshold, rnd_prob, rnd_node, rnd_weight, gen, modifiedSet);
+		totalV += get<0>(ret);
+		totalE += get<1>(ret);
+		maxV = max(maxV, get<2>(ret));
+		delete fin[i];
 
-			size_t pos = line.find("\t");
-			int u = stoi(line.substr(0, pos));
-			line = line.substr(pos + 1);
+		// dump
+		addCnt += modifiedSet.addSet.size();
+		dumpChangeOneSet(*fout[i], modifiedSet.addSet, 'A', false);
+		rmvCnt += modifiedSet.rmvSet.size();
+		dumpChangeOneSet(*fout[i], modifiedSet.rmvSet, 'R', false);
+		incCnt += modifiedSet.incSet.size();
+		dumpChangeOneSet(*fout[i], modifiedSet.incSet, 'I', false);
+		decCnt += modifiedSet.decSet.size();
+		dumpChangeOneSet(*fout[i], modifiedSet.decSet, 'D', false);
 
-			unordered_set<int> hs;
-			hs.insert(u);
-			int addCnt=0;
-			while((pos = line.find_first_of(" ")) != line.npos){
-				totalE++;
-				string link = line.substr(0, pos);
-				int cut = link.find_first_of(",");
-				Edge e;
-				e.u = u;
-				e.v = stoi(link.substr(0, cut));
-				e.w = link.substr(cut + 1);
-
-				line = line.substr(pos + 1);
-
-				maxV = max(maxV, e.v);
-				hs.insert(e.v);
-
-				// whether to modify (remove, increase, decrease)
-				double r=rnd_prob(gen);
-				if(r < modifyProb){
-					mSet.push_back(e);
-				}else if(r < addProbThreshold){ // whether to add
-					++addCnt;
-				}
-			}
-			//cout << hs.size() << endl;
-			// add
-			while(addCnt--){
-				int rpt=0;
-				int newV;
-				do{
-					newV=ud(gen) % maxV;
-				}while(hs.find(newV)!=hs.end() && rpt++<10);
-				if(rpt<10){
-					Edge e{u, newV, to_string(rnd_weight(gen))};
-					addSet.push_back(move(e));
-				}else{
-					++failAdd;
-				}
-			}
-		} // line
+		delete fout[i];
 	} // file
 
-	int addCnt = 0, rmvCnt = 0, incCnt = 0, decCnt = 0;
-	double thRmv=rmvRate, thInc=rmvRate+incRate, thDes=rmvRate+incRate+desRate;
-	for(Edge e : mSet){
-		double r=rnd_prob(gen);
-		if(r < thRmv){
-			*fout[e.u % nPart] << "R " << e.u << "," << e.v << "," << e.w << "\n";
-			//*fout[e.v % nPart] << "R " << e.v << "," << e.u << "," << e.w << "\n";
-			rmvCnt++;
-		}else if(r < thInc){
-			float ww = stof(e.w) * (1 + rnd_prob(gen));
-			*fout[e.u % nPart] << "I " << e.u << "," << e.v << "," << ww << "\n";
-			//*fout[e.v % nPart] << "I " << e.v << "," << e.u << "," << ww << "\n";
-			incCnt++;
-		}else if(r < thDes){
-			float ww = stof(e.w) * rnd_prob(gen);
-			*fout[e.u % nPart] << "D " << e.u << "," << e.v << "," << ww << "\n";
-			//*fout[e.v % nPart] << "D " << e.v << "," << e.u << "," << ww << "\n";
-			decCnt++;
-		}
-	}
-
-	for(Edge e : addSet){
-		*fout[e.u % nPart] << "A " << e.u << "," << e.v << "," << e.w << "\n";
-		//*fout[e.v % nPart] << "A " << e.v << "," << e.u << "," << e.w << "\n";
-		addCnt++;
-	}
-
-	for(size_t i = 0; i < fout.size(); i++){
-		delete fout[i];
-		delete fin[i];
-	}
-
-	//delete inc;
-	cout << "total vertex/edge: " << totalV << "/" << totalE << endl;
-	cout << "Add edge: " << addCnt << " failed: " << failAdd << endl;
-	cout << "Remove edge: " << rmvCnt << endl;
-	cout << "Increase edge weight: " << incCnt << endl;
-	cout << "Decrease edge weight: " << decCnt << endl;
+	double te = totalE;
+	cout << "Total vertex/edge: " << totalV << "/" << totalE << "\n";
+	cout << "  add e: " << addCnt << "\t: " << addCnt / te << "\n";
+	cout << "  rmv e: " << rmvCnt << "\t: " << rmvCnt / te << "\n";
+	cout << "  inc w: " << incCnt << "\t: " << incCnt / te << "\n";
+	cout << "  dec w: " << decCnt << "\t: " << decCnt / te << endl;
 	return nPart;
 }
 
@@ -161,8 +214,7 @@ int loadGraph(const string& dir, const string& deltaName, const int nPart, const
 
 struct Option{
 	int nPart, nNode;
-	string deltaName;
-	string dist;
+	string deltaPrefix;
 	double alpha; // for power-law distribution
 	string weight;
 	double wmin, wmax;
@@ -174,8 +226,9 @@ struct Option{
 
 	void parse(int argc, char* argv[]);
 private:
-	bool setDist(string& method);
 	bool setWeight(string& method);
+	bool checkRate1(double rate);
+	bool checkRate2(double rate);
 	bool normalizeRates();
 };
 
@@ -183,41 +236,17 @@ void Option::parse(int argc, char* argv[]){
 	outDir = argv[1];
 	nPart = stoi(string(argv[2]));
 //	nNode=stoi(string(argv[2]));
-//	string distMethod="pl:2.3";
-//	string weightMethod="no";
-	deltaName = argv[3];
-	rate = stof(string(argv[4]));
-	addRate = stof(string(argv[5]));
-	rmvRate = stof(string(argv[6]));
-	incRate = stof(string(argv[7]));
-	decRate = stof(string(argv[8]));
+	deltaPrefix = argv[3];
+	rate = stod(string(argv[4]));
+	addRate = stod(string(argv[5]));
+	rmvRate = stod(string(argv[6]));
+	incRate = stod(string(argv[7]));
+	decRate = stod(string(argv[8]));
 	seed = 1535345;
 	if(argc > 9)
 		seed = stoul(string(argv[9]));
-//	if(argc>=5)
-//		weightMethod=argv[4];
-	/*if(argc>=7)
-	 prop=stoi(string(argv[6]));
-	 // check distribution
-	 if(!setDist(distMethod))
-	 throw invalid_argument("unsupported degree distribution: "+distMethod);
-	 if(!setWeight(weightMethod))
-	 throw invalid_argument("unsupported weight distribution: "+weightMethod);
-	 */
 	if(!normalizeRates())
 		throw invalid_argument("Given rates do not make sense.");
-}
-bool Option::setDist(string& method){
-	if(method == "uni"){
-		alpha = 2.0;
-		dist = "uni";
-	}else if(method.substr(0, 3) == "pl:"){
-		alpha = stod(method.substr(3));
-		dist = "pl";
-	}else{
-		return false;
-	}
-	return true;
 }
 bool Option::setWeight(string& method){
 	if(method == "no"){
@@ -232,37 +261,44 @@ bool Option::setWeight(string& method){
 	}
 	return true;
 }
+bool Option::checkRate1(double rate){
+	return 0.0 <= rate;
+}
+bool Option::checkRate2(double rate){
+	return 0.0 <= rate && rate <= 1.0;
+}
 bool Option::normalizeRates(){
-	bool flag= 0.0<rate && rate<=1.0
-			&& 0.0<=addRate && 0.0<=rmvRate && 0.0<=incRate && 0.0<=decRate;
+	bool flag = checkRate2(rate)
+			&& checkRate1(addRate) && checkRate1(rmvRate)
+			&& checkRate1(incRate) && checkRate1(decRate);
 	if(!flag)
 		return false;
-	double total=addRate+rmvRate+incRate+decRate;
-	if(total!=1.0){
-		cout<<"normalizing modifying rates"<<endl;
-		addRate/=total;
-		rmvRate/=total;
-		incRate/=total;
-		decRate/=total;
+	double total = addRate + rmvRate + incRate + decRate;
+	if(total != 1.0){
+		cout << "normalizing modifying rates" << endl;
+		addRate /= total;
+		rmvRate /= total;
+		incRate /= total;
+		decRate /= total;
 	}
 	return true;
 }
 
 int main(int argc, char* argv[]){
 	if(argc < 3 || argc > 10){
-		cerr<< "Wrong usage.\n"
-				"Usage: \"deltaGen <dir> <#parts> <delta-name> <deltaRate> <addRate> <rmvRate> <incRate> <desRate> [random-seed]\""
+		cerr << "Wrong usage.\n"
+				"Usage: \"deltaGen <dir> <#parts> <delta-prefix> <deltaRate> <addRate> <rmvRate> <incRate> <decRate> [random-seed]\""
 				<< endl;
 		cerr << "  <dir>: the folder of graphs.\n"
 				"  <#parts>: number of parts the graphs are separated (the number of files to operate).\n"
-				"  <delta-name>: the name of generated delta graphs, naming format: \"<delta-name>-<part>\".\n"
+				"  <delta-prefix>: the path and name prefix of generated delta graphs, naming format: \"<delta-prefix>-<part>\".\n"
 				"  <deltaRate>: the rate of changed edges.\n"
-				"  <addRate>, <rmvRate>, <incRate>, <desRate>: "
+				"  <addRate>, <rmvRate>, <incRate>, <decRate>: "
 				"among the changed edges the rate for edge-addition, edge-removal, weight-increase and weight-decrease. "
 				"They are automatically normalized.\n"
 				"  [random-seed]: (=1535345) seed for random numbers\n"
 				"i.e.: ./deltaGen.exe graphDir 2 delta-rd 0.05 0 0.3 0 0.7 123456\n"
-				"i.e.: ./deltaGen.exe input 2 delta2 0.01 0.2 0.2 0.3 0.3\n"
+				"i.e.: ./deltaGen.exe input 2 ../delta/d2 0.01 0.2 0.2 0.3 0.3\n"
 				<< endl;
 		return 1;
 	}
@@ -276,10 +312,10 @@ int main(int argc, char* argv[]){
 	ios_base::sync_with_stdio(false);
 	cout << "Loading " << opt.nPart << " parts, from folder: " << opt.outDir << endl;
 
-	int n = loadGraph(opt.outDir, opt.deltaName, opt.nPart, opt.seed, opt.rate,
-			opt.addRate, opt.rmvRate, opt.incRate);
+	int n = changeGraph(opt.outDir, opt.deltaPrefix, opt.nPart, opt.seed, opt.rate,
+			opt.addRate, opt.rmvRate, opt.incRate, opt.decRate);
 
-	cout << "success " << n << " files.\n fail " << opt.nPart - n << " files." << endl;
-	return 0;
+	cout << "success " << n << " files. fail " << opt.nPart - n << " files." << endl;
+	return n > 0 ? 0 : 3;
 }
 

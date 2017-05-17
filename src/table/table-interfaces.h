@@ -40,7 +40,7 @@ public:
 
 class Snapshottable{
 public:
-	virtual void serializeToSnapshot(const std::string& f, long* updates, double* totalF2) = 0;
+	virtual void serializeToSnapshot(const std::string& f, uint64_t* updates, double* totalF2, uint64_t* defaultF2) = 0;
 	virtual ~Snapshottable(){}
 };
 

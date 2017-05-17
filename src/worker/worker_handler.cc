@@ -87,8 +87,9 @@ void Worker::HandleAddInNeighbor(const string& d, const RPCInfo& info){
 	if(!t->initialized()){
 		string d2=d;
 		RPCInfo i2=info;
+		VLOG(2)<<"delay the processing of an in-neighbor message, wait until local table initialized.";
+		this_thread::sleep_for(chrono::duration<double>(0.2));
 		driver.pushData(d2, i2);
-		VLOG(1)<<"delay the processing of an in-neighbor message, wait until local table initialized.";
 		return;
 	}
 	// translate net-id to worker-id
@@ -112,10 +113,17 @@ void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
 
 void Worker::HandleProcessUpdates(const std::string&, const RPCInfo&){
 	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+	static int cnt=1;
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
 		if(t){
+			if(t->is_processing())
+				continue;
+			VLOG(2)<<"process "<<cnt++;
 			t->ProcessUpdates();
+//			t->BufProcessUpdates();
+			t->resetProcessMarker();
+//			this_thread::sleep_for(chrono::duration<double>(1));
 		}
 	}
 	st_will_process_=false;
@@ -126,7 +134,11 @@ void Worker::HandleSendUpdates(const std::string&, const RPCInfo&){
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
 		if(t){
+			if(t->is_sending())
+				continue;
 			t->SendUpdates();
+//			t->BufSendUpdates();
+			t->resetSendMarker();
 		}
 	}
 	st_will_send_=false;
@@ -136,9 +148,11 @@ void Worker::HandlePnS(const std::string&, const RPCInfo&){
 	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
-		if(t){
+		if(t /*&& t->canPnS()*/){
 			t->ProcessUpdates();
+			t->resetProcessMarker();
 			t->SendUpdates();
+			t->resetSendMarker();
 		}
 	}
 	st_will_process_=false;
@@ -150,7 +164,11 @@ void Worker::HandleTermCheck(const std::string&, const RPCInfo&){
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
 		if(t){
+			if(t->is_termchecking())
+				continue;
+//			t->BufTermCheck();
 			t->TermCheck();
+			t->resetTermMarker();
 		}
 	}
 	st_will_termcheck_=false;

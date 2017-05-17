@@ -90,9 +90,12 @@ void Master::finishKernel(){
 	//2nd round-trip to make sure all workers have applied all updates
 	//XXX: incorrect if MPI does not guarantee remote delivery
 //	network_->SyncBroadcast(MTYPE_WORKER_APPLY, empty);
-	su_wapply.reset();
-	network_->Broadcast(MTYPE_WORKER_APPLY, empty);
-	su_wapply.wait();
+	if(current_run_.kernel=="MaiterKernel2" && current_run_.method=="map"){
+		su_wapply.reset();
+		VLOG(1)<<"Waiting workers for applying local delta.";
+		network_->Broadcast(MTYPE_WORKER_APPLY, empty);
+		su_wapply.wait();
+	}
 
 	kernel_terminated_=true;
 

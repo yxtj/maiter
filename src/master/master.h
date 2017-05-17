@@ -17,6 +17,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <string>
 #include <fstream>
 #include <thread>
 #include <mutex>
@@ -49,7 +50,7 @@ public:
 	virtual void signalToTermCheck();
 
 	virtual void realSendUpdates(int dstWorkerID, const KVPairData& put){}
-	virtual void realSendTermCheck(int index, long updates, double current){}
+	virtual void realSendTermCheck(int index, uint64_t updates, double current, uint64_t ndefault){}
 	virtual void realSendRequest(int dstWorkerID, const ValueRequest& req) {}
 	virtual void realSendInNeighbor(int dstWorkerID, const InNeighborData& data){}
 
@@ -188,14 +189,13 @@ private:
 	double last_checkpoint_;
 	double last_termcheck_;
 	Timer* barrier_timer;
-	ofstream conv_track_log;
 	ofstream sync_track_log;
 	int iter;
 
 	std::vector<WorkerState*> workers_;
 	std::unordered_map<int, WorkerState*> netId2worker_;//map network id (rpc source) to worker
 
-	typedef map<string, MethodStats> MethodStatsMap;
+	typedef std::map<std::string, MethodStats> MethodStatsMap;
 	MethodStatsMap method_stats_;
 
 	TableRegistry::Map& tables_;

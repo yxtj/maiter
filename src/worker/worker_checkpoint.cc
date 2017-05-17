@@ -88,8 +88,8 @@ bool Worker::startCheckpoint(const int epoch){
 		lock_guard<recursive_mutex> sl(state_lock_);
 
 		epoch_ = epoch;
-		tmr_.Reset();	//for checkpoint time statistics
-		tmr_cp_block_.Reset();
+		tmr_.reset();	//for checkpoint time statistics
+		tmr_cp_block_.reset();
 		st_checkpointing_=true;
 	}
 
@@ -119,7 +119,7 @@ bool Worker::finishCheckpoint(const int epoch){
 		LOG(INFO)<< "Skip unmatched checkpoint finish request: "<<epoch<<", curr="<<epoch_;
 		return false;
 	}
-	tmr_cp_block_.Reset();
+	tmr_cp_block_.reset();
 
 	switch(kreq.cp_type()){
 	case CP_SYNC:
@@ -161,7 +161,7 @@ bool Worker::processCPSig(const int wid, const int epoch){
 		LOG(INFO)<<"Skipping unmatched checkpoint flush signal: "<<epoch<<", curr="<<epoch_;
 		return false;
 	}
-	tmr_cp_block_.Reset();
+	tmr_cp_block_.reset();
 	switch(kreq.cp_type()){
 	case CP_SYNC:
 		break;
@@ -333,7 +333,7 @@ void Worker::_finishCP_Async(){
 	su_cp_sig.wait();
 	su_cp_sig.reset();
 
-	tmr_cp_block_.Reset();
+	tmr_cp_block_.reset();
 	pause_pop_msg_=true;
 	DVLOG(1)<<"received all cp flush signals at "<<id();
 	RegDSPProcess(MTYPE_PUT_REQUEST,&Worker::HandlePutRequest);
@@ -355,7 +355,7 @@ void Worker::_HandlePutRequest_AsynCP(const string& d, const RPCInfo& info){
 	HandlePutRequestReal(put);
 
 	//Difference:
-	tmr_cp_block_.Reset();
+	tmr_cp_block_.reset();
 	MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(
 			TableRegistry::Get()->mutable_table(put.table()));
 	if(!_cp_async_sig_rec[put.source()])
