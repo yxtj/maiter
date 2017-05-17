@@ -51,7 +51,7 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 		}
 	}
 	void read_init(std::string& line, int& k, float& delta, float& value){
-		// format: "<key>\t<value>:<delta>"
+		// format: "<key>\t<delta>:<value>"
 		size_t p=line.find('\t');
 		k = stoi(line.substr(0, p));
 		++p;
@@ -106,7 +106,7 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	bool better(const float& a, const float& b){
 		return a < b;
 	}
-	bool is_minmax_accumulate() const{
+	bool is_selective() const{
 		return true;
 	}
 

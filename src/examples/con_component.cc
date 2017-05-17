@@ -31,7 +31,7 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
 		}
 	}
 	void read_init(std::string& line, int& k, int& delta, int& value){
-		// format: "<key>\t<value>:<delta>"
+		// format: "<key>\t<delta>:<value>"
 		size_t p=line.find('\t');
 		k = stoi(line.substr(0, p));
 		++p;
@@ -69,16 +69,19 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
             int  init_delta = k;
             delta = init_delta;
     }
-
     void init_v(const int& k,int& v,vector<int>& data){
             v=0;
     }
+
     void accumulate(int& a, const int& b){
             a=std::max(a,b);
     }
 	bool better(const int& a, const int& b){
             return a > b;
     }
+	bool is_selective() const{
+		return true;
+	}
 
     void priority(int& pri, const int& value, const int& delta, const vector<int>& data){
             pri = value-std::max(value,delta);

@@ -27,6 +27,42 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 		}
 
 	}
+	void read_init(std::string& line, int& k, float& delta, float& value){
+		// format: "<key>\t<delta>:<value>"
+		size_t p=line.find('\t');
+		k = stoi(line.substr(0, p));
+		++p;
+		size_t p2=line.find(':', p);
+		delta = stof(line.substr(p, p2-p));
+		value = stof(line.substr(p2+1));
+	}
+
+	void read_change(std::string& line, int& k, ChangeEdgeType& type, vector<Link>& change){
+		// line: "<type>\t<src>,<dst>"
+		// <type> is one of A, R, I, D
+		switch(line[0]){
+			case 'A': type=ChangeEdgeType::ADD;	break;
+			case 'R': type=ChangeEdgeType::REMOVE;	break;
+			case 'I': type=ChangeEdgeType::INCREASE;	break;
+			case 'D': type=ChangeEdgeType::DECREASE;	break;
+			default: LOG(FATAL)<<"Cannot parse change line: "<<line;
+		}
+		size_t p1=line.find(',', 2);
+		k=stoi(line.substr(2,p1-2));
+		size_t p2=line.find(',', p1+1);
+		int dst=stoi(line.substr(p1+1, p2-p1-1));
+		float weight=stof(line.substr(p2+1));
+		change.clear();
+		change.emplace_back(dst, weight);
+	}
+	vector<int> get_keys(const vector<Link>& data){
+		vector<int> res;
+		res.reserve(data.size());
+		for(const Link& l : data){
+			res.push_back(l.end);
+		}
+		return res;
+	}
 
 	void init_c(const int& k, float& delta, vector<int>& data){
 		delta = 0.2;

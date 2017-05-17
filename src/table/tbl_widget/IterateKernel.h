@@ -37,8 +37,8 @@ struct IterateKernel : public IterateKernelBase {
 	virtual void init_v(const K& k,V& v,D& data) = 0;
 
 	virtual void accumulate(V& a, const V& b) = 0;
-	virtual bool better(const V& a, const V& b);
-	virtual bool is_minmax_accumulate() const{ return false; };
+	virtual bool is_selective() const;
+	virtual bool better(const V& a, const V& b); // only matters when is_selective() is true
 	virtual void process_delta_v(const K& k, V& dalta,V& value, D& data){}
 	virtual void priority(V& pri, const V& value, const V& delta, const D& data) = 0;
 	virtual void g_func(const K& k,const V& delta,const V& value, const D& data, std::vector<std::pair<K, V> >* output) = 0;
@@ -50,7 +50,12 @@ struct IterateKernel : public IterateKernelBase {
 };
 
 template <class K, class V, class D>
-bool IterateKernel<K, V, D>::better(const V& a, const V& b){
+inline bool IterateKernel<K, V, D>::is_selective() const {
+	return false;
+}
+
+template <class K, class V, class D>
+inline bool IterateKernel<K, V, D>::better(const V& a, const V& b){
 	V temp=a;
 	this->accumulate(temp, b);
 	return temp==a;
