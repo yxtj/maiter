@@ -458,7 +458,7 @@ private:
 	uint64_t size_;
 
 	std::hash<K> hashobj_;
-	std::mutex m_; // mutex for resizing the table
+	std::recursive_mutex m_; // mutex for resizing the table
 
 private:
 	// local sum, for termination checking
@@ -605,7 +605,7 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size){
 	// LOG(INFO) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
 	for(int i = 0; i < old_b.size(); ++i){
 		if(old_b[i].in_use){
-			put(old_b[i].k, old_b[i].v1, old_b[i].v2, old_b[i].v3);
+			put(move(old_b[i].k), move(old_b[i].v1), move(old_b[i].v2), move(old_b[i].v3));
 			// LOG(INFO)<< "copy: " << old_b[i].k;
 		}
 	}
@@ -723,7 +723,8 @@ void StateTable<K, V1, V2, V3>::accumulateF3(const K& k, const V3& v){
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, const V3& v3){
-//	std::lock_guard<std::mutex> gl(m_);
+	DVLOG(2)<<"lock in put ";//<<getcallstack();
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b=bucket_for_access_key(k);
 	if(b==-1 /* || (!buckets_[b].in_use && entries_ >= size_*kLoadFactor) */){
 		//doesn't consider loadfactor, the tablesize is pre-defined
@@ -747,11 +748,13 @@ void StateTable<K, V1, V2, V3>::put(const K& k, const V1& v1, const V2& v2, cons
 	buckets_[b].v3 = v3;
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
 			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
+	DVLOG(2)<<"unlock in put";
 }
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
-//	std::lock_guard<std::mutex> gl(m_);
+	DVLOG(2)<<"lock in put& ";//<<getcallstack();
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b=bucket_for_access_key(k);
 	if(b==-1 /* || (!buckets_[b].in_use && entries_ >= size_*kLoadFactor) */){
 		//doesn't consider loadfactor, the tablesize is pre-defined
@@ -774,12 +777,14 @@ void StateTable<K, V1, V2, V3>::put(K&& k, V1&& v1, V2&& v2, V3&& v3){
 	buckets_[b].v3 = std::forward<V3>(v3);
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->priority(
 			buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
+	DVLOG(2)<<"unlock in put&";
 }
 
 // XXX: for evolving graph:
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeType& type, const V3& change){
-	std::lock_guard<std::mutex> gl(m_);
+	DVLOG(2)<<"lock in change";
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b=bucket_for_key(k);
 	Bucket& bk=buckets_[b];
 	switch(type){
@@ -799,6 +804,7 @@ void StateTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeType& t
 		*std::find(bk.v3.begin(), bk.v3.end(), change.front())=change.front();
 		break;
 	}
+	DVLOG(2)<<"unlock in change";
 }
 
 template<class K, class V1, class V2, class V3>
@@ -865,7 +871,8 @@ void StateTable<K, V1, V2, V3>::Bucket::reset_best_pointer(IterateKernel<K, V1, 
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::add_ineighbor(const K& from, const K& to, const V1& v1){
-	std::lock_guard<std::mutex> gl(m_);
+	DVLOG(2)<<"lock in add";
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b=bucket_for_access_key(to);
 	if(b==-1){
 		//doesn't consider loadfactor, the tablesize is pre-defined
@@ -882,6 +889,7 @@ void StateTable<K, V1, V2, V3>::add_ineighbor(const K& from, const K& to, const 
 	}
 	buckets_[b].k = to;
 	buckets_[b].input[from] = v1;
+	DVLOG(2)<<"unlock in add";
 }
 
 template<class K, class V1, class V2, class V3>

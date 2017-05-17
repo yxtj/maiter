@@ -411,7 +411,7 @@ template<class K, class V1, class V2, class V3>
 void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache_remote(){
 	Marshal<K> * km = kmarshal();
 	Marshal<V1> * vm = v1marshal();
-	int size=std::max<int>(bufmsg, 200);
+	int size=std::max<int>(bufmsg, 1024);
 	for(size_t i=0;i<in_neighbor_cache.size();++i){
 		if(is_local_shard(i))
 			continue;
