@@ -37,7 +37,7 @@ def get_time_one_file(fn):
         res=[0 for i in range(4)]
         for m in l:
             idx=map_kernel(m[0])
-            total_t=m[1]
+            total_t='%.3f' % m[1]
             #shard_t=m[2]
             res[idx]=total_t
         return res if all(isinstance(v, str) for v in res) else None
@@ -97,3 +97,4 @@ if __name__=='__main__':
     if argc > 3 and sys.argv[3].lower() in ['1', 'y', 't', 'yes', 'true']:
         append = True
     main(folder, out_file, append)
+

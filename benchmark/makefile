@@ -21,7 +21,7 @@ release: $(SRC:=.exe)
 
 debug: 
 	$(CXX) $(DBGFLAGS) sssp.cpp -o sssp.exe
-	$(CXX) $(DBGFLAGS) pagerank.cpp -o pagerank.exe
+	#$(CXX) $(DBGFLAGS) pagerank.cpp -o pagerank.exe
 
 clean:
 	rm -rf *.o

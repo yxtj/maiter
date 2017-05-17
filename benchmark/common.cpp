@@ -30,8 +30,6 @@ bool load_graph_weight(std::vector<std::vector<Edge>>& res, const std::string& f
 		if(res.size() <= k)	// k starts from 0
 			res.resize(k+1);	// fill the empty holes
 		res[k]=move(temp);
-		
-		cout<<k<<"\t"<<res.size()<<endl;
 	}
 	return true;
 }

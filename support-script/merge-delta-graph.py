@@ -29,7 +29,8 @@ def merge_weight(gfn, dfn):
     # parse delta and apply
     cntA=0
     cntR=0
-    cntM=0
+    cntI=0
+    cntD=0
     for line in ddata:
         #print(line)
         tp = line[0]
@@ -44,13 +45,18 @@ def merge_weight(gfn, dfn):
             idx=[i for i in range(len(g[f])) if g[f][i][0]==t][0]
             del g[f][idx]
             cntR+=1
+        elif tp == 'I':
+            idx=[i for i in range(len(g[f])) if g[f][i][0]==t][0]
+            g[f][idx]=(t,w)
+            cntI+=1
         else:
             idx=[i for i in range(len(g[f])) if g[f][i][0]==t][0]
             g[f][idx]=(t,w)
-            cntM+=1
+            cntD+=1
     print('  added change:',cntA)
     print('  removed change:',cntR)
-    print('  modified change:',cntM)
+    print('  increase change:',cntI)
+    print('  decrease change:',cntD)
     return g
 
 # g is dict{key, list(<to, weight>)}

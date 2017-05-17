@@ -38,11 +38,11 @@ struct TermCheckers{
 		}
 		virtual bool terminate(const std::vector<std::pair<double, uint64_t> >& local_reports){
 			//your aggregation logic for using local reports here (e.g summation)
-			curr = std::accumulate(local_reports.begin(),local_reports.end(),
-					pair<double, uint64_t>(0.0, 0),
-					[](const std::pair<double, uint64_t>& a, const std::pair<double, uint64_t>& b){
-				return make_pair(a.first+b.first, a.second+b.second);
-			});
+			curr = std::make_pair<double, int64_t>(0.0, 0);
+			for(auto& p : local_reports){
+				curr.first += p.first;
+				curr.second += p.second;
+			}
 			VLOG(0) << "terminate check : last progress (" << last.first <<" , "<<last.second
 					<< ") current progress (" << curr.first<<" , "<<curr.second
 					<< ") difference (" << (curr.first - last.first) <<" , "
@@ -61,11 +61,11 @@ struct TermCheckers{
 		using TermChecker<K,V>::last;
 		using TermChecker<K,V>::curr;
 		bool terminate(const std::vector<std::pair<double, uint64_t>>& local_reports){
-			curr = std::accumulate(local_reports.begin(),local_reports.end(),
-					pair<double, uint64_t>(0.0, 0),
-					[](const std::pair<double, uint64_t>& a, const std::pair<double, uint64_t>& b){
-				return make_pair(a.first+b.first, a.second+b.second);
-			});
+			curr = std::make_pair<double, int64_t>(0.0, 0);
+			for(auto& p : local_reports){
+				curr.first += p.first;
+				curr.second += p.second;
+			}
 			VLOG(0) << "terminate check : last progress (" << last.first <<" , "<<last.second
 					<< ") current progress (" << curr.first<<" , "<<curr.second
 					<< ") difference (" << (curr.first - last.first) <<" , "
@@ -83,16 +83,16 @@ struct TermCheckers{
 		using TermChecker<K,V>::last;
 		using TermChecker<K,V>::curr;
 		bool terminate(const std::vector<std::pair<double, uint64_t>>& local_reports){
-			curr = std::accumulate(local_reports.begin(),local_reports.end(),
-					pair<double, uint64_t>(0.0, 0),
-					[](const std::pair<double, uint64_t>& a, const std::pair<double, uint64_t>& b){
-				return make_pair(a.first+b.first, a.second+b.second);
-			});
+			curr = std::make_pair<double, int64_t>(0.0, 0);
+			for(auto& p : local_reports){
+				curr.first += p.first;
+				curr.second += p.second;
+			}
 			VLOG(0) << "terminate check : last progress (" << last.first <<" , "<<last.second
 					<< ") current progress (" << curr.first<<" , "<<curr.second
 					<< ") difference (" << (curr.first - last.first) <<" , "
 					<< (curr.second - last.second)<<")";
-			if(abs(curr.first) >= FLAGS_termcheck_threshold){
+			if(std::abs(curr.first) >= FLAGS_termcheck_threshold){
 				return true;
 			}else{
 				last = curr;

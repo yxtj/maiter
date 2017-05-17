@@ -144,7 +144,7 @@ void Worker::KernelProcess(){
 //	DumpProfile();
 	DVLOG(1)<<"Finish kernel process";
 
-	tmr_.Reset();
+	tmr_.reset();
 }
 
 void Worker::runKernel(){

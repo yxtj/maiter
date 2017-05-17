@@ -1,5 +1,6 @@
 #include "global-table.h"
 #include "util/timer.h"
+#include <memory>
 #include <gflags/gflags.h>
 
 DECLARE_double(snapshot_interval);
@@ -93,13 +94,80 @@ int64_t GlobalTable::shard_size(int shard){
 	}
 }
 
-MutableGlobalTable::MutableGlobalTable(){
-//	sent_bytes_ = 0;
+
+// -------- MutableGlobalTableBase --------
+
+MutableGlobalTableBase::MutableGlobalTableBase(){
 	pending_process_ = 0;
 	pending_send_ = 0;
-	snapshot_index = 0;
+
 	bufmsg=1;
 	buftime=std::min(FLAGS_buftime, FLAGS_snapshot_interval/4);
+}
+
+void MutableGlobalTableBase::resetProcessMarker(){
+	pending_process_ = 0;
+	tmr_process.reset();
+}
+
+bool MutableGlobalTableBase::canProcess(){
+	return pending_process_ >= bufmsg
+			|| (pending_process_ !=0 && tmr_process.elapsed() > buftime);
+}
+
+void MutableGlobalTableBase::resetSendMarker(){
+	pending_send_ = 0;
+	tmr_send.reset();
+}
+
+bool MutableGlobalTableBase::canSend(){
+	return pending_send_ >= bufmsg
+			|| (pending_send_ != 0 && tmr_send.elapsed() > buftime);
+}
+
+bool MutableGlobalTableBase::canPnS(){
+	auto m = std::max(pending_process_, pending_send_);
+	return// m > FLAGS_bufmsg
+			//||
+			(m != 0 && tmr_send.elapsed() > buftime);
+}
+
+void MutableGlobalTableBase::resetTermMarker(){
+	tmr_term.reset();
+}
+
+bool MutableGlobalTableBase::canTermCheck(){
+	return tmr_term.elapsed() > FLAGS_snapshot_interval;
+}
+
+void MutableGlobalTableBase::BufProcessUpdates(){
+	if(canProcess()){
+		VLOG(3) << "accumulate pending process " << pending_process_ << ", in "<<tmr_process.elapsed();
+		ProcessUpdates();
+		resetProcessMarker();
+	}
+}
+
+void MutableGlobalTableBase::BufSendUpdates(){
+	if(canSend()){
+		VLOG(3) << "accumulate pending send " << pending_send_ << ", in "<<tmr_send.elapsed();
+		SendUpdates();
+		resetSendMarker();
+	}
+}
+
+void MutableGlobalTableBase::BufTermCheck(){
+	if(canTermCheck()){
+		TermCheck();
+		resetTermMarker();
+	}
+}
+
+// -------- MutableGlobalTable --------
+
+MutableGlobalTable::MutableGlobalTable(){
+//	sent_bytes_ = 0;
+	snapshot_index = 0;
 }
 
 void MutableGlobalTable::resize(int64_t new_size){
@@ -170,50 +238,14 @@ void MutableGlobalTable::restore(const string& pre){
 	}
 }
 
-//void MutableGlobalTable::HandlePutRequests(){
-//	if(helper()){
-//		helper()->HandlePutRequest();
-//	}
-//}
-
-void MutableGlobalTable::resetProcessMarker(){
-	pending_process_ = 0;
-	tmr_process.Reset();
-}
-
-bool MutableGlobalTable::canProcess(){
-	return pending_process_ > bufmsg
-			|| (pending_process_ !=0 && tmr_process.elapsed() > buftime);
-}
-
-void MutableGlobalTable::BufProcessUpdates(){
-	if(canProcess()){
-		VLOG(3) << "accumulate pending process " << pending_process_ << ", in "<<tmr_process.elapsed();
-		ProcessUpdates();
-		resetProcessMarker();
-	}
-}
-
-void MutableGlobalTable::resetSendMarker(){
-	pending_send_ = 0;
-	tmr_send.Reset();
-}
-
-bool MutableGlobalTable::canSend(){
-	return pending_send_ > bufmsg
-			|| (pending_send_ != 0 && tmr_send.elapsed() > buftime);
-}
-
-void MutableGlobalTable::BufSendUpdates(){
-	if(canSend()){
-		VLOG(3) << "accumulate pending send " << pending_send_ << ", in "<<tmr_send.elapsed();
-		SendUpdates();
-		resetSendMarker();
-	}
-}
-
 void MutableGlobalTable::SendUpdates(){
+	std::lock_guard<std::recursive_mutex> lg(get_mutex());
 	// prepare
+	sending_=true;
+	// automatically reset processing to false when this function exits
+	std::shared_ptr<bool> guard_process(&sending_, [](bool* p){
+		*p=false;
+	});
 	if(FLAGS_local_aggregate){
 		setUpdatesFromAggregated();
 	}
@@ -232,47 +264,12 @@ void MutableGlobalTable::SendUpdates(){
 	pending_send_ = 0;
 }
 
-void MutableGlobalTable::setUpdatesFromAggregated(){	// aggregated way
-	for(int i = 0; i < partitions_.size(); ++i){
-		LocalTable *t = partitions_[i];
-		if(!is_local_shard(i) && (get_partition_info(i)->dirty || !t->empty())){
-			KVPairData& put=update_buffer[i];
-
-			ProtoKVPairCoder c(&put);
-			t->serializeToNet(&c);
-			t->clear();
-			VLOG(3) << "Done with update for (" << t->id() << "," << t->shard() << ")";
-		}
-	}
-}
-
-void MutableGlobalTable::addIntoUpdateBuffer(int shard, Arg& arg){	// non-aggregated way
-	KVPairData& put=update_buffer[shard];
-	Arg* p = put.add_kv_data();
-	*p=std::move(arg);
-}
-
-bool MutableGlobalTable::canPnS(){
-	auto m = std::max(pending_process_, pending_send_);
-	return// m > FLAGS_bufmsg
-			//||
-			(m != 0 && tmr_send.elapsed() > buftime);
-}
-
-bool MutableGlobalTable::canTermCheck(){
-	PERIODIC(FLAGS_snapshot_interval, {
-		return true;
-	});
-	return false;
-}
-
-void MutableGlobalTable::BufTermCheck(){
-	if(canTermCheck()){
-		this->TermCheck();
-	}
-}
-
 void MutableGlobalTable::TermCheck(){
+	termchecking_=true;
+	// automatically reset processing to false when this function exits
+	std::shared_ptr<bool> guard_process(&termchecking_, [](bool* p){
+		*p=false;
+	});
 	uint64_t total_updates = 0;
 	double total_current = 0;
 	uint64_t total_default = 0;
@@ -294,6 +291,26 @@ void MutableGlobalTable::TermCheck(){
 	}
 
 	snapshot_index++;
+}
+
+void MutableGlobalTable::setUpdatesFromAggregated(){	// aggregated way
+	for(int i = 0; i < partitions_.size(); ++i){
+		LocalTable *t = partitions_[i];
+		if(!is_local_shard(i) && (get_partition_info(i)->dirty || !t->empty())){
+			KVPairData& put=update_buffer[i];
+
+			ProtoKVPairCoder c(&put);
+			t->serializeToNet(&c);
+			t->clear();
+			VLOG(3) << "Done with update for (" << t->id() << "," << t->shard() << ")";
+		}
+	}
+}
+
+void MutableGlobalTable::addIntoUpdateBuffer(int shard, Arg& arg){	// non-aggregated way
+	KVPairData& put=update_buffer[shard];
+	Arg* p = put.add_kv_data();
+	*p=std::move(arg);
 }
 
 int64_t MutableGlobalTable::pending_write_bytes(){
@@ -319,7 +336,7 @@ void MutableGlobalTable::local_swap(GlobalTableBase *b){
 
 void MutableGlobalTable::InitUpdateBuffer(){
 	int n=num_shards();
-	VLOG(0)<<"num-shards: "<<n;
+//	VLOG(0)<<"num-shards: "<<n;
 	update_buffer.resize(n);
 	for(int i = 0; i < n; ++i){
 		if(is_local_shard(i))
