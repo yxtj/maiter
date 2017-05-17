@@ -12,7 +12,7 @@ using namespace std;
 
 vector<float> cal_sp_dijkstra(vector<vector<Edge>>& g, int source){
 	size_t n=g.size();
-	vector<float> res(n, numeric_limits<float>::max());
+	vector<float> res(n, numeric_limits<float>::infinity());
 	vector<bool> found(n, false);
 	priority_queue<Edge, vector<Edge>, greater<Edge>> heap; // Edge is re-used as struct <dis, node>
 	Edge e{source, 0.0f};
@@ -43,7 +43,7 @@ vector<float> cal_sp_dijkstra(vector<vector<Edge>>& g, int source){
 
 vector<float> cal_sp_spfa(vector<vector<Edge>>& g, int source){
 	size_t n=g.size();
-	vector<float> res(n, numeric_limits<float>::max());
+	vector<float> res(n, numeric_limits<float>::infinity());
 	vector<bool> inque(n, false);
 	deque<int> rque;
 	int f=0, l=0, nf=0;
