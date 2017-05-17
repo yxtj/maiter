@@ -17,6 +17,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <string>
 #include <fstream>
 #include <thread>
 #include <mutex>
@@ -194,7 +195,7 @@ private:
 	std::vector<WorkerState*> workers_;
 	std::unordered_map<int, WorkerState*> netId2worker_;//map network id (rpc source) to worker
 
-	typedef map<string, MethodStats> MethodStatsMap;
+	typedef std::map<std::string, MethodStats> MethodStatsMap;
 	MethodStatsMap method_stats_;
 
 	TableRegistry::Map& tables_;

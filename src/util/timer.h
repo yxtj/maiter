@@ -15,10 +15,10 @@ double Now();
 class Timer {
 public:
   Timer() {
-    Reset();
+    reset();
   }
 
-  void Reset() {
+  void reset() {
     start_time_ = Now();
 //    start_cycle_ = rdtsc();
   }

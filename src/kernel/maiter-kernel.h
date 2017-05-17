@@ -93,7 +93,7 @@ public:
 			V delta;
 			V value;
 			// same format as the output(MaiterKernel3)
-			// format: "<key>\t<value>:<delta>"
+			// format: "<key>\t<delta>:<value>"
 			maiter->iterkernel->read_init(line, key, delta, value);
 			if(use_initial_delta){
 				D d = table->getF3(key);
@@ -120,28 +120,33 @@ public:
 		}
 		a->resize(maiter->num_nodes);   //create local state table based on the input size
 
+		// step 1: load graph
 		VLOG(0)<<"loading graphs on "<<current_shard();
 		read_file(a);               //initialize the state table fields based on the input data file
+
+		// step 2: load initial value & delta
 		bool load_initial_value=!FLAGS_init_dir.empty();
-		bool is_minmax_accumulate = maiter->iterkernel->is_minmax_accumulate();
+		bool is_selective = maiter->iterkernel->is_selective();
 		if(load_initial_value){
 			VLOG(0)<<"loading initial values on "<<current_shard();
-			load_initial(a, false, is_minmax_accumulate);
+			load_initial(a, false, is_selective);
 		}
+
+		// step 3: coordinate in-neighbors
 		coord();
+	}
+
+	void coord(){
+		VLOG(0) << "building up in-neighbor list on "<<current_shard();
+		bool load_initial_value=!FLAGS_init_dir.empty();
+		bool is_selective = maiter->iterkernel->is_selective();
+		coordinate_in_neighbors(maiter->table, load_initial_value && is_selective);
 	}
 
 	void run(){
 		VLOG(0) << "initializing table on "<<current_shard();
 		init_table(maiter->table);
 		VLOG(0) << "table initialized on "<<current_shard();
-	}
-
-	void coord(){
-		VLOG(0) << "building up in-neighbor list on "<<current_shard();
-		bool load_initial_value=!FLAGS_init_dir.empty();
-		bool is_minmax_accumulate = maiter->iterkernel->is_minmax_accumulate();
-		coordinate_in_neighbors(maiter->table, load_initial_value && is_minmax_accumulate);
 	}
 };
 
@@ -285,16 +290,18 @@ public:
 			}else{
 				if(tgt->canProcess()){
 					tgt->helper()->signalToProcess();
-					tgt->resetProcessMarker();
+//					tgt->resetProcessMarker();
 				}
 				if(tgt->canSend()){
 					tgt->helper()->signalToSend();
-					tgt->resetSendMarker();
+//					tgt->resetSendMarker();
 				}
+//				tgt->helper()->signalToProcess();
+//				tgt->helper()->signalToSend();
 			}
 			if(tgt->canTermCheck())
 				tgt->helper()->signalToTermCheck();
-			// std::this_thread::sleep_for(std::chrono::duration<double>(FLAGS_sleep_time));
+			//std::this_thread::sleep_for(std::chrono::duration<double>(FLAGS_sleep_time));
 		}
 		// DLOG(INFO)<<"pending writes: "<<tgt->pending_send_;
 	}

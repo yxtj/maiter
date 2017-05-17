@@ -16,10 +16,10 @@
 namespace dsm{
 
 struct TermCheckerBase {
-	std::pair<double, uint64_t> last;
-	std::pair<double, uint64_t> curr;
+	std::pair<double, int64_t> last;
+	std::pair<double, int64_t> curr;
 	TermCheckerBase():last(-std::numeric_limits<double>::max(), 0), curr(0.0, 0){}
-	std::pair<double, uint64_t> get_curr() { return curr; }
+	std::pair<double, int64_t> get_curr() { return curr; }
 };
 
 #ifndef SWIG

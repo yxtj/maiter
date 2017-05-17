@@ -10,11 +10,7 @@
 
 #include "master.h"
 #include "kernel/maiter-kernel.h"
-
-#include <string>
-#include <iostream>
-
-using namespace std;
+#include <glog/logging.h>
 
 namespace dsm{
 
@@ -27,10 +23,9 @@ void Master::run_maiter(MaiterKernel<K, V, D>* maiter){
 	}
 
 	run_all("MaiterKernel1", "run", maiter->table, false, false, false);
-	//run_all("MaiterKernelDumpInNeighbor", "run", maiter->table, false, false, false);
-//	run_all("MaiterKernel1", "coord", maiter->table, false, false, false);
 
 	run_all("MaiterKernelLoadDeltaGraph", "run", maiter->table, false, false, false);
+//	run_all("MaiterKernelDumpInNeighbor", "run", maiter->table, false, false, false);
 
 	if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
 		run_all("MaiterKernel2", "map", maiter->table, true, true, true);
@@ -42,7 +37,7 @@ void Master::run_maiter(MaiterKernel<K, V, D>* maiter){
 }
 
 template<class T>
-T& Master::get_cp_var(const string& key, T defval){
+T& Master::get_cp_var(const std::string& key, T defval){
 	if(!cp_vars_.contains(key)){
 		cp_vars_.put(key, defval);
 	}
