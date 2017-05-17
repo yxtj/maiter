@@ -100,6 +100,7 @@ public:
 	// generate and send messages of in-neighbor information
 	void send_ineighbor_cache_remote();
 	void clear_ineighbor_cache();
+	void reset_ineighbor_bp();
 	// receive in-neighbor information
 	virtual void add_ineighbor(const dsm::InNeighborData& req);
 	// apply graph changes
@@ -207,7 +208,9 @@ public:
 //				VLOG(1)<<c++<<" p="<<p->pos<<" "<<p->parent_.size()<<" k="<<it2->key();
 				ProcessUpdatesSingle(it2->key(), it2->value1(), it2->value2(), it2->value3());
 				it2->Next();
+//				++c;
 			}
+//			VLOG(1)<<c;
 			delete it2;
 		}
 //		DVLOG(1)<<"process data: "<<t.elapsed();
@@ -449,6 +452,17 @@ void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache_remote(){
 template<class K, class V1, class V2, class V3>
 void TypedGlobalTable<K, V1, V2, V3>::clear_ineighbor_cache(){
 	in_neighbor_cache.clear();
+}
+
+template<class K, class V1, class V2, class V3>
+void TypedGlobalTable<K, V1, V2, V3>::reset_ineighbor_bp(){
+	VLOG(1)<<"reset bp";
+	for(int i=0;i<partitions_.size();++i){
+		if(!is_local_shard(i))
+			continue;
+		StateTable<K, V1, V2, V3> *st=dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(i));
+		st->reset_best_pointer();
+	}
 }
 
 template<class K, class V1, class V2, class V3>

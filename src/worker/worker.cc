@@ -276,8 +276,7 @@ void Worker::realSendTermCheck(int snapshot, uint64_t updates, double current, u
 	network_->Send(config_.master_id(), MTYPE_TERMCHECK_LOCAL, req);
 
 	VLOG(1) << "termination condition of subpass " << snapshot << " worker " << id()
-						<< " sent to master... with total current "
-						<< StringPrintf("%.05f", current);
+			<< " sent to master... with total current (" << current << " , " << ndefault << ")";
 }
 
 void Worker::realSendUpdates(int dstWorkerID, const KVPairData& put){

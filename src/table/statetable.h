@@ -839,7 +839,7 @@ bool StateTable<K, V1, V2, V3>::Bucket::update_input(
 	// if from is not recorded, the default value is considered
 	auto it=input.find(from);
 	const V1& old = it==input.end() ? kernel->default_v() : it->second;	// add case
-	bool better = it==input.end() || kernel->better(v, old);
+	bool better = kernel->better(v, old);
 	input[from] = v;	// modify case
 	if(it!=input.end() && v==kernel->default_v())	// remove case
 		input.erase(from);
