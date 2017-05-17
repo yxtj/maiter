@@ -140,6 +140,7 @@ int main(int argc, char* argv[]){
 		cout<<"  loading "<<fn<<endl;
 		if(!load_graph_weight(g, fn)){
 			cerr<<"Error: cannot open input file: "<<fn<<endl;
+			return 3;
 		}
 	}
     elapsed = chrono::system_clock::now()-start_t;
@@ -161,7 +162,7 @@ int main(int argc, char* argv[]){
 	}
 	if(!dump(fnout, sp)){
 		cerr<<"Error: cannot write to given file(s)"<<endl;
-		return 3;
+		return 4;
 	}
     elapsed = chrono::system_clock::now()-start_t;
 	cout<<"  finished in "<<elapsed.count()<<" seconds"<<endl;
