@@ -355,6 +355,8 @@ public:
 	void update_ineighbor(const K& from, const K& to, const V1& v1);
 	void remove_ineighbor(const K& from, const K& to);
 	V1 get_ineighbor(const K& from, const K& to);
+	void reset_best_pointer();
+	void reset_best_pointer(const K& key);
 
 	void resize(int64_t size);
 
@@ -815,16 +817,25 @@ bool StateTable<K, V1, V2, V3>::Bucket::update_v1_with_input(
 //	auto it=input.find(from);
 //	V1 old = it==input.end() ? kernel->default_v() : it->second;
 //	V1 oldBest = v1;
+//	K oldbp = bp;
+
 	bool good_change = update_input(from, v, kernel);
 	if(good_change){
-		kernel->accumulate(v1, v);
-//		DVLOG(2)<<" good message from "<<from<<" to "<<k<<" old "<<old<<" new "<<v<<" best-old "<<oldBest<<" best-new "<<v1;
-		//VLOG(1)<<"   "<<input;
+		if(kernel->better(v, v1)){
+			//kernel->accumulate(v1, v);
+			v1 = v;
+			bp = from;
+		}
+//		VLOG(1)<<" good message from "<<from<<" to "<<k<<" old="<<old<<" new="<<v
+//				<<" bp-old="<<oldbp<<" bp-new="<<bp<<" best-old="<<oldBest<<" best-new="<<v1<<" v="<<v2;
+//		VLOG(1)<<"   "<<input;
 	}else{
-		if(bp == from)
+		if(bp == from){
 			reset_v1_from_input(kernel);
-//		DVLOG(2)<<" -bad message from "<<from<<" to "<<k<<" old "<<old<<" new "<<v<<" best-old "<<oldBest<<" best-new "<<v1;
-		//VLOG(1)<<"   "<<input;
+		}
+//		VLOG(1)<<" -bad message from "<<from<<" to "<<k<<" old="<<old<<" new="<<v
+//				<<" bp-old="<<oldbp<<" bp-new="<<bp<<" best-old="<<oldBest<<" best-new="<<v1<<" v="<<v2;
+//		VLOG(1)<<"   "<<input;
 	}
 	return good_change;
 }
@@ -837,7 +848,8 @@ bool StateTable<K, V1, V2, V3>::Bucket::update_input(
 	auto it=input.find(from);
 	const V1& old = it==input.end() ? kernel->default_v() : it->second;	// add case
 	bool better = kernel->better(v, old);
-	input[from] = v;	// modify & add case
+	if(it!=input.end() || v != kernel->default_v())
+		input[from] = v;	// modify & add case
 //	if(it!=input.end() && v==kernel->default_v())	// remove case
 //		input.erase(from);
 	return better;
@@ -859,7 +871,7 @@ template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::Bucket::reset_best_pointer(IterateKernel<K, V1, V3>* kernel)
 {
 	V1 temp = kernel->default_v();
-	K b;
+	K b = K();
 	for(auto& p : input){
 		if(kernel->better(p.second, temp)){
 			temp = p.second;
@@ -912,6 +924,26 @@ V1 StateTable<K, V1, V2, V3>::get_ineighbor(const K& from, const K& to){
 	int b = bucket_for_key(to);
 	CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&to) << ">";
 	return buckets_[b].input[from];
+}
+
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::reset_best_pointer(){
+	std::lock_guard<std::recursive_mutex> lg(m_);
+	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
+	VLOG(1)<<"reset bp on state table "<<helper_id();
+	for(uint64_t i=0;i<size_;++i){
+		if(buckets_[i].in_use){
+			buckets_[i].reset_best_pointer(pk);
+		}
+	}
+}
+
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::reset_best_pointer(const K& key){
+	std::lock_guard<std::recursive_mutex> lg(m_);
+	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
+	int b = bucket_for_key(key);
+	buckets_[b].reset_best_pointer(pk);
 }
 
 

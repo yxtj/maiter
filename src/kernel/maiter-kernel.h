@@ -113,6 +113,7 @@ public:
 		table->allpy_inneighbor_cache_local();
 		table->send_ineighbor_cache_remote();
 		table->clear_ineighbor_cache();
+		table->reset_ineighbor_bp();
 	}
 	void init_table(TypedGlobalTable<K, V, V, D>* a){
 		if(!a->initialized()){
@@ -185,6 +186,7 @@ public:
 		return changes;
 	}
 
+	// local change
 	void apply_changes_on_graph(TypedGlobalTable<K, V, V, D>* table,
 			std::vector<std::tuple<K, ChangeEdgeType, D>>& changes)
 	{
@@ -196,7 +198,7 @@ public:
 		}
 	}
 
-	// handle the delta information related with the graph changes
+	// remote change (handle the delta information affected by the graph changes)
 	void apply_changes_on_delta(TypedGlobalTable<K, V, V, D>* table,
 			std::vector<std::tuple<K, ChangeEdgeType, D>>& changes)
 	{
@@ -217,22 +219,20 @@ public:
 				auto it = std::find_if(output.begin(), output.end(), [&](const std::pair<K, V>& p){
 					return p.first==dst;
 				});
-				weight= it==output.end()? default_v : it->second;
+				CHECK(it!=output.end());
+				weight = it==output.end() ? default_v : it->second;
 			}
-			//VLOG(1)<<"  "<<char(type)<<" "<<key<<" "<<dst<<"\t"<<weight;
-			D d=table->getF3(key);
-			auto ii=std::find_if(d.begin(), d.end(), [&](const typename D::value_type &p){
-				return p.end==dst;
-			});
-			VLOG(1)<<"  "<<char(type)<<" "<<key<<" "<<dst<<"\t"<<ii->weight<<"\t d="<<table->getF1(key)<<" v="<<table->getF2(key);
+//			VLOG(1)<<"first: "<<getcallstack();
+//			VLOG(1)<<"  "<<char(type)<<" "<<key<<" "<<dst<<"\t"<<weight<<"\t d="<<table->getF1(key)<<" v="<<table->getF2(key);
 			table->accumulateF1(key, dst, weight);
+//			VLOG(1)<<"second: "<<getcallstack();
 			if(table->canSend()){
 				table->helper()->signalToSend();
 				table->resetSendMarker();
 			}
 		}
-		table->helper()->signalToProcess();
-		table->helper()->signalToSend();
+//		table->helper()->signalToProcess();
+//		table->helper()->signalToSend();
 	}
 
 	void delta_table(TypedGlobalTable<K, V, V, D>* a){

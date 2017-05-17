@@ -29,7 +29,7 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	float imax;
 
 	ShortestpathIterateKernel(){
-		imax = std::numeric_limits<float>::max();
+		imax = std::numeric_limits<float>::infinity();
 	}
 
 	void read_data(string& line, int& k, vector<Link>& data){

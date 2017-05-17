@@ -104,17 +104,19 @@ void Worker::HandlePutRequest(const string& d, const RPCInfo& info){
 
 void Worker::HandleProcessUpdates(const std::string&, const RPCInfo&){
 	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
-	static int cnt=1;
+//	static int cnt=1;
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
 		if(t){
 			if(t->is_processing())
 				continue;
-			VLOG(2)<<"process "<<cnt++;
+//			VLOG(2)<<"process "<<cnt++;
 			t->ProcessUpdates();
 //			t->BufProcessUpdates();
 			t->resetProcessMarker();
-//			this_thread::sleep_for(chrono::duration<double>(1));
+#ifdef DEBUG
+			this_thread::sleep_for(chrono::duration<double>(1));
+#endif
 		}
 	}
 	st_will_process_=false;
