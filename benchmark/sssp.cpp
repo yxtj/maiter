@@ -103,13 +103,86 @@ vector<float> cal_sp(vector<vector<Edge>>& g, int source, const string& method){
 		return cal_sp_spfa(g, source);
 }
 
+// track source of each node to find out the critical edges
+
+vector<pair<int,int>> cal_critical_edges(const vector<vector<Edge>>& g, const vector<float>& sp, const int source){
+	size_t n=g.size();
+	vector<pair<int,int>> res;
+	queue<int> que;
+	que.push(source);
+	while(!que.empty()){
+		int src=que.front();
+		que.pop();
+		float sd=sp[src];
+		for(const Edge& e : g[src]){
+			if(sp[e.node] == sd + e.weight){
+				res.emplace_back(src, e.node);
+				que.push(e.node);
+			}
+		}
+	}
+	return res;
+}
+
+bool dump_cedge(const vector<string>& fncedge, const vector<pair<int, int>>& cedges){
+	size_t parts=fncedge.size();
+	vector<ofstream*> fouts;
+	for(size_t i=0;i<parts;++i){
+		ofstream* pf=new ofstream(fncedge[i]);
+		if(!pf || !pf->is_open())
+			return false;
+		fouts.push_back(pf);
+	}
+	size_t size=cedges.size();
+	for(size_t i=0;i<size;++i){
+		int src, dst;
+		tie(src, dst)=cedges[i];
+		(*fouts[src%parts])<<src<<" "<<dst<<"\n";
+	}
+	for(size_t i=0;i<parts;++i)
+		delete fouts[i];
+	return true;
+}
+
+// for checking
+void build_sp_with_critical_edges(const vector<vector<Edge>>& g, const vector<pair<int, int>>& cedges, string fn){
+	size_t n=g.size();
+	vector<float> sd(n, numeric_limits<float>::infinity());
+	queue<int> que;
+	sd[0]=0;
+	que.push(0);
+	while(!que.empty()){
+		int t=que.front();
+		que.pop();
+		auto it=find_if(cedges.begin(), cedges.end(), [&](const pair<int,int>& p){
+			return p.first==t;
+		});
+		while(it!=cedges.end()){
+			int dst=it->second;
+			que.push(dst);
+			auto jt=find_if(g[t].begin(), g[t].end(), [&](const Edge& e){
+				return e.node==dst;
+			});
+			sd[dst]=sd[t]+jt->weight;
+			it=find_if(++it, cedges.end(), [&](const pair<int,int>& p){
+				return p.first==t;
+			});
+		}
+	}
+	ofstream fout(fn);
+	for(size_t i=0;i<n;++i){
+		fout<<i<<"\t0:"<<sd[i]<<"\n";
+	}
+}
+
 int main(int argc, char* argv[]){
 	if(argc<=3){
 		cerr<<"Calculate SSSP."<<endl;
-		cerr<<"Usage: <#parts> <in-folder> <out-folder> [source] [algorithm]\n"
+		cerr<<"Usage: <#parts> <in-folder> <out-folder> [source] [opt-critical-edge] [algorithm]\n"
 			<<"  <in-folder>: input file prefix, file name: 'part<id>' is automatically used\n"
 			<<"  <out-folder>: output file prefix, file name 'part-<id>' is automatically used\n"
 			<<"  [source]: (=0) the source node in the graph\n"
+			<<"  [opt-critical-edge]: (=0) whether to output the critical edge in the shortest paths (file name prefix: cedge)\n"
 			<<"  [algorithm]: (=dijkstra) the algorithm for SSSP. Supports: dijkstra, spfa"<<endl;
 		return 1;
 	}
@@ -120,9 +193,15 @@ int main(int argc, char* argv[]){
 	if(argc>4){
 		source=stoi(argv[4]);
 	}
-	string method="dijkstra";
+	bool get_cedge=false;
 	if(argc>5){
-		method=argv[5];
+		string opt=argv[5];
+		if(opt=="1" || opt=="y" || opt=="t" || opt=="yes" || opt=="true")
+			get_cedge=true;
+	}
+	string method="dijkstra";
+	if(argc>6){
+		method=argv[6];
 	}
 	if(method!="dijkstra" && method!="spfa"){
 		cerr<<"Error: unsupported algorithm: "<<method<<endl;
@@ -147,14 +226,14 @@ int main(int argc, char* argv[]){
 	cout<<"  load "<<g.size()<<" nodes in "<<elapsed.count()<<" seconds"<<endl;
 	
 	// calculate
-	cout<<"calculating"<<endl;
+	cout<<"calculating SSSP"<<endl;
 	start_t = chrono::system_clock::now();
 	vector<float> sp = cal_sp(g, source, method);
     elapsed = chrono::system_clock::now()-start_t;
 	cout<<"  finished in "<<elapsed.count()<<" seconds"<<endl;
 	
 	// dump
-	cout<<"dumping"<<endl;
+	cout<<"dumping SSSP"<<endl;
 	start_t = chrono::system_clock::now();
 	vector<string> fnout;
 	for(int i=0;i<parts;++i){
@@ -166,5 +245,31 @@ int main(int argc, char* argv[]){
 	}
     elapsed = chrono::system_clock::now()-start_t;
 	cout<<"  finished in "<<elapsed.count()<<" seconds"<<endl;
+	
+	// critical edge
+	if(!get_cedge)
+		return 0;
+	
+	cout<<"calculating critical edges"<<endl;
+	start_t = chrono::system_clock::now();
+	vector<pair<int, int>> cedges = cal_critical_edges(g, sp, source);
+	elapsed = chrono::system_clock::now()-start_t;
+	cout<<"  found "<<cedges.size()<<" critical edges"<<endl;
+	cout<<"  finished in "<<elapsed.count()<<" seconds"<<endl;
+	
+	cout<<"dumping critical edges"<<endl;
+	start_t = chrono::system_clock::now();
+	vector<string> fncedge;
+	for(int i=0;i<parts;++i)
+		fncedge.push_back(outprefix+"/cedge-"+to_string(i));
+	if(!dump_cedge(fncedge, cedges)){
+		cerr<<"Error: cannot write to given file(s)"<<endl;
+		return 5;
+	}
+	elapsed = chrono::system_clock::now()-start_t;
+	cout<<"  finished in "<<elapsed.count()<<" seconds"<<endl;
+
+	//build_sp_with_critical_edges(g, cedges, outprefix+"/xx.txt");
+	
 	return 0;
 }
