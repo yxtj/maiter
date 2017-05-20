@@ -22,7 +22,7 @@ RESULT_FDR=$5
 
 NODES=1000000
 TERMTHRESH=0.000000001
-BUFTIME=0.1
+BUFTIME=0.005
 CP_TYPE=CP_NONE
 CP_TIME=5
 
@@ -55,6 +55,6 @@ mkdir -p $RESULT
 ../maiter --hostfile=../conf/maiter-cluster --runner=Shortestpath --workers=$WORKERS --num_nodes=$NODES\
   --graph_dir=$GRAPH_FDR --result_dir=$RESULT_FDR --init_dir=$INIT_FDR --delta_prefix=$DELTA_PRE\
   --local_aggregate=0 --snapshot_interval=$SNAPSHOT --portion=$PORTION --weight_alpha=$ALPHA\
-  --sleep_time=0.01 --termcheck_threshold=$TERMTHRESH --buftime=$BUFTIME -- v=$VERBOSE_LVL
+  --sleep_time=0.003 --termcheck_threshold=$TERMTHRESH --buftime=$BUFTIME -- v=$VERBOSE_LVL
 #  --checkpoint_type=$CP_TYPE --checkpoint_interval=$CP_TIME
 
