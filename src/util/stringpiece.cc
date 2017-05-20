@@ -86,7 +86,10 @@ string StringPrintf(StringPiece fmt, ...) {
 
 string VStringPrintf(StringPiece fmt, va_list l) {
   const string& str=fmt.AsString();
-  int len=512>=str.size()*2 ? 512 : str.size()*2;
+  va_list copy;
+  va_copy(copy, l);
+  int len=vsnprintf(NULL, 0, str.c_str(), copy) + 1;
+  va_end(copy);
   char *buffer=new char[len];
   vsnprintf(buffer, len, str.c_str(), l);
   string res(buffer);
