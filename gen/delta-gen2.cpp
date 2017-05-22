@@ -10,6 +10,7 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <vector>
 #include <algorithm>
@@ -99,7 +100,7 @@ void dumpChangeOneSet(ofstream& fout, const vector<EdgeW>& edgeSet, char type, b
 	}
 }
 		
-int changeGraph(const string& graphFolder, const string& cedgeFolder, const string& deltaPrefix,
+bool changeGraph(const string& graphFolder, const string& cedgeFolder, const string& deltaPrefix,
 		const int nPart, const int seed,
 		const double deltaRatio, const double crtRatio, const double goodRatio, const double ewRatio)
 {
@@ -110,17 +111,17 @@ int changeGraph(const string& graphFolder, const string& cedgeFolder, const stri
 		fin.push_back(new ifstream(graphFolder + "/part" + to_string(i)));
 		if(!fin.back()->is_open()){
 			cerr << "failed in opening input file: " << graphFolder + "/part" + to_string(i) << endl;
-			return 0;
+			return false;
 		}
 		fce.push_back(new ifstream(cedgeFolder + "/cedge-" + to_string(i)));
 		if(!fce.back()->is_open()){
 			cerr << "failed in opening cedge file: " << cedgeFolder + "/cedge-" + to_string(i) << endl;
-			return 0;
+			return false;
 		}
 		fout.push_back(new ofstream(deltaPrefix + "-" + to_string(i)));
 		if(!fout.back()->is_open()){
 			cerr << "failed in opening output file: " << deltaPrefix + "-" + to_string(i) << endl;
-			return 0;
+			return false;
 		}
 	}
 
@@ -135,6 +136,8 @@ int changeGraph(const string& graphFolder, const string& cedgeFolder, const stri
 	int addCnt = 0, rmvCnt = 0, incCnt = 0, decCnt = 0;
 	
 	for(int i=0;i<nPart;++i){
+		cout<<"  On part "<<i<<".";
+		cout.flush();
 		ModifyEdges modifiedSet(rnd_prob, rnd_node, rnd_weight);
 		size_t nc, nv, ne;
 		vector<pair<int,int>> cedges = load_critical_edges(*fce[i]);
@@ -144,12 +147,14 @@ int changeGraph(const string& graphFolder, const string& cedgeFolder, const stri
 		nv = edges.size();
 		delete fce[i];
 		delete fin[i];
+		double maxCrtRatio = deltaRatio*ne/nc;	// the maximum allowed crtRatio by the current deltaRatio
+		double minDltRatio = crtRatio*nc/ne;	// the minimum required deltaRatio by the current crtRatio
+		
+		cout<<" Found: vertex/edges/critical: "<<nv<<"/"<<ne<<"/"<<nc
+			<<", min-DR="<<minDltRatio<<", max-CR="<<maxCrtRatio<<endl;
 	
-		double maxCrtRatio = static_cast<double>(nv)/ne;
-		double maxDltRatio = static_cast<double>(nc)/ne;
-		if(maxDltRatio > deltaRatio){
-			cerr<<"  Warning: on part "<<i<<" crtRatio and deltaRatio do not match: "
-				<<"max-crtRatio="<<maxCrtRatio<<" / max-deltaRatio="<<maxDltRatio<<endl;
+		if(minDltRatio > deltaRatio){
+			cerr<<"  Warning: on part "<<i<<" crtRatio and deltaRatio do not match."<<endl;
 		}
 		double cr = min(maxCrtRatio, crtRatio);	// delta ratio for critical edges
 		double dr = (deltaRatio*ne + cr*nc) / ne;	// delta ratio for non-critical edges
@@ -167,10 +172,10 @@ int changeGraph(const string& graphFolder, const string& cedgeFolder, const stri
 		thresholdNE.rmv = thresholdNE.add + dr * ewRatio *  (1-goodRatio);
 		thresholdNE.inc = thresholdNE.rmv + dr *(1-ewRatio)*(1-goodRatio);
 		thresholdNE.dec = thresholdNE.inc + dr *(1-ewRatio)*goodRatio;
+		//cout<<thresholdCE.dec<<"\t"<<thresholdNE.dec<<endl;
 		
 		for(auto& p : edges){
 			int k = p.first;
-			ne += p.second.size();
 			// [pFirst, pLast) are the critical edges start with k
 			auto pFirst = lower_bound(cedges.begin(), cedges.end(), k, 
 				[](const pair<int,int>& a, const int b){
@@ -185,17 +190,17 @@ int changeGraph(const string& graphFolder, const string& cedgeFolder, const stri
 			for(const Link& l : p.second){
 				if(find_if(pFirst, pLast, 
 						[&](const pair<int,int>& p){ return p.second == l.node; }) == pLast){
-					int v = modifiedSet.set(thresholdNE, k, l, p.second, maxV, gen);
+					// non-critical edge
+					modifiedSet.set(thresholdNE, k, l, p.second, maxV, gen);
+				}else{
+					// critical edge
+					int v = modifiedSet.set(thresholdCE, k, l, p.second, maxV, gen);
 					if(v==2)
 						++cRmvCnt;
 					else if(v==3)
 						++cIncCnt;
 					else if(v==4)
 						++cDecCnt;
-					else
-						cerr<<"error, value="<<v<<". src="<<k<<" , dst="<<l.node<<endl;
-				}else{
-					modifiedSet.set(thresholdCE, k, l, p.second, maxV, gen);
 				}
 			}
 		}
@@ -216,43 +221,30 @@ int changeGraph(const string& graphFolder, const string& cedgeFolder, const stri
 		delete fout[i];
 	}
 	
-	double maxCrtRatio = static_cast<double>(totalV)/totalE;
-	double maxDltRatio = static_cast<double>(totalC)/totalE;
-	if(maxDltRatio > deltaRatio){
+	double maxCrtRatio = deltaRatio*totalE/totalC;	// the maximum allowed crtRatio by the current deltaRatio
+	double minDltRatio = crtRatio*totalC/totalE;	// the minimum required deltaRatio by the current crtRatio
+	if(minDltRatio > deltaRatio){
 		cerr<<"  Warning: global crtRatio and deltaRatio do not match: "
-			<<"max-crtRatio="<<maxCrtRatio<<" / max-deltaRatio="<<maxDltRatio<<endl;
+			<<" max-CR="<<maxCrtRatio<<", min-DR="<<minDltRatio<<endl;
 	}
 	
 	double te = totalE;
 	double tc = totalC;
-	cout << "Total vertex/edge: " << totalV << "/" << totalE << " critical edges: " << totalC << "\n";
-	cout << "  accutual critical-ratio: " << (cRmvCnt+cIncCnt+cDecCnt)/tc
-		<<" / acctual delta-ratio: "<<(addCnt+rmvCnt+incCnt+decCnt)/te<<"\n";
-	cout << "  add e: " << addCnt << "\t: " << addCnt / te << "\n";
-	cout << "  rmv e: " << rmvCnt << "\t: " << rmvCnt / te << "\n";
-	cout << "  inc w: " << incCnt << "\t: " << incCnt / te << "\n";
-	cout << "  dec w: " << decCnt << "\t: " << decCnt / te << endl;
-	return nPart;
-}
-
-vector<vector<pair<int,int>>> load_critical_edges(const string& folder, const int nPart){
-	vector<vector<pair<int,int>>> res;
-	for(int i=0;i<nPart;++i){
-		ifstream fin(folder+"/cedge-"+to_string(i));
-		vector<pair<int,int>> temp;
-		string line;
-		while(getline(fin, line)){
-			if(line.size()<2)
-				continue;
-			size_t p=line.find(' ');
-			int s=stoi(line.substr(0,p));
-			int d=stoi(line.substr(p+1));
-			temp.emplace_back(s,d);
-		}
-		sort(temp.begin(), temp.end());
-		res.push_back(move(temp));
-	}
-	return res;
+	double tm = addCnt+rmvCnt+incCnt+decCnt;
+	cout << "Total vertex/edge/critical: " << totalV << "/" << totalE << "/" << totalC << "\n";
+	cout<< "  expected/actual/min delta-ratio="<<deltaRatio<<"/"<<tm/te<<"/"<<minDltRatio<<"\n"
+		<< "  expected/actual/max critical-ratio="<<crtRatio<<"/"<<(cRmvCnt+cIncCnt+cDecCnt)/tc<<"/"<<maxCrtRatio<<"\n"
+		<< "  expected/actual good-ratio="<<goodRatio<<"/"<<(addCnt+decCnt)/tm<<"\n"
+		<< "  expected/actual ew-ratio="<<ewRatio<<"/"<<(addCnt+rmvCnt)/tm<<"\n";
+	//cout.width(4);
+	cout.setf(ios::fixed);
+	//cout<<"  type:  cnt\t(portion)\tce-cnt\t(CrtRatio)\n";
+	cout << "  add e: " << addCnt << "\t(" << addCnt/tm << ")\n";
+	cout << "  rmv e: " << rmvCnt << "\t(" << rmvCnt/tm << ")\t" << cRmvCnt << "\t(" << cRmvCnt/tc << ")\n";
+	cout << "  inc w: " << incCnt << "\t(" << incCnt/tm << ")\t" << cIncCnt << "\t(" << cIncCnt/tc << ")\n";
+	cout << "  dec w: " << decCnt << "\t(" << decCnt/tm << ")\t" << cDecCnt << "\t(" << cDecCnt/tc << ")\n";
+	cout.flush();
+	return true;
 }
 
 // ------ main ------
@@ -316,14 +308,14 @@ int main(int argc, char* argv[]){
 				<< endl;
 		cerr << "  <#parts>: number of parts the graphs are separated (the number of files to operate).\n"
 				"  <graph-folder>: the folder of graphs.\n"
-				"  <crt-folder>: the folder for the critical edges (filename pattern 'cedge-<part-id>').\n"
-				"  <delta-prefix>: the path and name prefix of generated delta graphs, naming format: \"<delta-prefix>-<part>\".\n"
+				"  <crt-folder>: the folder for the critical edges (filename pattern 'cedge-<ID>').\n"
+				"  <delta-prefix>: the path and name prefix of generated delta graphs, naming format: \"<delta-prefix>-<ID>\".\n"
 				"  <delta-rate>: the rate of changed edges.\n"
 				"  <crt-rate>: the maxmium ratio of changed critical edges (among the critical edges).\n"
 				"  <good-rate>: the ratio of good changed edges\n"
-				"  <ew-rate>: the ratio of edges among all changed edges (edge add/remove and weight increase/decrease)\n"
+				"  <ew-rate>: the ratio of edges among all changed edges (edge add/remove vs. weight increase/decrease)\n"
 				"  [random-seed]: (=1535345) seed for random numbers\n"
-				"i.e.: ./deltaGen.exe graphDir 2 delta-rd 0.05 0 0.3 0 0.7 123456 // do not change critical edges, all bad change, 70% are edges\n"
+				"i.e.: ./deltaGen.exe graphDir 2 delta-rd 0.05 0 0.3 0 0.7 123456 // do not touch critical edges, all bad change, 70% are edges\n"
 				"i.e.: ./deltaGen.exe input 2 ../delta/d2 0.01 0.2 0.3 0.3 // change 20% critical edges, 30% good change, 30% are edges\n"
 				<< endl;
 		return 1;
@@ -338,11 +330,12 @@ int main(int argc, char* argv[]){
 	ios_base::sync_with_stdio(false);
 	
 	cout << "Loading " << opt.nPart << " parts, from folder: " << opt.graphFolder << endl;
-	int n = changeGraph(opt.graphFolder, opt.cedgeFolder, opt.deltaPrefix,
+	bool flag = changeGraph(opt.graphFolder, opt.cedgeFolder, opt.deltaPrefix,
 		opt.nPart, opt.seed,
 		opt.deltaRatio, opt.crtRatio, opt.goodRatio, opt.ewRatio);
 
-	cout << "success " << n << " files. fail " << opt.nPart - n << " files." << endl;
-	return n > 0 ? 0 : 3;
+	if(flag)
+		cout << "success " << opt.nPart  << " file(s)."<<endl;
+	return flag ? 0 : 3;
 }
 

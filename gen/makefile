@@ -11,16 +11,16 @@ export CXX CC CFLAGS CPPFLAGS OPROFILE
 
 all: release 
 
-gen.exe: gen.cpp
-	$(CXX) $(CPPFLAGS) $^ -o $@
-
-deltaGen.exe: deltaGen.cpp
-	$(CXX) $(CPPFLAGS) $^ -o $@
-
-common.o: common.cpp
-	$(CXX) $(CPPFLAGS) -c $^ -o $@
+%.o: %.cpp
+	$(CXX) $(CPPFLAGS) $^ -c -o $@
 	
-delta-gen2.exe: delta-gen2.cpp common.h common.o
+gen.exe: gen.o
+	$(CXX) $(CPPFLAGS) $^ -o $@
+
+deltaGen.exe: deltaGen.o
+	$(CXX) $(CPPFLAGS) $^ -o $@
+
+delta-gen2.exe: delta-gen2.o common.h common.o
 	$(CXX) $(CPPFLAGS) ${^:%.h=} -o $@
 
 release: 
