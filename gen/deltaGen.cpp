@@ -213,17 +213,19 @@ int changeGraph(const string& dir, const string& deltaPrefix,
 // ------ main ------
 
 struct Option{
-	int nPart, nNode;
+	string graphFolder;
+	int nPart;
 	string deltaPrefix;
+	
 	double alpha; // for power-law distribution
+	
 	string weight;
 	double wmin, wmax;
-	string outDir;
-	int prop;
-	unsigned long seed;
 	double rate;	// rate of changed edges
 	double addRate, rmvRate, incRate, decRate;
 
+	unsigned long seed;
+	
 	void parse(int argc, char* argv[]);
 private:
 	bool setWeight(string& method);
@@ -233,7 +235,7 @@ private:
 };
 
 void Option::parse(int argc, char* argv[]){
-	outDir = argv[1];
+	graphFolder = argv[1];
 	nPart = stoi(string(argv[2]));
 //	nNode=stoi(string(argv[2]));
 	deltaPrefix = argv[3];
@@ -287,9 +289,9 @@ bool Option::normalizeRates(){
 int main(int argc, char* argv[]){
 	if(argc < 3 || argc > 10){
 		cerr << "Wrong usage.\n"
-				"Usage: \"deltaGen <dir> <#parts> <delta-prefix> <deltaRate> <addRate> <rmvRate> <incRate> <decRate> [random-seed]\""
+				"Usage: <graph-folder> <#parts> <delta-prefix> <deltaRate> <addRate> <rmvRate> <incRate> <decRate> [random-seed]"
 				<< endl;
-		cerr << "  <dir>: the folder of graphs.\n"
+		cerr << "  <graph-folder>: the folder of graphs.\n"
 				"  <#parts>: number of parts the graphs are separated (the number of files to operate).\n"
 				"  <delta-prefix>: the path and name prefix of generated delta graphs, naming format: \"<delta-prefix>-<part>\".\n"
 				"  <deltaRate>: the rate of changed edges.\n"
@@ -310,9 +312,9 @@ int main(int argc, char* argv[]){
 		return 2;
 	}
 	ios_base::sync_with_stdio(false);
-	cout << "Loading " << opt.nPart << " parts, from folder: " << opt.outDir << endl;
+	cout << "Loading " << opt.nPart << " parts, from folder: " << opt.graphFolder << endl;
 
-	int n = changeGraph(opt.outDir, opt.deltaPrefix, opt.nPart, opt.seed, opt.rate,
+	int n = changeGraph(opt.graphFolder, opt.deltaPrefix, opt.nPart, opt.seed, opt.rate,
 			opt.addRate, opt.rmvRate, opt.incRate, opt.decRate);
 
 	cout << "success " << n << " files. fail " << opt.nPart - n << " files." << endl;
