@@ -157,7 +157,7 @@ bool changeGraph(const string& graphFolder, const string& cedgeFolder, const str
 			cerr<<"  Warning: on part "<<i<<" crtRatio and deltaRatio do not match."<<endl;
 		}
 		double cr = min(maxCrtRatio, crtRatio);	// delta ratio for critical edges
-		double dr = (deltaRatio*ne + cr*nc) / ne;	// delta ratio for non-critical edges
+		double dr = (deltaRatio*ne - cr*nc) / (ne - nc);	// delta ratio for non-critical edges
 		
 		ModifyThreshold thresholdCE, thresholdNE; //{ trivial, addTh, rmvTh, incTh, decTh };
 		// critical edge
