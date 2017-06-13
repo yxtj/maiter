@@ -101,11 +101,12 @@ public:
 	void send_ineighbor_cache_remote();
 	void clear_ineighbor_cache();
 	void reset_ineighbor_bp();
+
 	// receive in-neighbor information
 	virtual void add_ineighbor(const dsm::InNeighborData& req);
 	// apply graph changes
 	virtual void change_graph(const K& k, const ChangeEdgeType& type, const V3& change);
-	//virtual void update_ineighbor_cache(const K& k, const ChangeEdgeType& type, const V3& change);
+	void recal_v2_from_inerghbor_cache(const K& k);
 
 	// Return the value associated with 'k', possibly blocking for a remote fetch.
 	ClutterRecord<K, V1, V2, V3> get(const K &k);
@@ -185,7 +186,7 @@ public:
 //		VLOG(1)<<"processing";
 		processing_=true;
 		// automatically reset processing to false when this function exits
-		std::shared_ptr<bool> guard_process(&processing_, [](bool* p){
+		std::shared_ptr<bool> guard_processing(&processing_, [](bool* p){
 			*p=false;
 		});
 //		Timer t;
@@ -220,6 +221,7 @@ public:
 				static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
 		//pre-process
 		kernel->process_delta_v(k, v1, v2, v3);
+		//process
 		if(kernel->is_selective()){
 			// replace v with delta_v
 			updateF2(k, v1);
@@ -229,10 +231,13 @@ public:
 			accumulateF2(k, v1);
 		}
 
+		// get the new F2 after process
+		V2 vv2 = get_localF2(k);
+
 		//invoke api, perform g(delta_v) and send messages to out-neighbors
 		std::vector<std::pair<K,V1> > output;
 		output.reserve(v3.size());
-		kernel->g_func(k, v1, v2, v3, &output);
+		kernel->g_func(k, v1, vv2, v3, &output);
 
 		//perform delta_v=0, reset delta_v after delta_v has been spread out
 		if(!kernel->is_selective())
@@ -412,6 +417,7 @@ void TypedGlobalTable<K, V1, V2, V3>::allpy_inneighbor_cache_local(){
 
 template<class K, class V1, class V2, class V3>
 void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache_remote(){
+	std::lock_guard<std::recursive_mutex> lg(get_mutex());
 	Marshal<K> * km = kmarshal();
 	Marshal<V1> * vm = v1marshal();
 	int size=std::max<int>(bufmsg, 1024);

@@ -14,6 +14,7 @@
 #include "table/typed-global-table.hpp"
 #include "table/table-create.h"
 #include "table/tbl_widget/IterateKernel.h"
+#include "util/timer.h"
 
 #include <fstream>
 
@@ -202,6 +203,7 @@ public:
 	void apply_changes_on_delta(TypedGlobalTable<K, V, V, D>* table,
 			std::vector<std::tuple<K, ChangeEdgeType, D>>& changes)
 	{
+		double t1=0, t2=0, t3=0, tacc=0;
 		// put changes into messages(remote) / apply(local)
 		V default_v = maiter->iterkernel->default_v();
 		string from, to, value;
@@ -213,40 +215,55 @@ public:
 			if(type==ChangeEdgeType::REMOVE){
 				weight = default_v;
 			}else{
+				Timer tmr;
 				ClutterRecord<K, V, V, D> c = table->get(key);
-				std::vector<std::pair<K, V>> output;
-				maiter->iterkernel->g_func(c.k, c.v1, c.v2, c.v3, &output);
-				auto it = std::find_if(output.begin(), output.end(), [&](const std::pair<K, V>& p){
-					return p.first==dst;
-				});
-				CHECK(it!=output.end());
-				weight = it==output.end() ? default_v : it->second;
+				t1+=tmr.elapsed();
+				tmr.reset();
+				auto it=std::find(c.v3.begin(), c.v3.end(), dst);
+
+//				std::vector<std::pair<K, V>> output;
+//				maiter->iterkernel->g_func(c.k, c.v1, c.v2, c.v3, &output);
+				t2+=tmr.elapsed();
+				tmr.reset();
+//				auto it = std::find_if(output.begin(), output.end(), [&](const std::pair<K, V>& p){
+//					return p.first==dst;
+//				});
+////				VLOG_IF(0,it==output.end())<<char(type)<<" "<<key<<" "<<weight;
+//				weight = it==output.end() ? default_v : it->second;
+				weight = maiter->iterkernel->g_func(c.k, c.v1, c.v2, *it);
+				t3+=tmr.elapsed();
 			}
-//			VLOG(1)<<"first: "<<getcallstack();
+			Timer tmr;
 //			VLOG(1)<<"  "<<char(type)<<" "<<key<<" "<<dst<<"\t"<<weight<<"\t d="<<table->getF1(key)<<" v="<<table->getF2(key);
 			table->accumulateF1(key, dst, weight);
-//			VLOG(1)<<"second: "<<getcallstack();
 			if(table->canSend()){
 				table->helper()->signalToSend();
 				table->resetSendMarker();
 			}
+			tacc+=tmr.elapsed();
 		}
 //		table->helper()->signalToProcess();
-//		table->helper()->signalToSend();
+		table->helper()->signalToSend();
+		table->resetSendMarker();
+		VLOG(0)<<t1<<" , "<<t2<<" , "<<t3<<"\t"<<tacc;
 	}
 
 	void delta_table(TypedGlobalTable<K, V, V, D>* a){
+		Timer tmr;
 		std::vector<std::tuple<K, ChangeEdgeType, D>> changes = read_delta(a);
-		VLOG(1)<<"number of delta edges on "<<current_shard()<<" is "<<changes.size();
+		VLOG(1)<<"load "<<changes.size()<<" delta edges in "<<tmr.elapsed()<<" on "<<current_shard();
+		tmr.reset();
+
 		// change the topology
-		VLOG(1)<<"change topology on: "<<current_shard();
 		apply_changes_on_graph(a, changes);
+		VLOG(1)<<"change topology on: "<<current_shard()<<" in "<<tmr.elapsed();
+		tmr.reset();
 
 		// change the delta values (for destinations of the affected edges)
 		// CANNOT use the delta-table (local aggregation) for min/max accumulators
 		// because only the best one can be sent out and the rest are permanently lost
-		VLOG(1)<<"re-initialize delta value and in-neighbor information on: "<<current_shard();
 		apply_changes_on_delta(a, changes);
+		VLOG(1)<<"re-initialize delta value and in-neighbor information on: "<<current_shard()<<" in "<<tmr.elapsed();
 		//corridnate_in_neighbors(a);
 	}
 
@@ -308,23 +325,6 @@ public:
 
 	void map(){
 		VLOG(0) << "start performing iterative update";
-		/*
-		typename StateTable<K, V, V, D>::EntirePassIterator *it =
-			dynamic_cast<typename StateTable<K, V, V, D>::EntirePassIterator*>(
-					maiter->table->get_entirepass_iterator(current_shard()));
-		std::ofstream fout(maiter->output+"/xxx");
-		while(!it->done()){
-			fout << it->key() << "\t" << it->value1()<<"\t"<<it->value2()<<"\t";
-			const std::unordered_map<K, V>& ineigh = it->ineighbor();
-			for(auto jt=ineigh.begin(); jt!=ineigh.end(); ++jt){
-				fout<< jt->first <<','<< jt->second <<' ';
-			}
-			fout<<"\n";
-			it->Next();
-		}
-		delete it;
-		fout.close();
-		 */
 		run_loop(maiter->table);
 	}
 };
@@ -339,8 +339,12 @@ public:
 	}
 
 	void dump(TypedGlobalTable<K, V, V, D>* a){
-		double totalF1 = 0;	//the sum of delta_v, it should be smaller enough when iteration converges
-		double totalF2 = 0;	//the sum of v, it should be larger enough when iteration converges
+		V totalF1 = 0;	//the sum of delta_v, it should be smaller enough when iteration converges
+		uint64_t ndefF1 = 0;
+		V totalF2 = 0;	//the sum of v, it should be larger enough when iteration converges
+		uint64_t ndefF2 = 0;
+		V default_v = maiter->iterkernel->default_v();
+
 		std::string file = StringPrintf("%s/part-%d", maiter->output.c_str(), current_shard()); //the output path
 		std::ofstream File(file);	//the output file containing the local state table infomation
 
@@ -348,18 +352,25 @@ public:
 		typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_entirepass_iterator(current_shard());
 
 		while(!it->done()){
-			// bool cont = it->Next();
-			// if(!cont) break;
-
-			totalF1 += it->value1();
-			totalF2 += it->value2();
+			double t1=it->value1();
+			double t2=it->value2();
+			if(t1!=default_v)
+				totalF1 +=t1;
+			else
+				++ndefF1;
+			if(t2!=default_v)
+				totalF2 +=t2;
+			else
+				++ndefF2;
 			File << it->key() << "\t" << it->value1() << ":" << it->value2() << "\n";
 			it->Next();
 		}
 		delete it;
 
 		File.close();
-		VLOG(0)<<"W"<<maiter->conf.worker_id()<<":\ttotal F1 : " << totalF1 << "\ttotal F2 : " << totalF2;
+		VLOG(0) << "W" << maiter->conf.worker_id()
+				<< ":\ttotal F1: (" << totalF1 << ", " << ndefF1 << ")"
+				<< "\ttotal F2: (" << totalF2 << ", " << ndefF2 << ")";
 	}
 
 	void run(){

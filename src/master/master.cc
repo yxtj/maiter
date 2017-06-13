@@ -145,9 +145,10 @@ void Master::termcheck(){
 		//we only have one table
 		TermChecker<int, double>* ptc=static_cast<TermChecker<int, double>*>(tables_[0]->info_.termchecker);
 		bool bterm = ptc->terminate(partials);
+		pair<double, int64_t> p=ptc->get_curr();
 
 		LOG(INFO) << "Termination check at " << barrier_timer->elapsed() << " finished in "
-				<< cp_timer.elapsed() << " total current "<< StringPrintf("%.05f",ptc->get_curr())
+				<< cp_timer.elapsed() << " total current ("<< to_string(p.first)<<" , "<<p.second //StringPrintf("%.05f",ptc->get_curr())
 				<< " total updates " << total_updates;
 
 		kernel_terminated_=bterm;

@@ -79,7 +79,10 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 		change.emplace_back(dst, weight);
 	}
 
-	vector<int> get_keys(const vector<Link>& data){
+	virtual int get_key(const Link& d){
+		return d.end;
+	}
+	virtual vector<int> get_keys(const vector<Link>& data){
 		vector<int> res;
 		res.reserve(data.size());
 		for(const Link& l : data){
@@ -119,15 +122,20 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 			pri = FLAGS_weight_alpha * dif;
 	}
 
+	float g_func(const int& k, const float& delta, const float& value, const Link& d){
+		return d.end==FLAGS_shortestpath_source?imax:delta+d.weight;
+	}
+
 	void g_func(const int& k, const float& delta, const float& value, const vector<Link>& data,
 			vector<pair<int, float> >* output){
 		for(vector<Link>::const_iterator it = data.begin(); it != data.end(); it++){
 			if(it->end == FLAGS_shortestpath_source){	// to avoid positive loop
-				continue;
-				//output->push_back(make_pair(it->end, default_v()));
+				//continue;
+				output->push_back(make_pair(it->end, default_v()));
+			}else{
+				float outv = delta + it->weight;
+				output->push_back(make_pair(it->end, outv));
 			}
-			float outv = delta + it->weight;
-			output->push_back(make_pair(it->end, outv));
 		}
 	}
 

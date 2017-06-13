@@ -33,7 +33,7 @@ void Master::run_maiter(MaiterKernel<K, V, D>* maiter){
 
 	run_all("MaiterKernel3", "run", maiter->table, false, false, false);
 
-	run_all("MaiterKernelDumpInNeighbor", "run", maiter->table, false, false, false);
+//	run_all("MaiterKernelDumpInNeighbor", "run", maiter->table, false, false, false);
 }
 
 template<class T>

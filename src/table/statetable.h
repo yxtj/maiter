@@ -365,6 +365,7 @@ public:
 	int64_t capacity(){return size_;}
 
 	void clear(){
+		std::lock_guard<std::recursive_mutex> gl(m_);
 		for (int64_t i = 0; i < size_; ++i){
 			buckets_[i].in_use = 0;
 		}
@@ -372,6 +373,7 @@ public:
 	}
 
 	void reset(){
+		std::lock_guard<std::recursive_mutex> gl(m_);
 		buckets_.clear();
 		size_=0;
 		entries_=0;
@@ -525,7 +527,6 @@ template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeToNet(KVPairCoder *out){
 	Iterator *i = (Iterator*)get_iterator(nullptr, false);
 	string k, v1;
-	// TODO: change latter to add source
 	while(!i->done()){
 		k.clear();
 		v1.clear();
@@ -593,6 +594,7 @@ void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f,
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::resize(int64_t size){
 	CHECK_GT(size, 0);
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	if(size_ == size)
 		return;
 
@@ -661,8 +663,8 @@ ClutterRecord<K, V1, V2, V3> StateTable<K, V1, V2, V3>::get(const K& k){
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::updateF1(const K& k, const V1& v){
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b = bucket_for_key(k);
-
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
 
 	buckets_[b].v1 = v;
@@ -691,10 +693,12 @@ void StateTable<K, V1, V2, V3>::updateF3(const K& k, const V3& v){
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::accumulateF1(const K& from, const K &to, const V1 &v){
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b = bucket_for_key(to);
 	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
 	buckets_[b].update_v1_with_input(from, v, pk);
 	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
+	++total_updates;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -705,7 +709,7 @@ void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v){
 	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
 	pk->accumulate(buckets_[b].v1, v);
 	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
-
+	++total_updates;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -848,7 +852,7 @@ bool StateTable<K, V1, V2, V3>::Bucket::update_input(
 	auto it=input.find(from);
 	const V1& old = it==input.end() ? kernel->default_v() : it->second;	// add case
 	bool better = kernel->better(v, old);
-	if(it!=input.end() || v != kernel->default_v())
+	//if(it!=input.end() || v != kernel->default_v())
 		input[from] = v;	// modify & add case
 //	if(it!=input.end() && v==kernel->default_v())	// remove case
 //		input.erase(from);
@@ -858,26 +862,36 @@ bool StateTable<K, V1, V2, V3>::Bucket::update_input(
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::Bucket::reset_v1_from_input(IterateKernel<K, V1, V3>* kernel)
 {
-	v1 = kernel->default_v();
-	for(auto& p : input){
-		if(kernel->better(p.second, v1)){
-			v1 = p.second;
-			bp = p.first;
+	if(input.empty())
+		return;
+	auto it=input.begin();
+	V1 temp = it->second;
+	K b=it->first;
+	while(++it!=input.end()){
+		if(kernel->better(it->second, temp)){
+			temp=it->second;
+			b=it->first;
 		}
 	}
+	v1 = temp;
+	bp = b;
 }
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::Bucket::reset_best_pointer(IterateKernel<K, V1, V3>* kernel)
 {
-	V1 temp = kernel->default_v();
-	K b = K();
-	for(auto& p : input){
-		if(kernel->better(p.second, temp)){
-			temp = p.second;
-			b = p.first;
+	if(input.empty())
+		return;
+	auto it=input.begin();
+	V1 temp = it->second;
+	K b=it->first;
+	while(++it!=input.end()){
+		if(kernel->better(it->second, temp)){
+			temp=it->second;
+			b=it->first;
 		}
 	}
+//	v1 = temp;
 	bp = b;
 }
 
@@ -906,6 +920,7 @@ void StateTable<K, V1, V2, V3>::add_ineighbor(const K& from, const K& to, const 
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::update_ineighbor(const K& from, const K& to, const V1& v){
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b = bucket_for_key(to);
 	CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&to) << ">";
 	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
@@ -914,6 +929,7 @@ void StateTable<K, V1, V2, V3>::update_ineighbor(const K& from, const K& to, con
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::remove_ineighbor(const K& from, const K& to){
+	std::lock_guard<std::recursive_mutex> gl(m_);
 	int b = bucket_for_key(to);
 	CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&to) << ">";
 	buckets_[b].input.erase(from);
