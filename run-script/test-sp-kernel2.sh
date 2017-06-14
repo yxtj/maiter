@@ -3,7 +3,7 @@
 # k-range (close range between k-start and k-end)
 # top-portion, priority-alpha
 
-if [ $# -ne 14 ]; then
+if [ $# -ne 15 ]; then
 	echo "Require 14 parameters but $# is given. Try to use \" \" arround ratios"
 	echo "  1: #-parts, "
 	echo "  2: graph-folder, 3: initial-folder, 4: delta-folder, 5: result-folder, 6: log-folder, "
@@ -40,6 +40,8 @@ K_END=${13}
 PORTIONS=${14}
 ALPHAS=${15}
 
+N=3
+
 for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 	drn=$( printf '%.0f\n' $(echo "100*$dr"|bc))
 	crn=$( printf '%.0f\n' $(echo "10*$cr"|bc))
@@ -62,14 +64,18 @@ for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 #			../gen/deltaGen.exe $GRAPH_FDR $PARTS $delta_pre $dr $delta_4_ratios $k > /dev/null
 			../gen/delta-gen2.exe $PARTS $GRAPH_FDR $CE_FDR $delta_pre $dr $cr $gr $ew $k > /dev/null
 #			break
+			i=0
 			for po in $PORTIONS; do for al in $ALPHAS; do
 				echo "  calculating p=$po a=$al"
 				#echo 'Usage: <#-parts> <graph-fdr> <init-fdr> <delta-prefix> <result-fdr> [portion] [alpha] [snapshot] [verbose] [hostfile]'
-				./go-sp-delta.sh $PARTS $GRAPH_FDR $INIT_FDR $delta_pre $temp_result_fdr $po $al $SNAPSHOT 0 2>$LOG_FDR/$log_name_prefix$po-$al
+				./go-sp-delta.sh $PARTS $GRAPH_FDR $INIT_FDR $delta_pre $temp_result_fdr $po $al $SNAPSHOT 0 2>$LOG_FDR/$log_name_prefix$po-$al &
+				((i=i%N)); ((i++==0)) && wait
 			done; done
+			wait
 			rm -rf $temp_delta_fdr
 			rm -rf $temp_result_fdr
 		done
 	done; done
 done
+
 

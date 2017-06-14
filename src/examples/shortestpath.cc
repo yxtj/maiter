@@ -49,6 +49,15 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 			data.push_back(to);
 			pos = spacepos + 1;
 		}
+		// special process for the source node: add a self-loop with 0 weight,
+		// to make sure that the delta for the source node can always be zero.
+		if(k==FLAGS_shortestpath_source){
+			auto it=find_if(data.begin(), data.end(), [&](const Link& p){
+				return p.end==FLAGS_shortestpath_source;
+			});
+			if(it==data.end())
+				data.push_back(Link(FLAGS_shortestpath_source, 0));
+		}
 	}
 	void read_init(std::string& line, int& k, float& delta, float& value){
 		// format: "<key>\t<delta>:<value>"
@@ -123,7 +132,7 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	}
 
 	float g_func(const int& k, const float& delta, const float& value, const Link& d){
-		return d.end==FLAGS_shortestpath_source?imax:delta+d.weight;
+		return d.end==FLAGS_shortestpath_source ? imax : delta+d.weight;
 	}
 
 	void g_func(const int& k, const float& delta, const float& value, const vector<Link>& data,
@@ -131,7 +140,7 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 		for(vector<Link>::const_iterator it = data.begin(); it != data.end(); it++){
 			if(it->end == FLAGS_shortestpath_source){	// to avoid positive loop
 				//continue;
-				output->push_back(make_pair(it->end, default_v()));
+				output->push_back(make_pair(it->end, imax));
 			}else{
 				float outv = delta + it->weight;
 				output->push_back(make_pair(it->end, outv));

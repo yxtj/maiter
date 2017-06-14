@@ -232,12 +232,12 @@ public:
 		}
 
 		// get the new F2 after process
-		V2 vv2 = get_localF2(k);
+		//V2 vv2 = get_localF2(k);
 
 		//invoke api, perform g(delta_v) and send messages to out-neighbors
 		std::vector<std::pair<K,V1> > output;
 		output.reserve(v3.size());
-		kernel->g_func(k, v1, vv2, v3, &output);
+		kernel->g_func(k, v1, v2, v3, &output);
 
 		//perform delta_v=0, reset delta_v after delta_v has been spread out
 		if(!kernel->is_selective())

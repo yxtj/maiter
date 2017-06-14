@@ -148,8 +148,9 @@ void Master::termcheck(){
 		pair<double, int64_t> p=ptc->get_curr();
 
 		LOG(INFO) << "Termination check at " << barrier_timer->elapsed() << " finished in "
-				<< cp_timer.elapsed() << " total current ("<< to_string(p.first)<<" , "<<p.second //StringPrintf("%.05f",ptc->get_curr())
-				<< " total updates " << total_updates;
+				<< cp_timer.elapsed() << " total current ("<< to_string(p.first)<<" , "<<p.second
+				//StringPrintf("%.05f",ptc->get_curr())
+				<< ") total updates " << total_updates;
 
 		kernel_terminated_=bterm;
 		if(kernel_terminated_){
