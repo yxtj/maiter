@@ -136,7 +136,7 @@ bool changeGraph(const string& graphFolder, const string& cedgeFolder, const str
 	int addCnt = 0, rmvCnt = 0, incCnt = 0, decCnt = 0;
 	
 	for(int i=0;i<nPart;++i){
-		cout<<"  On part "<<i<<".";
+		cout<<"  On part "<<i<<"...";
 		cout.flush();
 		ModifyEdges modifiedSet(rnd_prob, rnd_node, rnd_weight);
 		size_t nc, nv, ne;
@@ -224,7 +224,7 @@ bool changeGraph(const string& graphFolder, const string& cedgeFolder, const str
 	double maxCrtRatio = deltaRatio*totalE/totalC;	// the maximum allowed crtRatio by the current deltaRatio
 	double minDltRatio = crtRatio*totalC/totalE;	// the minimum required deltaRatio by the current crtRatio
 	if(minDltRatio > deltaRatio){
-		cerr<<"  Warning: global crtRatio and deltaRatio do not match: "
+		cerr<<"  Warning: global crtRatio and deltaRatio do not match:"
 			<<" max-CR="<<maxCrtRatio<<", min-DR="<<minDltRatio<<endl;
 	}
 	
@@ -232,10 +232,10 @@ bool changeGraph(const string& graphFolder, const string& cedgeFolder, const str
 	double tc = totalC;
 	double tm = addCnt+rmvCnt+incCnt+decCnt;
 	cout << "Total vertex/edge/critical: " << totalV << "/" << totalE << "/" << totalC << "\n";
-	cout<< "  expected/actual/min delta-ratio="<<deltaRatio<<"/"<<tm/te<<"/"<<minDltRatio<<"\n"
-		<< "  expected/actual/max critical-ratio="<<crtRatio<<"/"<<(cRmvCnt+cIncCnt+cDecCnt)/tc<<"/"<<maxCrtRatio<<"\n"
-		<< "  expected/actual good-ratio="<<goodRatio<<"/"<<(addCnt+decCnt)/tm<<"\n"
-		<< "  expected/actual ew-ratio="<<ewRatio<<"/"<<(addCnt+rmvCnt)/tm<<"\n";
+	cout<< "  delta-ratio (expected/actual/min)   ="<<deltaRatio<<"/"<<tm/te<<"/"<<minDltRatio<<"\n"
+		<< "  critical-ratio (expected/actual/max)="<<crtRatio<<"/"<<(cRmvCnt+cIncCnt+cDecCnt)/tc<<"/"<<maxCrtRatio<<"\n"
+		<< "  good-ratio (expected/actual)        ="<<goodRatio<<"/"<<(addCnt+decCnt)/tm<<"\n"
+		<< "  ew-ratio (expected/actual)          ="<<ewRatio<<"/"<<(addCnt+rmvCnt)/tm<<"\n";
 	//cout.width(4);
 	cout.setf(ios::fixed);
 	//cout<<"  type:  cnt\t(portion)\tce-cnt\t(CrtRatio)\n";
