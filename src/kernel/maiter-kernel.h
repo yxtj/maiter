@@ -15,7 +15,7 @@
 #include "table/table-create.h"
 #include "table/tbl_widget/IterateKernel.h"
 #include "util/timer.h"
-
+#include <string>
 #include <fstream>
 
 DECLARE_string(graph_dir);
@@ -51,7 +51,7 @@ public:
 	}
 
 	void read_file(TypedGlobalTable<K, V, V, D>* table){
-		std::string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
+		std::string patition_file = FLAGS_graph_dir+"/part"+std::to_string(current_shard());
 		std::ifstream inFile(patition_file);
 		if(!inFile){
 			LOG(FATAL) << "Unable to open graph file: " << patition_file;
@@ -79,7 +79,7 @@ public:
 	void load_initial(TypedGlobalTable<K, V, V, D>* table,
 			const bool use_initial_delta, const bool use_v_for_delta)
 	{
-		std::string init_file = StringPrintf("%s/part-%d", FLAGS_init_dir.c_str(), current_shard());
+		std::string init_file = FLAGS_init_dir+"/part-"+std::to_string(current_shard());
 		std::ifstream inFile(init_file);
 		if(!inFile){
 			LOG(FATAL) << "Unable to open initializing file: " << init_file;
@@ -163,8 +163,7 @@ public:
 	}
 
 	std::vector<std::tuple<K, ChangeEdgeType, D>> read_delta(TypedGlobalTable<K, V, V, D>* table){
-		std::string patition_file = StringPrintf("%s-%d",
-			FLAGS_delta_prefix.c_str(), current_shard());
+		std::string patition_file = FLAGS_delta_prefix+"-"+std::to_string(current_shard());
 		std::ifstream inFile(patition_file);
 		if(!inFile){
 			LOG(FATAL) << "Unable to open delta file: " << patition_file;
@@ -345,7 +344,7 @@ public:
 		uint64_t ndefF2 = 0;
 		V default_v = maiter->iterkernel->default_v();
 
-		std::string file = StringPrintf("%s/part-%d", maiter->output.c_str(), current_shard()); //the output path
+		std::string file =  maiter->output + "/part-" + std::to_string(current_shard());//the output path
 		std::ofstream File(file);	//the output file containing the local state table infomation
 
 		//get the iterator of the local state table
@@ -390,7 +389,7 @@ public:
 	}
 
 	void dump(TypedGlobalTable<K, V, V, D>* a){
-		std::string file = StringPrintf("%s/ilist-%d", maiter->output.c_str(), current_shard()); //the output path
+		std::string file = maiter->output + "/ilist-" + std::to_string(current_shard());
 		std::ofstream File(file);	//the output file containing the local state table infomation
 
 		int nNode = 0, nNeigh = 0;

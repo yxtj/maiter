@@ -306,7 +306,8 @@ int Master::startWorkers(const RunDescriptor& r){
 void Master::dump_stats(){
 	string status;
 	for(int k = 0; k < config_.num_workers(); ++k){
-		status += StringPrintf("%d/%d ", workers_[k]->num_finished(), workers_[k]->num_assigned());
+		status += to_string(workers_[k]->num_finished()) + "/" + to_string(workers_[k]->num_assigned());
+			//StringPrintf("%d/%d ", workers_[k]->num_finished(), workers_[k]->num_assigned());
 	}
 	//LOG(INFO) << StringPrintf("Running %s (%d); %s; assigned: %d done: %d",
 	//current_run_.method.c_str(), current_run_.shards.size(),

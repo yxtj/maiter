@@ -45,7 +45,8 @@ void Master::realSwap(const int tid1, const int tid2){
 	SwapTable req;
 	req.set_table_a(tid1);
 	req.set_table_b(tid2);
-	VLOG(2) << StringPrintf("Sending swap request (%d <--> %d)", req.table_a(), req.table_b());
+	VLOG(2) << "Sending swap request " << req.table_a() << " <--> " + req.table_b() << ")";
+		//StringPrintf("Sending swap request (%d <--> %d)", req.table_a(), req.table_b());
 
 	su_swap.reset();
 	network_->Broadcast(MTYPE_TABLE_SWAP, req);
@@ -54,7 +55,8 @@ void Master::realSwap(const int tid1, const int tid2){
 void Master::realClear(const int tid){
 	ClearTable req;
 	req.set_table(tid);
-	VLOG(2) << StringPrintf("Sending clear request (%d)", req.table());
+	VLOG(2) << "Sending clear request (" << req.table() <<")";
+			//StringPrintf("Sending clear request (%d)", req.table());
 
 	su_clear.reset();
 	network_->Broadcast(MTYPE_TABLE_CLEAR, req);
