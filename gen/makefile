@@ -2,7 +2,7 @@ CXX ?= g++
 CC ?= gcc
 MAKE ?= make
 CPPFLAGS += -std=c++11
-EXE = gen.exe deltaGen.exe delta-gen2.exe
+EXE = gen deltaGen delta-gen2
 
 DBGFLAGS = $(CPPFLAGS) -g
 RELFLAGS = $(CPPFLAGS) -O2
@@ -24,10 +24,10 @@ delta-gen2.exe: delta-gen2.o common.h common.o
 	$(CXX) $(CPPFLAGS) ${^:%.h=} -o $@
 
 release: 
-	$(MAKE) $(EXE) CPPFLAGS="$(RELFLAGS)"
+	$(MAKE) $(EXE:=.exe) CPPFLAGS="$(RELFLAGS)"
 
 debug: 
-	$(MAKE) $(EXE) CPPFLAGS="$(DBGFLAGS)"
+	$(MAKE) $(EXE:=.exe) CPPFLAGS="$(DBGFLAGS)"
 
 clean:
 	rm -rf *.o
