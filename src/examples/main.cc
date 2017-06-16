@@ -34,6 +34,8 @@ DEFINE_double(portion, 1, "");
 DEFINE_double(termcheck_threshold, 1000000000, "");
 DEFINE_double(sleep_time, 0.001, "");
 
+DEFINE_int64(graph_source, 0, "the source node for some graph algorithms like shortest-path, widest-path");
+DEFINE_double(weight_alpha, 1, "the factor for the bad news");
 DEFINE_bool(priority_degree, false, "whether to multiple the degree to the priority");
 
 int main(int argc, char** argv){

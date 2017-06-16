@@ -1,4 +1,4 @@
-ALGORITHM=Shortestpath
+ALGORITHM=ShortestPpath
 if [ $# -lt 2 ] || [ $# -gt 8 ] ; then
 	echo 'Usage: <prefix> <graph-fdr> [delta-prefix] [portion] [alpha] [snapshot] [verbose] [hostfile]'
 	echo '  graph : <prefix>/input/<graph-fdr>'

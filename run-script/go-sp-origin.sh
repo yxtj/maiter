@@ -1,4 +1,4 @@
-ALGORITHM=Shortestpath
+ALGORITHM=ShortestPath
 if [ $# -lt 3 ] || [ $# -gt 8 ] ; then
 	echo 'Usage: <#-parts> <graph-fdr> <result-fdr> [portion] [alpha] [snapshot] [verbose] [hostfile]'
 	echo '  [portion]: (=1) the top portion for priority scheduling, 1 means Round-Robin'

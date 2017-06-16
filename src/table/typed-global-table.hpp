@@ -232,7 +232,7 @@ public:
 		}
 
 		// get the new F2 after process
-		//V2 vv2 = get_localF2(k);
+//		V2 vv2 = get_localF2(k);
 
 		//invoke api, perform g(delta_v) and send messages to out-neighbors
 		std::vector<std::pair<K,V1> > output;
