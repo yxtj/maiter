@@ -64,7 +64,7 @@ for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 #			../gen/deltaGen.exe $GRAPH_FDR $PARTS $delta_pre $dr $delta_4_ratios $k > /dev/null
 			../gen/delta-gen2.exe $PARTS $GRAPH_FDR $CE_FDR $delta_pre $dr $cr $gr $ew $k > /dev/null
 #			break
-			i=0
+			i=1
 			for po in $PORTIONS; do for al in $ALPHAS; do
 				echo "  calculating p=$po a=$al"
 				#echo 'Usage: <#-parts> <graph-fdr> <init-fdr> <delta-prefix> <result-fdr> [portion] [alpha] [snapshot] [verbose] [hostfile]'
@@ -76,6 +76,4 @@ for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 			rm -rf $temp_result_fdr
 		done
 	done; done
-done
-
-
+done; done
