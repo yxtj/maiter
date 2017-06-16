@@ -1,4 +1,4 @@
-ALGORITHM=Shortestpath
+ALGORITHM=ShortestPath
 if [ $# -lt 5 ]; then
 	echo 'Usage: <#-parts> <graph-fdr> <init-fdr> <delta-prefix> <result-fdr> [portion] [alpha] [snapshot] [verbose] [hostfile]'
 	echo '  <#-parts>: # of parts'

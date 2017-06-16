@@ -13,7 +13,9 @@ add_library(example
             #adsorption.cc
             #katz.cc
             #simrank.cc
-            #con_component.cc
+            con_component.cc
+            widestpath.cc
+            minspantree.cc
             ${EXAMPLE_PB_HDR} 
             ${EXAMPLE_PB_SRC})
             
