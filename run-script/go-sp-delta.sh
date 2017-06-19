@@ -1,11 +1,12 @@
 ALGORITHM=ShortestPath
 if [ $# -lt 5 ]; then
-	echo 'Usage: <#-parts> <graph-fdr> <init-fdr> <delta-prefix> <result-fdr> [portion] [alpha] [snapshot] [verbose] [hostfile]'
+	echo 'Usage: <#-parts> <graph-fdr> <init-fdr> <delta-prefix> <result-fdr> [portion] [alpha] [degree] [snapshot] [verbose] [hostfile]'
 	echo '  <#-parts>: # of parts'
 	echo '  <*-fdr> = the full path of the folders'
 	echo '  <delta-prefix> = the folder and name prefix for delta graphs, "-<part-id>" is added for each parts'
 	echo '  [portion]: (=1) the top portion for priority scheduling, 1 means Round-Robin'
 	echo '  [alpha]: (=1) the weight for the bad changes'
+	echo '  [degree]: (=0) use degree in setting priority'
 	echo '  [snapshot]: (=1) termination checking interval, in seconds'
 	echo '  [verbose]: (=0) verbose level, the higher the more verbose'
 	echo '  [hostfile]: (=../conf/maiter-cluster) the hostfile for MPI'
@@ -34,18 +35,22 @@ ALPHA=1
 if [ $# -ge 7 ]; then
 	ALPHA=$7
 fi
-SNAPSHOT=1
+DEGREE=0
 if [ $# -ge 8 ]; then
-	SNAPSHOT=$8
+	DEGREE=$8
+fi
+SNAPSHOT=1
+if [ $# -ge 9 ]; then
+	SNAPSHOT=$9
 fi
 
 VERBOSE_LVL=0
-if [ $# -ge 9 ]; then
-	VERBOSE_LVL=$9
+if [ $# -ge 10 ]; then
+	VERBOSE_LVL=${10}
 fi
 HOSTFILE=../conf/maiter-cluster
-if [ $# -ge 10 ]; then
-	HOSTFILE=${10}
+if [ $# -ge 11 ]; then
+	HOSTFILE=${11}
 fi
 
 mkdir -p $RESULT
@@ -54,7 +59,7 @@ mkdir -p $RESULT
 
 ../maiter --hostfile=$HOSTFILE --runner=$ALGORITHM --workers=$WORKERS --num_nodes=$NODES\
   --graph_dir=$GRAPH_FDR --result_dir=$RESULT_FDR --init_dir=$INIT_FDR --delta_prefix=$DELTA_PRE\
-  --local_aggregate=0 --snapshot_interval=$SNAPSHOT --portion=$PORTION --weight_alpha=$ALPHA\
+  --local_aggregate=0 --snapshot_interval=$SNAPSHOT --portion=$PORTION --weight_alpha=$ALPHA --priority_degree=$DEGREE\
   --sleep_time=0.003 --termcheck_threshold=$TERMTHRESH --buftime=$BUFTIME -- v=$VERBOSE_LVL
 #  --checkpoint_type=$CP_TYPE --checkpoint_interval=$CP_TIME
 
