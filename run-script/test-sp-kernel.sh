@@ -3,8 +3,8 @@
 # k-range (close range between k-start and k-end)
 # top-portion, priority-alpha
 
-if [ $# -ne 15 ]; then
-	echo "Require 14 parameters but $# is given. Try to use \" \" arround ratios"
+if [ $# -ne 16 ]; then
+	echo "Require 16 parameters but $# is given. Try to use \" \" arround ratios"
 	echo "  1: #-parts, "
 	echo "  2: graph-folder, 3: initial-folder, 4: delta-folder, 5: result-folder, 6: log-folder, "
 	echo "  7: snapshot-interval, "
