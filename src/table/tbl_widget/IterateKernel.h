@@ -42,7 +42,7 @@ struct IterateKernel : public IterateKernelBase {
 	virtual void process_delta_v(const K& k, V& dalta,V& value, D& data){}
 	virtual void priority(V& pri, const V& value, const V& delta, const D& data) = 0;
 
-	virtual V g_func(const K& k,const V& delta,const V& value, const typename D::value_type& dst) = 0;
+	virtual V g_func(const K& k,const V& delta,const V& value, const D& data, const K& dst) = 0;
 	virtual void g_func(const K& k,const V& delta,const V& value, const D& data, std::vector<std::pair<K, V> >* output);
 
 	virtual void read_change(std::string& line, K& k, ChangeEdgeType& type, D& change){} // only D[0] make sense
@@ -70,9 +70,9 @@ void IterateKernel<K, V, D>::g_func(const K& k,const V& delta,const V& value, co
 		std::vector<std::pair<K, V> >* output)
 {
 	//output->clear();
-	std::vector<K> keys=get_keys(data);
 	for(size_t i=0;i<keys.size();++i){
-		output->push_back(std::make_pair(keys[i], g_func(k, delta, value, data[i])));
+		K dst = get_key(data[i]);
+		output->push_back(std::make_pair(keys[i], g_func(k, delta, value, data, dst)));
 	}
 }
 

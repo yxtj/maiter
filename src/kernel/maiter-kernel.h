@@ -202,10 +202,11 @@ public:
 	void apply_changes_on_delta(TypedGlobalTable<K, V, V, D>* table,
 			std::vector<std::tuple<K, ChangeEdgeType, D>>& changes)
 	{
-		double t1=0, t2=0, t3=0, tacc=0;
+		double t1=0, t2=0, t3=0, t4=0;
 		// put changes into messages(remote) / apply(local)
 		V default_v = maiter->iterkernel->default_v();
 		string from, to, value;
+		Timer tmr;
 		for(auto& tup : changes){
 			K key = std::get<0>(tup);
 			ChangeEdgeType type = std::get<1>(tup);
@@ -214,37 +215,28 @@ public:
 			if(type==ChangeEdgeType::REMOVE){
 				weight = default_v;
 			}else{
-				Timer tmr;
+				tmr.reset();
 				ClutterRecord<K, V, V, D> c = table->get(key);
 				t1+=tmr.elapsed();
 				tmr.reset();
-				auto it=std::find(c.v3.begin(), c.v3.end(), dst);
-
-//				std::vector<std::pair<K, V>> output;
-//				maiter->iterkernel->g_func(c.k, c.v1, c.v2, c.v3, &output);
+				weight = maiter->iterkernel->g_func(c.k, c.v1, c.v2, c.v3, dst);
 				t2+=tmr.elapsed();
-				tmr.reset();
-//				auto it = std::find_if(output.begin(), output.end(), [&](const std::pair<K, V>& p){
-//					return p.first==dst;
-//				});
-////				VLOG_IF(0,it==output.end())<<char(type)<<" "<<key<<" "<<weight;
-//				weight = it==output.end() ? default_v : it->second;
-				weight = maiter->iterkernel->g_func(c.k, c.v1, c.v2, *it);
-				t3+=tmr.elapsed();
 			}
-			Timer tmr;
 //			VLOG(1)<<"  "<<char(type)<<" "<<key<<" "<<dst<<"\t"<<weight<<"\t d="<<table->getF1(key)<<" v="<<table->getF2(key);
+			tmr.reset();
 			table->accumulateF1(key, dst, weight);
+			t3+=tmr.elapsed();
+			tmr.reset();
 			if(table->canSend()){
 				table->helper()->signalToSend();
 				table->resetSendMarker();
 			}
-			tacc+=tmr.elapsed();
+			t4+=tmr.elapsed();
 		}
 //		table->helper()->signalToProcess();
 		table->helper()->signalToSend();
 		table->resetSendMarker();
-		VLOG(0)<<t1<<" , "<<t2<<" , "<<t3<<"\t"<<tacc;
+		VLOG(0)<<t1<<" , "<<t2<<" , "<<t3<<" , "<<t4;
 	}
 
 	void delta_table(TypedGlobalTable<K, V, V, D>* a){

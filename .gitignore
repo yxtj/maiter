@@ -55,6 +55,8 @@ ipch/
 *.vcxproj
 *.sln
 
+# vscode project files:
+.vscode/
 
 # eclipse project files:
 .cproject

@@ -119,9 +119,12 @@ struct ShortestPathIterateKernel: public IterateKernel<int, float, vector<Link> 
 			pri = FLAGS_weight_alpha * dif;
 	}
 
-	float g_func(const int& k, const float& delta, const float& value, const Link& d){
-		return delta+d.weight;
-		return d.end==FLAGS_graph_source ? imax : delta+d.weight;
+	float g_func(const int& k, const float& delta, const float& value, const vector<Link>& data, const int& dst){
+		auto it=find_if(data.begin(), data.end(), [&](const Link& l){
+			return l.end == dst;
+		});
+		return delta+it->weight;
+		//return d.end==FLAGS_graph_source ? imax : delta+it->weight;
 	}
 
 	void g_func(const int& k, const float& delta, const float& value, const vector<Link>& data,

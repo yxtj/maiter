@@ -103,8 +103,11 @@ struct MinSpanTreeIterateKernel: public IterateKernel<int, float, vector<Link> >
 			pri = FLAGS_weight_alpha * dif;
 	}
 
-	float g_func(const int& k, const float& delta, const float& value, const Link& d){
-		return d.weight;
+	float g_func(const int& k, const float& delta, const float& value, const vector<Link>& data, const int& dst){
+		auto it = find_if(data.begin(), data.end(), [&](const Link& l){
+			return l.end == dst;
+		});
+		return it->weight;
 	}
 
 	void g_func(const int& k, const float& delta, const float& value, const vector<Link>& data,

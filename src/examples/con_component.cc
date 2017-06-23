@@ -76,7 +76,7 @@ struct ConCompIterateKernel : public IterateKernel<int, int, vector<int> > {
     void init_c(const int& k, int& delta, vector<int>& data){
 		delta = k;
     }
-    void init_v(const int& k,int& value,vector<int>& data){
+    void init_v(const int& k, int& value, vector<int>& data){
 		value = -1;
     }
 
@@ -99,7 +99,7 @@ struct ConCompIterateKernel : public IterateKernel<int, int, vector<int> > {
 			pri = static_cast<int>(FLAGS_weight_alpha * dif);
     }
 
-    int g_func(const int& k,const int& delta, const int& value, const int& d){
+    int g_func(const int& k,const int& delta, const int& value, const vector<int>& data, const int& dst){
     	return delta;
     }
     void g_func(const int& k,const int& delta, const int& value, const vector<int>& data,
