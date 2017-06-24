@@ -82,7 +82,7 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 		return true;
 	}
 
-	void priority(float& pri, const float& value, const float& delta){
+	void priority(float& pri, const float& value, const float& delta, const vector<int>& data){
 		pri = delta;
 	}
 	float g_func(const int& k, const float& delta, const float&value, const vector<int>& data, const int& dst){

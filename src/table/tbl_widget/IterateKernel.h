@@ -70,9 +70,9 @@ void IterateKernel<K, V, D>::g_func(const K& k,const V& delta,const V& value, co
 		std::vector<std::pair<K, V> >* output)
 {
 	//output->clear();
-	for(size_t i=0;i<keys.size();++i){
+	for(size_t i=0;i<data.size();++i){
 		K dst = get_key(data[i]);
-		output->push_back(std::make_pair(keys[i], g_func(k, delta, value, data, dst)));
+		output->push_back(std::make_pair(dst, g_func(k, delta, value, data, dst)));
 	}
 }
 

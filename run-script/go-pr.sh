@@ -1,0 +1,1 @@
+./go-kernel.sh Pagerank $@

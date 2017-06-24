@@ -235,8 +235,8 @@ private:
 };
 
 void Option::parse(int argc, char* argv[]){
-	graphFolder = argv[1];
-	nPart = stoi(string(argv[2]));
+	nPart = stoi(string(argv[1]));
+	graphFolder = argv[2];
 //	nNode=stoi(string(argv[2]));
 	deltaPrefix = argv[3];
 	rate = stod(string(argv[4]));
@@ -291,16 +291,16 @@ int main(int argc, char* argv[]){
 		cerr << "Wrong usage.\n"
 				"Usage: <graph-folder> <#parts> <delta-prefix> <deltaRate> <addRate> <rmvRate> <incRate> <decRate> [random-seed]"
 				<< endl;
-		cerr << "  <graph-folder>: the folder of graphs.\n"
-				"  <#parts>: number of parts the graphs are separated (the number of files to operate).\n"
+		cerr <<	"  <#parts>: number of parts the graphs are separated (the number of files to operate).\n"
+				"  <graph-folder>: the folder of graphs.\n"
 				"  <delta-prefix>: the path and name prefix of generated delta graphs, naming format: \"<delta-prefix>-<part>\".\n"
 				"  <deltaRate>: the rate of changed edges.\n"
 				"  <addRate>, <rmvRate>, <incRate>, <decRate>: "
 				"among the changed edges the rate for edge-addition, edge-removal, weight-increase and weight-decrease. "
 				"They are automatically normalized.\n"
 				"  [random-seed]: (=1535345) seed for random numbers\n"
-				"i.e.: ./deltaGen.exe graphDir 2 delta-rd 0.05 0 0.3 0 0.7 123456\n"
-				"i.e.: ./deltaGen.exe input 2 ../delta/d2 0.01 0.2 0.2 0.3 0.3\n"
+				"i.e.: ./deltaGen.exe 1 graphDir delta-rd 0.05 0 0.3 0 0.7 123456\n"
+				"i.e.: ./deltaGen.exe 2 input ../delta/d2 0.01 0.2 0.2 0.3 0.3\n"
 				<< endl;
 		return 1;
 	}
