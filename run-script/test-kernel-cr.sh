@@ -44,10 +44,10 @@ ALPHAS=${16}
 DEGREE=${17}
 
 N=1
-if [ $# -ge 18 ]; then
+if [ $# -ge 18 ] && [ ! -z ${18// /}]; then
 	N=${18}
 fi
-
+echo $@
 for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 	drn=$( printf '%.0f\n' $(echo "100*$dr"|bc))
 	crn=$( printf '%.0f\n' $(echo "10*$cr"|bc))
