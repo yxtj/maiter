@@ -23,22 +23,17 @@ using namespace std;
 
 struct Edge{
 	int u, v;
-	string w;
 };
 
 struct ModifyThreshold{
 	double trivial;
 	double add;
 	double rmv;
-	double inc;
-	double dec;
 };
 
 struct ModifyEdges{
 	vector<Edge> addSet;
 	vector<Edge> rmvSet;
-	vector<Edge> incSet;
-	vector<Edge> decSet;
 };
 
 pair<int, vector<Edge>> parseFromLine(const string& line){
@@ -50,10 +45,8 @@ pair<int, vector<Edge>> parseFromLine(const string& line){
 
 	size_t spacepos;
 	while((spacepos = line.find(' ', pos)) != line.npos){
-		size_t cut = line.find(',', pos + 1);
-		int node = stoi(line.substr(pos, cut - pos));
-		string weight = line.substr(cut + 1, spacepos - cut - 1);
-		Edge e{ key, node, weight };
+		int node = stoi(line.substr(pos, spacepos - pos));
+		Edge e{ key, node };
 		data.push_back(e);
 		pos = spacepos + 1;
 	}
@@ -62,15 +55,12 @@ pair<int, vector<Edge>> parseFromLine(const string& line){
 
 // normal return: (totalV, totalE, maxV)
 // return by reference: resultSet = {addSet, rmvSet, incSet, decSet}
-tuple<int, int, int> loadChanges(ifstream& fin, int maxV, const ModifyThreshold& threshold,
+tuple<int, int, int> changeOne(ifstream& fin, int maxV, const ModifyThreshold& threshold,
 		uniform_real_distribution<double>& rnd_prob, uniform_int_distribution<int>& rnd_node,
-		uniform_real_distribution<float>& rnd_weight, mt19937& gen,
-		ModifyEdges& resultSet)
+		mt19937& gen, ModifyEdges& resultSet)
 {
 	vector<Edge>& addSet = resultSet.addSet;
 	vector<Edge>& rmvSet = resultSet.rmvSet;
-	vector<Edge>& incSet = resultSet.incSet;
-	vector<Edge>& decSet = resultSet.decSet;
 
 	int totalV = 0;
 	int totalE = 0;
@@ -95,12 +85,12 @@ tuple<int, int, int> loadChanges(ifstream& fin, int maxV, const ModifyThreshold&
 				++addCnt;
 			}else if(r < threshold.rmv){
 				rmvSet.push_back(move(e));
-			}else if(r < threshold.inc){
+			/* }else if(r < threshold.inc){
 				e.w = to_string(stof(e.w) * (1 + rnd_weight(gen)));
 				incSet.push_back(move(e));
 			}else if(r < threshold.dec){
 				e.w = to_string(stof(e.w) * rnd_weight(gen));
-				decSet.push_back(move(e));
+				decSet.push_back(move(e)); */
 			}
 		}
 		totalE += hs.size();
@@ -114,7 +104,7 @@ tuple<int, int, int> loadChanges(ifstream& fin, int maxV, const ModifyThreshold&
 				newV = rnd_node(gen) % maxV;
 			}while(dests.find(newV) != dests.end() && rpt++ < 10);
 			if(rpt < 10){
-				Edge e{ u, newV, to_string(rnd_weight(gen)) };
+				Edge e{ u, newV };
 				addSet.push_back(move(e));
 			}else{
 				// ++failAdd;
@@ -127,19 +117,19 @@ tuple<int, int, int> loadChanges(ifstream& fin, int maxV, const ModifyThreshold&
 void dumpChangeOneSet(ofstream& fout, const vector<Edge>& edgeSet, char type, bool bidir){
 	if(!bidir){
 		for(const Edge& e : edgeSet){
-			fout << type << " " << e.u << "," << e.v << "," << e.w << "\n";
+			fout << type << " " << e.u << "," << e.v << "\n";
 		}
 	}else{
 		for(const Edge& e : edgeSet){
-			fout << type << " " << e.u << "," << e.v << "," << e.w << "\n";
-			fout << type << " " << e.v << "," << e.u << "," << e.w << "\n";
+			fout << type << " " << e.u << "," << e.v << "\n";
+			fout << type << " " << e.v << "," << e.u << "\n";
 		}
 	}
 }
 
 int changeGraph(const string& dir, const string& deltaPrefix,
 		const int nPart, const int seed, const double rate,
-		const double addRate, const double rmvRate, const double incRate, const double decRate)
+		const double addRate, const double rmvRate)
 {
 	vector<ifstream*> fin;
 	vector<ofstream*> fout;
@@ -159,30 +149,26 @@ int changeGraph(const string& dir, const string& deltaPrefix,
 	mt19937 gen(seed);
 	uniform_real_distribution<double> rnd_prob(0.0, 1.0);
 	uniform_int_distribution<int> rnd_node; // 0 to numeric_limits<int>::max()
-	uniform_real_distribution<float> rnd_weight(0, 1);
 
 	//double modProb=rate*(1-addRate);
 	double addProb = rate * addRate, rmvProb = rate * rmvRate;
-	double incProb = rate * incRate, decProb = rate * decRate;
 
 	ModifyThreshold threshold; //{ addTh, rmvTh, incTh, decTh };
 	threshold.trivial = (1 - rate);
 	threshold.add = threshold.trivial + addProb;
 	threshold.rmv = threshold.add + rmvProb;
-	threshold.inc = threshold.rmv + incProb;
-	threshold.dec = threshold.inc + decProb;
 
 	int totalV = 0, totalE = 0;
 	// int failAdd = 0;
-	int addCnt = 0, rmvCnt = 0, incCnt = 0, decCnt = 0;
+	int addCnt = 0, rmvCnt = 0;
 
 	int maxV = 0;
 	string line;
 	for(int i = 0; i < nPart; i++){
 		// generate
 		ModifyEdges modifiedSet;
-		tuple<int, int, int> ret = loadChanges(
-				*fin[i], maxV, threshold, rnd_prob, rnd_node, rnd_weight, gen, modifiedSet);
+		tuple<int, int, int> ret = changeOne(
+				*fin[i], maxV, threshold, rnd_prob, rnd_node, gen, modifiedSet);
 		totalV += get<0>(ret);
 		totalE += get<1>(ret);
 		maxV = max(maxV, get<2>(ret));
@@ -193,10 +179,6 @@ int changeGraph(const string& dir, const string& deltaPrefix,
 		dumpChangeOneSet(*fout[i], modifiedSet.addSet, 'A', false);
 		rmvCnt += modifiedSet.rmvSet.size();
 		dumpChangeOneSet(*fout[i], modifiedSet.rmvSet, 'R', false);
-		incCnt += modifiedSet.incSet.size();
-		dumpChangeOneSet(*fout[i], modifiedSet.incSet, 'I', false);
-		decCnt += modifiedSet.decSet.size();
-		dumpChangeOneSet(*fout[i], modifiedSet.decSet, 'D', false);
 
 		delete fout[i];
 	} // file
@@ -204,9 +186,7 @@ int changeGraph(const string& dir, const string& deltaPrefix,
 	double te = totalE;
 	cout << "Total vertex/edge: " << totalV << "/" << totalE << "\n";
 	cout << "  add e: " << addCnt << "\t: " << addCnt / te << "\n";
-	cout << "  rmv e: " << rmvCnt << "\t: " << rmvCnt / te << "\n";
-	cout << "  inc w: " << incCnt << "\t: " << incCnt / te << "\n";
-	cout << "  dec w: " << decCnt << "\t: " << decCnt / te << endl;
+	cout << "  rmv e: " << rmvCnt << "\t: " << rmvCnt / te << endl;
 	return nPart;
 }
 
@@ -222,7 +202,7 @@ struct Option{
 	string weight;
 	double wmin, wmax;
 	double rate;	// rate of changed edges
-	double addRate, rmvRate, incRate, decRate;
+	double addRate, rmvRate;
 
 	unsigned long seed;
 	
@@ -242,26 +222,11 @@ void Option::parse(int argc, char* argv[]){
 	rate = stod(string(argv[4]));
 	addRate = stod(string(argv[5]));
 	rmvRate = stod(string(argv[6]));
-	incRate = stod(string(argv[7]));
-	decRate = stod(string(argv[8]));
 	seed = 1535345;
-	if(argc > 9)
-		seed = stoul(string(argv[9]));
+	if(argc > 7)
+		seed = stoul(string(argv[7]));
 	if(!normalizeRates())
 		throw invalid_argument("Given rates do not make sense.");
-}
-bool Option::setWeight(string& method){
-	if(method == "no"){
-		weight = "no";
-	}else if(method.substr(0, 7) == "weight:"){
-		weight = "weight";
-		size_t p = method.find(',', 7);
-		wmin = stod(method.substr(7, p - 7));
-		wmax = stod(method.substr(p + 1));
-	}else{
-		return false;
-	}
-	return true;
 }
 bool Option::checkRate1(double rate){
 	return 0.0 <= rate;
@@ -271,36 +236,33 @@ bool Option::checkRate2(double rate){
 }
 bool Option::normalizeRates(){
 	bool flag = checkRate2(rate)
-			&& checkRate1(addRate) && checkRate1(rmvRate)
-			&& checkRate1(incRate) && checkRate1(decRate);
+			&& checkRate1(addRate) && checkRate1(rmvRate);
 	if(!flag)
 		return false;
-	double total = addRate + rmvRate + incRate + decRate;
+	double total = addRate + rmvRate;
 	if(total != 1.0){
 		cout << "normalizing modifying rates" << endl;
 		addRate /= total;
 		rmvRate /= total;
-		incRate /= total;
-		decRate /= total;
 	}
 	return true;
 }
 
 int main(int argc, char* argv[]){
-	if(argc < 9 || argc > 10){
+	if(argc < 7 || argc > 8){
 		cerr << "Wrong usage.\n"
-				"Usage: <graph-folder> <#parts> <delta-prefix> <deltaRate> <addRate> <rmvRate> <incRate> <decRate> [random-seed]"
+				"Usage: <graph-folder> <#parts> <delta-prefix> <deltaRate> <addRate> <rmvRate> [random-seed]"
 				<< endl;
 		cerr <<	"  <#parts>: number of parts the graphs are separated (the number of files to operate).\n"
 				"  <graph-folder>: the folder of graphs.\n"
 				"  <delta-prefix>: the path and name prefix of generated delta graphs, naming format: \"<delta-prefix>-<part>\".\n"
 				"  <deltaRate>: the rate of changed edges.\n"
-				"  <addRate>, <rmvRate>, <incRate>, <decRate>: "
-				"among the changed edges the rates for edge-addition, edge-removal, weight-increase and weight-decrease. "
+				"  <addRate>, <rmvRate>: "
+				"among the changed edges the rates for edge-addition and edge-removal. "
 				"They are automatically normalized.\n"
 				"  [random-seed]: (=1535345) seed for random numbers\n"
-				"i.e.: ./delta-gen.exe 1 graphDir delta-rd 0.05 0 0.3 0 0.7 123456\n"
-				"i.e.: ./delta-gen.exe 2 input ../delta/d2 0.01 0.2 0.2 0.3 0.3\n"
+				"i.e.: ./delta-gen-uw.exe 1 graphDir delta-rd 0.05 0 1 123456\n"
+				"i.e.: ./delta-gen-uw.exe 2 input ../delta/d2 0.01 0.2 0.8\n"
 				<< endl;
 		return 1;
 	}
@@ -315,9 +277,8 @@ int main(int argc, char* argv[]){
 	cout << "Loading " << opt.nPart << " parts, from folder: " << opt.graphFolder << endl;
 
 	int n = changeGraph(opt.graphFolder, opt.deltaPrefix, opt.nPart, opt.seed, opt.rate,
-			opt.addRate, opt.rmvRate, opt.incRate, opt.decRate);
+			opt.addRate, opt.rmvRate);
 
 	cout << "success " << n << " files. fail " << opt.nPart - n << " files." << endl;
 	return n > 0 ? 0 : 3;
 }
-

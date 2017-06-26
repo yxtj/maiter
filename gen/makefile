@@ -2,7 +2,7 @@ CXX ?= g++
 CC ?= gcc
 MAKE ?= make
 CPPFLAGS += -std=c++11
-EXE = gen delta-gen delta-gen2
+EXE = gen delta-gen delta-gen-uw delta-gen2
 
 DBGFLAGS = $(CPPFLAGS) -g
 RELFLAGS = $(CPPFLAGS) -O2
@@ -19,7 +19,10 @@ gen.exe: gen.o
 
 delta-gen.exe: delta-gen.o
 	$(CXX) $(CPPFLAGS) $^ -o $@
-
+	
+delta-gen-uw.exe: delta-gen-uw.o
+	$(CXX) $(CPPFLAGS) $^ -o $@
+	
 delta-gen2.exe: delta-gen2.o common.h common.o
 	$(CXX) $(CPPFLAGS) ${^:%.h=} -o $@
 

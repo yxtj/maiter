@@ -44,7 +44,7 @@ ALPHAS=${15}
 DEGREE=${16}
 
 N=1
-if [ $# -ge 17 ]; then
+if [ $# -ge 17 ] && [ ! -z ${17// /} ]; then
 	N=${17}
 fi
 
