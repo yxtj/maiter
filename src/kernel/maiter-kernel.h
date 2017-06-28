@@ -100,6 +100,7 @@ public:
 				maiter->iterkernel->init_c(key, delta, d);
 			}else if(use_v_for_delta){
 				// For min/max case, delta should be set to value
+				//VLOG(1)<<"load "<<key<<" delta: "<<delta<<" value: "<<value;
 				delta = value;
 			}
 			table->updateF1(key, delta);
@@ -113,7 +114,7 @@ public:
 		table->allpy_inneighbor_cache_local();
 		table->send_ineighbor_cache_remote();
 		table->clear_ineighbor_cache();
-		table->reset_ineighbor_bp();
+		table->reset_ineighbor_bp(); // reset bp first GZZZ
 	}
 	void init_table(TypedGlobalTable<K, V, V, D>* a){
 		if(!a->initialized()){
@@ -128,6 +129,7 @@ public:
 		// step 2: load initial value & delta
 		bool load_initial_value=!FLAGS_init_dir.empty();
 		bool is_selective = maiter->iterkernel->is_selective();
+		VLOG(1)<<"load_in_value "<<load_initial_value<<" selective? "<<is_selective;
 		if(load_initial_value){
 			VLOG(0)<<"loading initial values on "<<current_shard();
 			load_initial(a, false, is_selective);

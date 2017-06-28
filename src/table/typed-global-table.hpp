@@ -373,12 +373,13 @@ void TypedGlobalTable<K, V1, V2, V3>::fill_ineighbor_cache(bool process){
 	for(int i = 0; i < info().num_shards; ++i){
 		if(!is_local_shard(i))
 			continue;
-		VLOG(1) << "filling in-neighbor cache on " << i;
 		TypedTableIterator<K, V1, V2, V3>* it = get_entirepass_iterator(i);
+		//int counter = 0;
 		while(!it->done()){
 			K key = it->key();
 			V1 delta = it->value1();
 			V2 value = it->value2();
+			//counter++;
 			if(process && value != default_v){
 				std::vector<std::pair<K, V1> > output;
 				output.reserve(it->value3().size());
@@ -396,6 +397,7 @@ void TypedGlobalTable<K, V1, V2, V3>::fill_ineighbor_cache(bool process){
 			}
 			it->Next();
 		}
+		VLOG(1) << "filling in-neighbor cache on " << i;//<< " " << counter;
 		delete it;
 	}
 }
@@ -507,19 +509,41 @@ inline void TypedGlobalTable<K, V1, V2, V3>::ProcessRequest(const ValueRequest &
 		StateTable<K, V1, V2, V3> *st = dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(shard));
 		if(st->is_best_source(key, src)) {	// the best source sends request: re-send to all other in-neighbors
 			sendRequest(key, src);
-		} else { // reply current value to the source
-			IterateKernel<K, V1, V3>* kernel =
+
+			/*IterateKernel<K, V1, V3>* kernel =
 				static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
 			ClutterRecord<K,V1,V2,V3> c=get(key);
 			std::vector<std::pair<K, V1> > output;
 			kernel->g_func(key, c.v1, c.v2, c.v3, &output);
-			auto it = std::find_if(output.begin(), output.end(), [&](const std::pair<K, V2>& p) {
-				return p.first == src;
-			});
-			CHECK(it != output.end());
+			handleGeneratedInformation(key, output);
+			*/
+		} else { // reply current value to the source
+			IterateKernel<K, V1, V3>* kernel =
+				static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
+			ClutterRecord<K,V1,V2,V3> c=get(key);
+			//auto it = std::find_if(output.begin(), output.end(), [&](const std::pair<K, V2>& p) {
+			//	return p.first == src;
+			//});
+			//if(it == output.end()) {
+			//} else {
+
+			//CHECK(it != output.end());
+			std::vector<std::pair<K, V1> > output;
+			kernel->g_func(key, c.v1, c.v2, c.v3, &output);
 			std::vector<std::pair<K, V1> > temp;
-			temp.push_back(*it);
-			handleGeneratedInformation(src, output);
+			for(std::pair<K, V1> pp : output) {
+				if(pp.first == src) {
+					//if(src == 264)// || src == 31)
+					//VLOG(1)<<"Reply src: "<<src<<" from key: "<<key<<" "<<c.v1<<" "<<c.v2<<" v: "<<pp.second<<" pp.first: "<<pp.first;;
+					temp.push_back(pp);
+					break;
+				}
+			}
+
+			//temp.push_back(*it);
+			handleGeneratedInformation(key, temp);
+			//handleGeneratedInformation(src, output); old
+			//}
 		}
 	} else {
 		VLOG(1) << "not local request";
@@ -532,18 +556,23 @@ inline void TypedGlobalTable<K, V1, V2, V3>::sendRequest(const K & local, const 
 {
 	int shard = get_shard(local);
 	StateTable<K, V1, V2, V3> *st = dynamic_cast<StateTable<K, V1, V2, V3> *>(localT(shard));
-	IterateKernel<K, V1, V3>* kernel =
-		static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
+	//IterateKernel<K, V1, V3>* kernel =
+	//	static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
 	Marshal<K> *km = kmarshal();
 	ValueRequest req;
 	string temp;
 	km->marshal(local, &temp);
 	req.set_source(temp);
 	//std::vector<K> outneighbors = kernel->get_keys(st->getF3(local));
+	
 	std::vector<K> inneighbors = st->get_ineighbor(local);
+	//if(local == 248)
+	 // VLOG(1)<<"PrepareSend "<<local<<" size: "<<inneighbors.size();
 	for(auto& s : inneighbors) {
 		if(s == source || s == local)
 			continue;
+		//if(local == 264 || local == 248)
+		//	VLOG(1)<<"Send req from  "<<local<<" to "<<s<<" bp: "<<source;
 		km->marshal(s, &temp);
 		req.set_key(temp);
 		int shard = get_shard(s);

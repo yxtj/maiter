@@ -43,7 +43,8 @@ private:
 		bool update_input(const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel);
 		void reset_v1_from_input(IterateKernel<K, V1, V3>* kernel);
 
-		//void reset_best_pointer(IterateKernel<K, V1, V3>* kernel);
+		void reset_best_pointer(IterateKernel<K, V1, V3>* kernel);
+		void reset_best_pointer(const K& k, IterateKernel<K, V1, V3>* kernel);
 	};
 #pragma pack(pop)
 
@@ -354,6 +355,8 @@ public:
 	bool is_best_source(const K& k, const K& src) {
 		int b = bucket_for_key(k);
 		CHECK(b != -1);
+		if(k == 264)
+		  VLOG(1)<<" CheckBestSrc "<<k<<" v2: "<<buckets_[b].v2<<" bp "<<buckets_[b].bp; 
 		return buckets_[b].bp == src;
 	}
 
@@ -364,6 +367,7 @@ public:
 	void remove_ineighbor(const K& from, const K& to);
 	V1 get_ineighbor(const K& from, const K& to);
 	std::vector<K> get_ineighbor(const K& k);
+	void reset_best_pointer(); // gz declare
 
 	void resize(int64_t size);
 
@@ -683,6 +687,9 @@ void StateTable<K, V1, V2, V3>::updateF2(const K& k, const V2& v){
 
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
 
+	Bucket& bk = buckets_[b];
+	//if(k == 264 || k == 248)
+	//  VLOG(1)<<"UpdF2 k: " << k << " v: " << v << " v1: " << bk.v1 << " v2: " << bk.v2 << " bp: " << bk.bp;
 	update_local_sum(buckets_[b].v2, v);
 	buckets_[b].v2 = v;
 }
@@ -699,8 +706,15 @@ void StateTable<K, V1, V2, V3>::updateF3(const K& k, const V3& v){
 template<class K, class V1, class V2, class V3>
 bool StateTable<K, V1, V2, V3>::accumulateF1(const K& from, const K &to, const V1 &v){
 	int b = bucket_for_key(to);
+	//VLOG(1) << "accF1 from: " << from << " to: " << to << " v1: " << v;
 	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
+
+	Bucket& bk = buckets_[b];
+	//if(to == 264 || to == 248)
+	//	VLOG(1) << "Upd from: " << from << " to: " << to << " v1: " << bk.v1 << " v2: " << bk.v2<< " msg: " << v << " bp: " << bk.bp<<" b: "<<b;
 	bool flag = buckets_[b].update_v1_with_input(from, v, pk);
+	//if(to == 264 || to == 248)
+	//	VLOG(1) << "Upd2 from: " << from << " to: " << to << " v1: " << bk.v1 << " v2: " << bk.v2<< " msg: " << v << " bp: " << bk.bp;
 	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
 	return flag;
 }
@@ -819,14 +833,18 @@ void StateTable<K, V1, V2, V3>::change_graph(const K& k, const ChangeEdgeType& t
 
 template<class K, class V1, class V2, class V3>
 bool StateTable<K, V1, V2, V3>::Bucket::update_v1_with_input(
-	const K& from, const V1& v, IterateKernel<K, V1, V3>* kernel)
+	const K& from, const V1& msg, IterateKernel<K, V1, V3>* kernel)
 {
-	if(kernel->better(v, input[from])) { // m_ji < u_i
-		kernel->accumulate(v1, v);
+	//if(from == 248)
+	//	VLOG(1) << "UpdV1 from: " << from << " v1: " << v1 << " v2: " << v2<< " msg: " << msg << " bp: " << bp;
+	if(kernel->better(msg, v1)) { // m_ji < u_i
+		kernel->accumulate(v1, msg);
 		bp = from;
-	}else if(from == bp){
+	}else if(from == bp){ // bad news
+		//VLOG(1) << "upd from: " << from << " v1: " << v1 << " v2: " << v2<< " msg: " << msg << " bp: " << bp;
 		bp = from;
-		v2 = v1;
+		v1 = msg;
+		//v2 = msg; // v is the new value?? KKKKKKKKKKKKKKKKKKey
 		return false;
 	}
 	return true;
@@ -857,7 +875,7 @@ void StateTable<K, V1, V2, V3>::Bucket::reset_v1_from_input(IterateKernel<K, V1,
 		}
 	}
 }
-/*
+
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::Bucket::reset_best_pointer(IterateKernel<K, V1, V3>* kernel){
 	if(input.empty())
@@ -869,7 +887,20 @@ void StateTable<K, V1, V2, V3>::Bucket::reset_best_pointer(IterateKernel<K, V1, 
 	}
 	bp = itbest->first;
 }
-*/
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::Bucket::reset_best_pointer(const K& k, IterateKernel<K, V1, V3>* kernel){
+	if(input.empty())
+		return;
+	auto itbest=input.begin(), it=input.begin(), itend=input.end();
+	for(++it; it!=itend; ++it){
+		if(k == 248)
+		  VLOG(1)<<"Reset bp "<<it->first<<" - "<<it->second;
+		if(kernel->better(it->second, itbest->second))
+			itbest=it;
+	}
+	bp = itbest->first;
+}
+
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::add_ineighbor(const K& from, const K& to, const V1& v1){
 	DVLOG(2)<<"lock in add";
@@ -926,6 +957,23 @@ std::vector<K> StateTable<K, V1, V2, V3>::get_ineighbor(const K& k){
 	}
 	return res;
 }
+
+
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::reset_best_pointer(){
+	std::lock_guard<std::recursive_mutex> lg(m_);
+	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
+	VLOG(1)<<"rest bp on state table"<<helper_id();
+	for(uint64_t i=0; i<size_; ++i) {
+		if(buckets_[i].in_use) {
+			if(i == 264 || i == 248) {
+			  VLOG(1)<<"Reset bp for "<<i<<" size: "<<buckets_[i].input.size();
+			}
+			buckets_[i].reset_best_pointer(i, pk);
+		}
+	}
+}
+
 
 } //namespace dsm
 #endif /* TABLE_STATE_TABLE_H_ */
