@@ -18,6 +18,8 @@ inline bool operator>(const Edge &a,const Edge &b){
 
 bool load_graph_weight(std::vector<std::vector<Edge>>& res, const std::string& fn);
 
-bool load_graph_unweight(std::vector<std::vector<Edge>>& res, const std::string& fn);
+bool load_graph_unweight(std::vector<std::vector<int>>& res, const std::string& fn);
 
 bool dump(const std::vector<std::string>& fnouts, const std::vector<float>& res);
+
+bool dump(const std::vector<std::string>& fnouts, const std::vector<int>& res);
