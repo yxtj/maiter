@@ -82,12 +82,12 @@ def dump_weight(fn, g):
 
 def merge_unweight(gfn, dfn):
     with open(gfn) as f:
-        gdata=f.read().split('\n')
+        gdata=[l for l in f.read().split('\n') if len(l)!=0]
     with open(dfn) as f:
-        ddata=f.read().split('\n')
+        ddata=[l for l in f.read().split('\n') if len(l)!=0]
     # parse graph
     g={}
-    for i in len(gdata):
+    for i in range(len(gdata)):
         key, line=gdata[i].split('\t')
         line = [l for l in line.split(' ') if len(l)!=0]
         g[int(key)]=[int(e) for e in line]
@@ -152,6 +152,7 @@ def main(graph_folder, delta_prefix, output_folder, weighted):
     for i in range(len(gfiles)):
         print('processing file',i)
         g=fun_merge(graph_folder+'/'+gfiles[i], delta_folder+'/'+dfiles[i])
+        print('dumping file',i)
         fun_dump(output_folder+'/part'+str(i), g)
 
 if __name__=='__main__':
