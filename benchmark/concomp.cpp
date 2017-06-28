@@ -1,8 +1,6 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-#include <queue>
-#include <algorithm>
 #include <chrono>
 
 #include "common.h"
@@ -12,7 +10,9 @@ using namespace std;
 // return maximum label in its brunch
 void dfs_set(const int p, vector<int>& gid, const vector<vector<int> >& g){
 	int& lbl=gid[p]; // reference to gid[p]
-	for(int dst: g[p]){
+	auto itend=g[p].rend();
+	for(auto it=g[p].rbegin(); it!=itend; ++it){ // get the larger label first
+		int dst=*it;
 		if(lbl != gid[dst]){
 			lbl=max(lbl, gid[dst]);
 			gid[dst]=lbl;
@@ -35,7 +35,7 @@ vector<int> cal_cc(const vector<vector<int> >& g) {
 	while(changed){
 		++iter;
 		changed=false;
-		for(int i=n-1;i>=0;--i){
+		for(int i=n-1;i>=0;--i){ // get the larger label first
 			int old = gid[i];
 			dfs_set(i, gid, g);
 			//cout<<i<<"\t"<<old<<" - "<<gid[i]<<endl;

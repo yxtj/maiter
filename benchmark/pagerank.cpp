@@ -1,9 +1,8 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-#include <queue>
-#include <algorithm>
-#include <functional>
+#include <vector>
+#include <cmath>
 #include <chrono>
 
 #include "common.h"
@@ -19,7 +18,7 @@ vector<float> cal_pr(const vector<vector<int> >& g, const float damp, const int 
 	int iter = 0;
 	double sum=n*static_cast<double>(1-damp);
 	double oldsum=0;
-	while(++iter < maxIter && sum-oldsum > epsilon){
+	while(++iter < maxIter && abs(sum-oldsum) > epsilon){
 		old.swap(res); // old=move(res);
 		oldsum=sum;
 		res.assign(n, 1-damp);
@@ -33,6 +32,7 @@ vector<float> cal_pr(const vector<vector<int> >& g, const float damp, const int 
 			sum+=damp*old[i];
 		}
 	}
+	cout<<"  iterations: "<<iter<<"\tdifference: "<<sum-oldsum<<endl;
 	return res;
 }
 
