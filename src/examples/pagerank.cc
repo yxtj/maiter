@@ -37,7 +37,7 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 		value = stof(line.substr(p2+1));
 	}
 
-	void read_change(std::string& line, int& k, ChangeEdgeType& type, vector<Link>& change){
+	void read_change(std::string& line, int& k, ChangeEdgeType& type, vector<int>& change){
 		// line: "<type>\t<src>,<dst>"
 		// <type> is one of A, R, I, D
 		switch(line[0]){
@@ -49,11 +49,13 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 		}
 		size_t p1=line.find(',', 2);
 		k=stoi(line.substr(2,p1-2));
-		size_t p2=line.find(',', p1+1);
-		int dst=stoi(line.substr(p1+1, p2-p1-1));
-		float weight=stof(line.substr(p2+1));
+		//size_t p2=line.find(',', p1+1);
+		//int dst=stoi(line.substr(p1+1, p2-p1-1));
+		int dst=stoi(line.substr(p1+1));
+		//float weight=stof(line.substr(p2+1));
 		change.clear();
-		change.emplace_back(dst, weight);
+		//change.emplace_back(dst, weight);
+		change.push_back(dst);
 	}
 
 	int get_key(const int& d){
