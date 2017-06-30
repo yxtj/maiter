@@ -15,6 +15,11 @@ if [ $# -lt 6 ]; then
 fi
 
 ALGORITHM=$1
+LOCAL_AGG=$(./do_local_aggregation.sh $ALGORITHM)
+if [ $? == 1 ]; then
+	echo "error in calling do_local_aggregation.sh"
+	exit
+fi
 
 PARTS=$2
 WORKERS=$(( $PARTS + 1 ))
@@ -62,7 +67,7 @@ mkdir -p $RESULT
 
 ../maiter --hostfile=$HOSTFILE --runner=$ALGORITHM --workers=$WORKERS --num_nodes=$NODES\
   --graph_dir=$GRAPH_FDR --result_dir=$RESULT_FDR --init_dir=$INIT_FDR --delta_prefix=$DELTA_PRE\
-  --local_aggregate=0 --snapshot_interval=$SNAPSHOT --portion=$PORTION --weight_alpha=$ALPHA --priority_degree=$DEGREE\
+  --local_aggregate=$LOCAL_AGG --snapshot_interval=$SNAPSHOT --portion=$PORTION --weight_alpha=$ALPHA --priority_degree=$DEGREE\
   --sleep_time=0.003 --termcheck_threshold=$TERMTHRESH --buftime=$BUFTIME -- v=$VERBOSE_LVL
 #  --checkpoint_type=$CP_TYPE --checkpoint_interval=$CP_TIME
 

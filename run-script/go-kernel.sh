@@ -16,6 +16,11 @@ if [ $# -lt 3 ] || [ $# -gt 10 ] ; then
 fi
 
 ALGORITHM=${1}
+LOCAL_AGG=$(./do_local_aggregation.sh $ALGORITHM)
+if [ $? == 1 ]; then
+	echo "error calling do_local_aggregation.sh"
+	exit 1
+fi
 
 DATA_PREFIX=${2}
 FOLDER=${3// /} # remove all spaces
@@ -74,7 +79,7 @@ mkdir -p $RESULT
 
 ../maiter --hostfile=$HOSTFILE --runner=$ALGORITHM --workers=$WORKERS --num_nodes=$NODES\
  --graph_dir=$GRAPH --result_dir=$RESULT $INIT_DIR $DELTA_PREFIX\
- --local_aggregate=0 --snapshot_interval=$SNAPSHOT --portion=$PORTION\
+ --local_aggregate=$LOCAL_AGG --snapshot_interval=$SNAPSHOT --portion=$PORTION\
  --sleep_time=0.003 --termcheck_threshold=$TERMTHRESH --buftime=$BUFTIME\
  --v=$VERBOSE_LVL --weight_alpha=$ALPHA --priority_degree=$DEGREE --checkpoint_type=$CP_TYPE --checkpoint_interval=$CP_TIME
 
