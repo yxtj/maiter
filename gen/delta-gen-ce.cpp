@@ -68,20 +68,20 @@ int ModifyEdges::set(const ModifyThreshold& threshold, const int src, const Link
 			[&](const Link& l, const int v){return l.node<v;}) != edges.end());
 		if(rpt > 0){
 			EdgeW e{ src, newV, rnd_weight(gen) };
-			addSet.push_back(move(e));
+			addSet.push_back(e);
 		}
 		return 1;
 	}else if(r < threshold.rmv){
 		EdgeW e{ src, link.node, link.weight };
-		rmvSet.push_back(move(e));
+		rmvSet.push_back(e);
 		return 2;
 	}else if(r < threshold.inc){
 		EdgeW e{ src, link.node, link.weight*(1 + rnd_weight(gen)) };
-		incSet.push_back(move(e));
+		incSet.push_back(e);
 		return 3;
 	}else if(r < threshold.dec){
 		EdgeW e{ src, link.node, link.weight*rnd_weight(gen) };
-		decSet.push_back(move(e));
+		decSet.push_back(e);
 		return 4;
 	}
 	return 5;
@@ -102,7 +102,7 @@ void dumpChangeOneSet(ofstream& fout, const vector<EdgeW>& edgeSet, char type, b
 		
 bool changeGraph(const string& graphFolder, const string& cedgeFolder, const string& deltaPrefix,
 		const int nPart, const int seed,
-		const double deltaRatio, const double crtRatio, const double goodRatio, const double ewRatio)
+		const double deltaRatio, const double crtRatio, const double goodRatio, const double ewRatio, const bool bidir)
 {
 	vector<ifstream*> fin;
 	vector<ifstream*> fce;
@@ -210,13 +210,13 @@ bool changeGraph(const string& graphFolder, const string& cedgeFolder, const str
 		
 		// dump
 		addCnt += modifiedSet.addSet.size();
-		dumpChangeOneSet(*fout[i], modifiedSet.addSet, 'A', false);
+		dumpChangeOneSet(*fout[i], modifiedSet.addSet, 'A', bidir);
 		rmvCnt += modifiedSet.rmvSet.size();
-		dumpChangeOneSet(*fout[i], modifiedSet.rmvSet, 'R', false);
+		dumpChangeOneSet(*fout[i], modifiedSet.rmvSet, 'R', bidir);
 		incCnt += modifiedSet.incSet.size();
-		dumpChangeOneSet(*fout[i], modifiedSet.incSet, 'I', false);
+		dumpChangeOneSet(*fout[i], modifiedSet.incSet, 'I', bidir);
 		decCnt += modifiedSet.decSet.size();
-		dumpChangeOneSet(*fout[i], modifiedSet.decSet, 'D', false);
+		dumpChangeOneSet(*fout[i], modifiedSet.decSet, 'D', bidir);
 
 		delete fout[i];
 	}
@@ -259,6 +259,7 @@ struct Option{
 	double crtRatio;
 	double goodRatio, ewRatio;
 
+	bool dir;
 	unsigned long seed;
 	
 	void parse(int argc, char* argv[]);
@@ -280,9 +281,12 @@ void Option::parse(int argc, char* argv[]){
 	goodRatio = stod(string(argv[7]));
 	ewRatio = stod(string(argv[8]));
 	
-	seed = 1535345;
+	dir = true;
 	if(argc > 9)
-		seed = stoul(string(argv[9]));
+		seed = stoi(string(argv[9]))==1;
+	seed = 1535345;
+	if(argc > 10)
+		seed = stoul(string(argv[10]));
 	if(nPart<=0)
 		throw invalid_argument("Given number of parts does not make sense.");
 	if(!checkRatios())
@@ -302,9 +306,9 @@ bool Option::checkRatios(){
 }
 
 int main(int argc, char* argv[]){
-	if(argc < 9 || argc > 10){
+	if(argc < 9 || argc > 11){
 		cerr << "Wrong usage.\n"
-				"Usage: <#parts> <graph-folder> <ce-folder> <delta-prefix> <delta-rate> <crt-rate> <good-rate> <ew-rate> [random-seed]"
+				"Usage: <#parts> <graph-folder> <ce-folder> <delta-prefix> <delta-rate> <crt-rate> <good-rate> <ew-rate> [dir] [random-seed]"
 				<< endl;
 		cerr << "  <#parts>: number of parts the graphs are separated (the number of files to operate).\n"
 				"  <graph-folder>: the folder of graphs.\n"
@@ -314,6 +318,7 @@ int main(int argc, char* argv[]){
 				"  <crt-rate>: the maxmium ratio of changed critical edges (among the critical edges).\n"
 				"  <good-rate>: the ratio of good changed edges\n"
 				"  <ew-rate>: the ratio of edges among all changed edges (edge add/remove vs. weight increase/decrease)\n"
+				"  [dir]: (=1) whether it is a directional graph\n"
 				"  [random-seed]: (=1535345) seed for random numbers\n"
 				"i.e.: ./deltaGen.exe 2 graph/ cedge/ delta/rd 0.05 0 0.3 0 0.7 123456 // do not touch critical edges, all bad change, 70% are A/D edges\n"
 				"i.e.: ./deltaGen.exe 1 ../input/g1 ../ref/g1 ../input/g1/d2 0.01 0.2 0.3 0.3 // change 20% critical edges, 30% good change, 30% are A/D edges\n"
@@ -332,7 +337,7 @@ int main(int argc, char* argv[]){
 	cout << "Loading " << opt.nPart << " parts, from folder: " << opt.graphFolder << endl;
 	bool flag = changeGraph(opt.graphFolder, opt.cedgeFolder, opt.deltaPrefix,
 		opt.nPart, opt.seed,
-		opt.deltaRatio, opt.crtRatio, opt.goodRatio, opt.ewRatio);
+		opt.deltaRatio, opt.crtRatio, opt.goodRatio, opt.ewRatio, !opt.dir);
 
 	if(flag)
 		cout << "success " << opt.nPart  << " file(s)."<<endl;

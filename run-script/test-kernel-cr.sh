@@ -67,8 +67,8 @@ for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 			
 			echo "generating delta graph: $log_name_prefix"
 #			delta_4_ratios=$(./cal_delta_gen_ratio.sh $gr $ew)
-#			../gen/delta-gen.exe $PARTS $GRAPH_FDR $delta_pre $dr $delta_4_ratios $k > /dev/null
-			../gen/delta-gen2.exe $PARTS $GRAPH_FDR $CE_FDR $delta_pre $dr $cr $gr $ew $k > /dev/null
+#			gen/delta-gen.exe $PARTS $GRAPH_FDR $delta_pre $dr $delta_4_ratios 1 $k > /dev/null
+			../gen/delta-gen-ce.exe $PARTS $GRAPH_FDR $CE_FDR $delta_pre $dr $cr $gr $ew 1 $k > /dev/null
 #			break
 			i=1
 			for po in $PORTIONS; do for al in $ALPHAS; do
