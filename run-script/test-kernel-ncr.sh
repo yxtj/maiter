@@ -56,8 +56,8 @@ for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 		ewn=$( printf '%.0f\n' $(echo "10*$ew"|bc))
 		dname=c$drn-$crn-$grn-$ewn
 		for k in $(seq $K_START $K_END); do
-			temp_result_fdr=$RESULT_FDR/$k
-			temp_delta_fdr=$DELTA_FDR/$k	# use temporary folders for output (one for each k, inorder to parallelize)
+			temp_result_fdr=$RESULT_FDR/$k/$dname
+			temp_delta_fdr=$DELTA_FDR/$k/$dname	# use temporary folders for output (one for each k, inorder to parallelize)
 			#echo $temp_result_fdr
 			#echo $temp_delta_fdr
 			mkdir -p $temp_result_fdr
@@ -65,10 +65,12 @@ for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 			delta_pre=$temp_delta_fdr/delta
 			log_name_prefix=$(printf '%s_%s_%d_' $FOLDER $dname $k)
 			
-			echo "generating delta graph: $log_name_prefix"
-			delta_4_ratios=$(./cal_delta_gen_ratio.sh $gr $ew)
-			../gen/delta-gen.exe $PARTS $GRAPH_FDR $delta_pre $dr $delta_4_ratios 1 $k > /dev/null
-#			../gen/delta-gen-ce.exe $PARTS $GRAPH_FDR $CE_FDR $delta_pre $dr $cr $gr $ew 1 $k > /dev/null
+			echo "processing delta graph: $k/$dname"
+			if [ ! -f $temp_delta_fdr/delta-0 ]; then
+				delta_4_ratios=$(./cal_delta_gen_ratio.sh $gr $ew)
+				../gen/delta-gen.exe $PARTS $GRAPH_FDR $delta_pre $dr $delta_4_ratios 1 $k > /dev/null
+#				../gen/delta-gen-ce.exe $PARTS $GRAPH_FDR $CE_FDR $delta_pre $dr $cr $gr $ew 1 $k > /dev/null
+			fi
 #			break
 			i=1
 			for po in $PORTIONS; do for al in $ALPHAS; do
@@ -78,7 +80,7 @@ for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 				((i=i%N)); ((i++==0)) && wait
 			done; done
 			wait
-			rm -rf $temp_delta_fdr
+#			rm -rf $temp_delta_fdr
 			rm -rf $temp_result_fdr
 		done
 	done; done
