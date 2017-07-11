@@ -48,13 +48,13 @@ if [ $# -ge 17 ] && [ ! -z ${17// /} ]; then
 	N=${17}
 fi
 
-for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
+for dr in $DELTA_RATIOS; do #for cr in $CRT_RATIOS; do
 	drn=$( printf '%.0f\n' $(echo "100*$dr"|bc))
-	crn=$( printf '%.0f\n' $(echo "10*$cr"|bc))
+	#crn=$( printf '%.0f\n' $(echo "10*$cr"|bc))
 	for gr in $GOOD_RATIOS; do for ew in $EW_RATIOS; do
 		grn=$( printf '%.0f\n' $(echo "10*$gr"|bc))
 		ewn=$( printf '%.0f\n' $(echo "10*$ew"|bc))
-		dname=c$drn-$crn-$grn-$ewn
+		dname=d$drn-$grn-$ewn
 		for k in $(seq $K_START $K_END); do
 			temp_result_fdr=$RESULT_FDR/$k/$dname
 			temp_delta_fdr=$DELTA_FDR/$k/$dname	# use temporary folders for output (one for each k, inorder to parallelize)
@@ -84,4 +84,4 @@ for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 			rm -rf $temp_result_fdr
 		done
 	done; done
-done; done
+done; #done

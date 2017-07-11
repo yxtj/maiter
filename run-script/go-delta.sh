@@ -61,7 +61,7 @@ if [ $# -ge 12 ]; then
 	HOSTFILE=${12}
 fi
 
-mkdir -p $RESULT
+mkdir -p $RESULT_FDR
 
 #echo $GRAPH_FDR $HOSTFILE
 
