@@ -66,7 +66,7 @@ for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 			
 			echo "processing delta graph: $k/$dname"
 			if [ ! -f $temp_delta_fdr/delta-0 ]; then
-				../gen/delta-gen-uw.exe $PARTS $GRAPH_FDR $delta_pre $dr $dr $gr $(echo "1-$gr" | bc) 1 $k > /dev/null
+				../gen/delta-gen-uw.exe $PARTS $GRAPH_FDR $delta_pre $dr $gr $(echo "1-$gr" | bc) 1 $k > /dev/null
 			fi
 #			break
 			i=1
