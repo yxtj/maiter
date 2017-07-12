@@ -299,6 +299,7 @@ void MutableGlobalTable::TermCheck(){
 }
 
 void MutableGlobalTable::setUpdatesFromAggregated(){	// aggregated way
+	lock_guard<std::mutex> lg(m_buff);
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
 		if(!is_local_shard(i) && (get_partition_info(i)->dirty || !t->empty())){
@@ -313,6 +314,7 @@ void MutableGlobalTable::setUpdatesFromAggregated(){	// aggregated way
 }
 
 void MutableGlobalTable::addIntoUpdateBuffer(int shard, Arg& arg){	// non-aggregated way
+	lock_guard<std::mutex> lg(m_buff);
 	KVPairData& put=update_buffer[shard];
 	Arg* p = put.add_kv_data();
 	*p=move(arg);

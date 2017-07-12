@@ -111,7 +111,7 @@ public:
 	void coordinate_in_neighbors(TypedGlobalTable<K, V, V, D>* table, const bool non_default_in_neighbor){
 		// whether to send processed (g_func) delta to out-neighbors
 		table->fill_ineighbor_cache(non_default_in_neighbor);
-		table->allpy_inneighbor_cache_local();
+		table->apply_inneighbor_cache_local();
 		table->send_ineighbor_cache_remote();
 		table->clear_ineighbor_cache();
 		table->reset_ineighbor_bp();
