@@ -111,12 +111,27 @@ struct ShortestPathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	}
 
 	void priority(float& pri, const float& value, const float& delta, const vector<Link>& data){
-		//pri = value - std::min(value, delta);
-		float dif = (delta - value) * (FLAGS_priority_degree ? data.size(): 1);
-		if(dif<=0)	// good news
-			pri = -dif;
+		// methdo 1: value
+		//pri = delta;
+		//return;
+
+		// method 2: weighted differernce
+		//float dif = (delta - value)
+		//if(dif<=0)	// good news
+		//	pri = -dif;
+		//else
+		//	pri = FLAGS_weight_alpha * dif;
+		//return;
+
+		// method 2: weighted value
+		if(better(delta, value))
+			pri = delta;
 		else
-			pri = FLAGS_weight_alpha * dif;
+			pri = delta*FLAGS_weight_alpha;
+
+		// put degree
+		if(FLAGS_priority_degree)
+			pri *= data.size();
 	}
 
 	float g_func(const int& k, const float& delta, const float& value, const vector<Link>& data, const int& dst){
