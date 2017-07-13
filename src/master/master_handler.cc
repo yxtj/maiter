@@ -94,19 +94,15 @@ void Master::registerHandlers(){
 	rph_.activateType(MTYPE_WORKER_REGISTER);
 	// called by handleKernelDone()
 	rph_.addType(MTYPE_KERNEL_DONE, ReplyHandler::condFactory(EACH_ONE,nw),
-			[&](){
-		VLOG(1)<<"kernel done notified";
-		su_kerdone.notify();
-	});
-			//bind(&SyncUnit::notify, &su_kerdone));
+			bind(&SyncUnit::notify, &su_kerdone));
 	rph_.activateType(MTYPE_KERNEL_DONE);
 	// called by handleTermcheckDone()
 	rph_.addType(MTYPE_TERMCHECK_LOCAL, ReplyHandler::condFactory(EACH_ONE,nw),
-			[&](){
-		VLOG(1)<<"termcheck done notified";
-		su_term.notify();
-	});
-			//bind(&SyncUnit::notify, &su_term));
+//			[&](){
+//		VLOG(1)<<"termcheck done notified";
+//		su_term.notify();
+//	});
+			bind(&SyncUnit::notify, &su_term));
 	rph_.activateType(MTYPE_TERMCHECK_LOCAL);
 
 }
@@ -139,7 +135,7 @@ void Master::handleKernelDone(const std::string& d, const RPCInfo& info){
 
 	int w_id = req.wid();
 
-	VLOG(1)<<"Receive Kernel done from worker "<<w_id<< ": "<<req.kernel();
+	VLOG(1)<<"Receive Kernel done from worker "<<w_id<< ": "<<req.kernel().kernel();
 
 	Taskid task_id(req.kernel().table(), req.kernel().shard());
 	WorkerState& w = *workers_[w_id];
