@@ -50,7 +50,7 @@ public:
 	virtual void signalToTermCheck();
 
 	virtual void realSendUpdates(int dstWorkerID, const KVPairData& put){}
-	virtual void realSendTermCheck(int index, uint64_t updates, double current, uint64_t ndefault){}
+	virtual void realSendTermCheck(int index, uint64_t receives, uint64_t updates, double current, uint64_t ndefault){}
 
 	virtual void realSendInNeighbor(int dstWorkerID, const InNeighborData& data){}
 

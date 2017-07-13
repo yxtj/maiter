@@ -138,6 +138,8 @@ void Worker::MsgLoop(){
 void Worker::KernelProcess(){
 	stats_["idle_time"]+=tmr_.elapsed();
 
+	DVLOG(1)<<"Start kernel process";
+
 	runKernel();
 	finishKernel();
 
@@ -148,6 +150,8 @@ void Worker::KernelProcess(){
 }
 
 void Worker::runKernel(){
+	VLOG(1)<<"Kernel started: "<<kreq;
+
 	KernelInfo *helper = KernelRegistry::Get()->kernel(kreq.kernel());
 	DSMKernel* d = helper->create();
 	d->initialize_internal(this, kreq.table(), kreq.shard());
@@ -260,12 +264,14 @@ void Worker::realSendInNeighbor(int dstWorkerID, const InNeighborData& data){
 	network_->Send(peers_[dstWorkerID].net_id , MTYPE_ADD_INNEIGHBOR, data);
 }
 
-void Worker::realSendTermCheck(int snapshot, uint64_t updates, double current, uint64_t ndefault){
+void Worker::realSendTermCheck(int snapshot,
+		uint64_t receives, uint64_t updates, double current, uint64_t ndefault){
 	lock_guard<recursive_mutex> sl(state_lock_);
 
 	TermcheckDelta req;
 	req.set_wid(id());
 	req.set_index(snapshot);
+	req.set_receives(receives);
 	req.set_updates(updates);
 	req.set_delta(current);
 	req.set_ndefault(ndefault);

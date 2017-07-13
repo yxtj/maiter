@@ -458,7 +458,6 @@ public:
 
 public:
 	int registerMaiter(){
-		VLOG(0) << "Number of shards: " << conf.num_workers();
 		table = CreateTable<K, V, V, D>(0, conf.num_workers(), schedule_portion, sharder,
 				iterkernel, termchecker);
 

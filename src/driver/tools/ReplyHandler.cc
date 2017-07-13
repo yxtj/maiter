@@ -32,6 +32,7 @@ struct ConditionEachOne:public ReplyHandler::Condition{
 		return false;
 	}
 	void reset(){
+		lock_guard<mutex> lg(ms);
 		fill(state.begin(),state.end(),false);
 	}
 private:
@@ -52,6 +53,7 @@ struct ConditionGeneral:public ReplyHandler::Condition{
 		return false;
 	}
 	void reset(){
+		lock_guard<mutex> lg(ms);
 		state=expected;
 	}
 private:
@@ -125,6 +127,7 @@ bool ReplyHandler::input(const int type, const int source){
 	if(it==cont.end() || !it->second.activated )	return false;
 	if(it->second.cond->update(source)){
 		launch(it->second);
+		it->second.cond->reset();
 	}
 	return true;
 }

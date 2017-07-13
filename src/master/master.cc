@@ -133,11 +133,13 @@ void Master::termcheck(){
 		if(kernel_terminated_)
 			break;
 
-		Timer cp_timer;
+		//Timer cp_timer;
+		uint64_t total_receives= 0;
 		uint64_t total_updates = 0;
 		vector<pair<double, uint64_t>> partials;
 		partials.reserve(workers_.size());
 		for(int i = 0; i < workers_.size(); ++i){
+			total_receives += workers_[i]->receives;
 			total_updates += workers_[i]->updates;
 			partials.emplace_back(workers_[i]->current, workers_[i]->ndefault);
 		}
@@ -147,10 +149,9 @@ void Master::termcheck(){
 		bool bterm = ptc->terminate(partials);
 		pair<double, int64_t> p=ptc->get_curr();
 
-		LOG(INFO) << "Termination check at " << barrier_timer->elapsed() << " finished in "
-				<< cp_timer.elapsed() << " total current ("<< to_string(p.first)<<" , "<<p.second
-				//StringPrintf("%.05f",ptc->get_curr())
-				<< ") total updates " << total_updates;
+		LOG(INFO) << "Termination check at " << barrier_timer->elapsed() <<
+				" total current ("<< to_string(p.first)<<" , "<<p.second << ")"
+				" total receives " << total_receives << " total updates " << total_updates;
 
 		kernel_terminated_=bterm;
 		if(kernel_terminated_){
@@ -424,6 +425,8 @@ void Master::run(RunDescriptor&& r){
 	su_term.reset();
 	su_kerdone.reset();
 	dispatched_ = startWorkers(current_run_);
+	CHECK_EQ(dispatched_, current_run_.shards.size()) << "Not all workers started: "
+			<<dispatched_<<"/"<<current_run_.shards.size();
 
 	thread t_cp;
 	if(current_run_.checkpoint_type != CP_NONE){

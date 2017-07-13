@@ -1,6 +1,8 @@
 syntax = "proto2";
 package dsm;
 
+option optimize_for = SPEED;
+
 
 message Arg {
   required bytes key = 1;
@@ -43,7 +45,8 @@ message ConfigData {
 message TermcheckDelta {
   required int32 index = 1;
   required int32 wid = 2;
-  required int64 updates = 3;
-  required double delta = 4;
-  required int64 ndefault = 5;
+  required int64 receives = 3;
+  required int64 updates = 4;
+  required double delta = 5;
+  required int64 ndefault = 6;
 }

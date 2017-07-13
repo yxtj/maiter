@@ -70,8 +70,9 @@ struct WorkerState: private noncopyable{
 		last_task_start = 0.0;
 		total_runtime = 0.0;
 		checkpointing = false;
-		current = 0;
+		receives = 0;
 		updates = 0;
+		current = 0;
 		ndefault = 0;
 	}
 
@@ -92,8 +93,10 @@ struct WorkerState: private noncopyable{
 
 	bool checkpointing;
 
-	double current;
+	uint64_t receives;
 	uint64_t updates;
+
+	double current;
 	uint64_t ndefault;
 
 	// Order by number of pending tasks and last update time.
