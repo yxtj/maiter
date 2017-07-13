@@ -7,14 +7,13 @@ using namespace std;
 DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
-DECLARE_int64(graph_source);
 DECLARE_double(weight_alpha);
 DECLARE_bool(priority_degree);
 
-struct ShortestPathIterateKernel: public IterateKernel<int, float, vector<Link> > {
+struct MinSpanTreeIterateKernel: public IterateKernel<int, float, vector<Link> > {
 	float imax;
 
-	ShortestPathIterateKernel(){
+	MinSpanTreeIterateKernel(){
 		imax = std::numeric_limits<float>::infinity();
 	}
 
@@ -34,17 +33,6 @@ struct ShortestPathIterateKernel: public IterateKernel<int, float, vector<Link> 
 			Link to(node, weight);
 			data.push_back(to);
 			pos = spacepos + 1;
-		}
-		// special process for the source node: add a self-loop with 0 weight,
-		// to make sure that the delta for the source node can always be zero.
-		if(k==FLAGS_graph_source){
-			auto it=find_if(data.begin(), data.end(), [&](const Link& p){
-				return p.end==FLAGS_graph_source;
-			});
-			if(it==data.end())
-				data.push_back(Link(FLAGS_graph_source, 0));
-			else
-				it->weight=0;
 		}
 	}
 	void read_init(std::string& line, int& k, float& delta, float& value){
@@ -89,15 +77,11 @@ struct ShortestPathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	}
 
 	void init_c(const int& k, float& delta, vector<Link>&){
-		if(k == FLAGS_graph_source){
-			delta = 0;
-		}else{
-			delta = imax;
-		}
+		delta = imax;
 	}
 
 	void init_v(const int& k, float& value, vector<Link>&){
-		value = imax;
+		value = 0;
 	}
 
 	void accumulate(float& a, const float& b){
@@ -111,48 +95,25 @@ struct ShortestPathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	}
 
 	void priority(float& pri, const float& value, const float& delta, const vector<Link>& data){
-		// methdo 1: value
-		//pri = delta;
-		//return;
-
-		// method 2: weighted differernce
-		//float dif = (delta - value)
-		//if(dif<=0)	// good news
-		//	pri = -dif;
-		//else
-		//	pri = FLAGS_weight_alpha * dif;
-		//return;
-
-		// method 2: weighted value
-		if(better(delta, value))
-			pri = delta;
+		//pri = value - std::min(value, delta);
+		float dif = (delta - value) * (FLAGS_priority_degree ? data.size(): 1);
+		if(dif<=0)	// good news
+			pri = -dif;
 		else
-			pri = delta*FLAGS_weight_alpha;
-
-		// put degree
-		if(FLAGS_priority_degree)
-			pri *= data.size();
+			pri = FLAGS_weight_alpha * dif;
 	}
 
 	float g_func(const int& k, const float& delta, const float& value, const vector<Link>& data, const int& dst){
-		auto it=find_if(data.begin(), data.end(), [&](const Link& l){
+		auto it = find_if(data.begin(), data.end(), [&](const Link& l){
 			return l.end == dst;
 		});
-		return delta+it->weight;
-		//return d.end==FLAGS_graph_source ? imax : delta+it->weight;
+		return it->weight;
 	}
 
 	void g_func(const int& k, const float& delta, const float& value, const vector<Link>& data,
 			vector<pair<int, float> >* output){
 		for(vector<Link>::const_iterator it = data.begin(); it != data.end(); it++){
-			output->push_back(make_pair(it->end, delta + it->weight));
-			/*
-			if(it->end == FLAGS_graph_source){	// to avoid positive loop
-				output->push_back(make_pair(it->end, imax));
-			}else{
-				float outv = delta + it->weight;
-				output->push_back(make_pair(it->end, outv));
-			} */
+			output->push_back(make_pair(it->end, it->weight));
 		}
 	}
 
@@ -161,9 +122,9 @@ struct ShortestPathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	}
 };
 
-static int ShortestPath(ConfigData& conf){
+static int MinSpanTree(ConfigData& conf){
 	Sharders::Mod vS;
-	ShortestPathIterateKernel vSIK;
+	MinSpanTreeIterateKernel vSIK;
 	TermCheckers<int, float>::Diff vTC;
 	MaiterKernel<int, float, vector<Link> >* kernel =
 		new MaiterKernel<int, float, vector<Link> >(
@@ -181,5 +142,5 @@ static int ShortestPath(ConfigData& conf){
 	return 0;
 }
 
-REGISTER_RUNNER(ShortestPath);
+REGISTER_RUNNER(MinSpanTree);
 

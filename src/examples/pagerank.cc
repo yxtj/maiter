@@ -7,6 +7,7 @@ using namespace std;
 DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
+DECLARE_bool(priority_degree);
 
 struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 	const float zero=0.0f;
@@ -37,7 +38,7 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 		value = stof(line.substr(p2+1));
 	}
 
-	void read_change(std::string& line, int& k, ChangeEdgeType& type, vector<Link>& change){
+	void read_change(std::string& line, int& k, ChangeEdgeType& type, vector<int>& change){
 		// line: "<type>\t<src>,<dst>"
 		// <type> is one of A, R, I, D
 		switch(line[0]){
@@ -49,11 +50,17 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 		}
 		size_t p1=line.find(',', 2);
 		k=stoi(line.substr(2,p1-2));
-		size_t p2=line.find(',', p1+1);
-		int dst=stoi(line.substr(p1+1, p2-p1-1));
-		float weight=stof(line.substr(p2+1));
+		//size_t p2=line.find(',', p1+1);
+		//int dst=stoi(line.substr(p1+1, p2-p1-1));
+		int dst=stoi(line.substr(p1+1));
+		//float weight=stof(line.substr(p2+1));
 		change.clear();
-		change.emplace_back(dst, weight);
+		//change.emplace_back(dst, weight);
+		change.push_back(dst);
+	}
+
+	int get_key(const int& d){
+		return d;
 	}
 	vector<int> get_keys(const vector<Link>& data){
 		vector<int> res;
@@ -67,7 +74,6 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 	void init_c(const int& k, float& delta, vector<int>& data){
 		delta = 0.2;
 	}
-
 	void init_v(const int& k, float& v, vector<int>& data){
 		v = default_v();
 	}
@@ -79,10 +85,17 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 		return true;
 	}
 
-	void priority(float& pri, const float& value, const float& delta){
+	void priority(float& pri, const float& value, const float& delta, const vector<int>& data){
 		pri = delta;
-	}
+		//pri = value;
 
+		if(FLAGS_priority_degree)
+			pri *= data.size();
+	}
+	float g_func(const int& k, const float& delta, const float&value, const vector<int>& data, const int& dst){
+		int size = (int)data.size();
+		return delta * 0.8 / size;
+	}
 	void g_func(const int& k, const float& delta, const float&value, const vector<int>& data,
 			vector<pair<int, float> >* output){
 		int size = (int)data.size();
@@ -90,8 +103,7 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 
 		//cout << "size " << size << endl;
 		for(vector<int>::const_iterator it = data.begin(); it != data.end(); it++){
-			int target = *it;
-			output->push_back(make_pair(target, outv));
+			output->push_back(make_pair(*it, outv));
 		}
 	}
 

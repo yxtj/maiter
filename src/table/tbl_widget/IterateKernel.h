@@ -41,10 +41,14 @@ struct IterateKernel : public IterateKernelBase {
 	virtual bool better(const V& a, const V& b); // only matters when is_selective() is true
 	virtual void process_delta_v(const K& k, V& dalta,V& value, D& data){}
 	virtual void priority(V& pri, const V& value, const V& delta, const D& data) = 0;
-	virtual void g_func(const K& k,const V& delta,const V& value, const D& data, std::vector<std::pair<K, V> >* output) = 0;
+
+	virtual V g_func(const K& k,const V& delta,const V& value, const D& data, const K& dst) = 0;
+	virtual void g_func(const K& k,const V& delta,const V& value, const D& data, std::vector<std::pair<K, V> >* output);
 
 	virtual void read_change(std::string& line, K& k, ChangeEdgeType& type, D& change){} // only D[0] make sense
-	virtual std::vector<K> get_keys(const D& d) = 0;
+
+	virtual K get_key(const typename D::value_type& d) = 0;
+	virtual std::vector<K> get_keys(const D& d);
 
 	virtual ~IterateKernel(){}
 };
@@ -59,6 +63,27 @@ inline bool IterateKernel<K, V, D>::better(const V& a, const V& b){
 	V temp=a;
 	this->accumulate(temp, b);
 	return temp==a;
+}
+
+template <class K, class V, class D>
+void IterateKernel<K, V, D>::g_func(const K& k,const V& delta,const V& value, const D& data,
+		std::vector<std::pair<K, V> >* output)
+{
+	//output->clear();
+	for(size_t i=0;i<data.size();++i){
+		K dst = get_key(data[i]);
+		output->push_back(std::make_pair(dst, g_func(k, delta, value, data, dst)));
+	}
+}
+
+template <class K, class V, class D>
+std::vector<K> IterateKernel<K, V, D>::get_keys(const D& d){
+	std::vector<K> keys;
+	keys.reserve(d.size());
+	for(auto v : d){
+		keys.push_back(get_key(v));
+	}
+	return keys;
 }
 
 } //namespace dsm

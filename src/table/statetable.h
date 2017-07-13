@@ -101,6 +101,9 @@ public:
 				++pos;
 			}while(pos < parent_.size_
 					&& (!parent_.buckets_[pos].in_use || !pick_pred(pos)));
+//			if(pos<parent_.size_)
+//				VLOG_IF(0,value1()==defaultv)<<key()<<" : "<<value1()
+//					<<" , "<<value2()<<" input: "<<parent_.buckets_[pos].input;
 			return pos < parent_.size_;
 		}
 
@@ -415,7 +418,7 @@ public:
 	void serializeToNet(KVPairCoder *out);
 	void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
 	void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase);
-	void serializeToSnapshot(const string& f, uint64_t* updates, double* totalF2, uint64_t* defaultF2);
+	void serializeToSnapshot(const string& f, uint64_t* receives, uint64_t* updates, double* totalF2, uint64_t* defaultF2);
 
 	Marshal<K>* kmarshal(){return ((Marshal<K>*)info_.key_marshal);}
 	Marshal<V1>* v1marshal(){return ((Marshal<V1>*)info_.value1_marshal);}
@@ -477,8 +480,9 @@ private:
 	// local sum, for termination checking
 	V2 default_v;
 	double total_curr_value;
-	int64_t total_curr_default;
-	int64_t total_updates;
+	uint64_t total_curr_default;
+	uint64_t total_receive; // number of updating delta
+	uint64_t total_updates; // number of merging delta into value
 
 	void update_local_sum(const V2& oldV, const V2& newV){
 		if(oldV == default_v)
@@ -500,7 +504,7 @@ private:
 
 template<class K, class V1, class V2, class V3>
 StateTable<K, V1, V2, V3>::StateTable(int size) :
-	buckets_(0), entries_(0), size_(0), total_curr_value(0.0), total_curr_default(0), total_updates(0)
+	buckets_(0), entries_(0), size_(0), total_curr_value(0.0), total_curr_default(0), total_receive(0), total_updates(0)
 {
 	clear();
 
@@ -590,12 +594,13 @@ void StateTable<K, V1, V2, V3>::deserializeFromNet(KVPairCoder *in, DecodeIterat
 //but focus on termination check
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f,
-		uint64_t* updates, double* totalF2, uint64_t* defaultF2){
+		uint64_t* receives, uint64_t* updates, double* totalF2, uint64_t* defaultF2){
 	//total_curr_value = 0;
 	//EntirePassIterator* entireIter = new EntirePassIterator(*this);
 	//total_curr_value = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)
 	//		->estimate_prog(entireIter));
 	//delete entireIter;
+	*receives = total_receive;
 	*updates = total_updates;
 	*totalF2 = total_curr_value;
 	*defaultF2 = total_curr_default;
@@ -678,7 +683,6 @@ void StateTable<K, V1, V2, V3>::updateF1(const K& k, const V1& v){
 
 	buckets_[b].v1 = v;
 	buckets_[b].priority = 0;	//didn't use priority function, assume the smallest priority is 0
-	++total_updates;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -687,11 +691,13 @@ void StateTable<K, V1, V2, V3>::updateF2(const K& k, const V2& v){
 
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
 
-	Bucket& bk = buckets_[b];
+	//Bucket& bk = buckets_[b];
 	//if(k == 264 || k == 248)
 	//  VLOG(1)<<"UpdF2 k: " << k << " v: " << v << " v1: " << bk.v1 << " v2: " << bk.v2 << " bp: " << bk.bp;
 	update_local_sum(buckets_[b].v2, v);
 	buckets_[b].v2 = v;
+
+	++total_updates;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -709,13 +715,15 @@ bool StateTable<K, V1, V2, V3>::accumulateF1(const K& from, const K &to, const V
 	//VLOG(1) << "accF1 from: " << from << " to: " << to << " v1: " << v;
 	IterateKernel<K, V1, V3>* pk = static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel);
 
-	Bucket& bk = buckets_[b];
+	// Bucket& bk = buckets_[b];
 	//if(to == 264 || to == 248)
 	//	VLOG(1) << "Upd from: " << from << " to: " << to << " v1: " << bk.v1 << " v2: " << bk.v2<< " msg: " << v << " bp: " << bk.bp<<" b: "<<b;
 	bool flag = buckets_[b].update_v1_with_input(from, v, pk);
 	//if(to == 264 || to == 248)
 	//	VLOG(1) << "Upd2 from: " << from << " to: " << to << " v1: " << bk.v1 << " v2: " << bk.v2<< " msg: " << v << " bp: " << bk.bp;
 	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
+	
+	++total_receive;
 	return flag;
 }
 
@@ -728,6 +736,7 @@ void StateTable<K, V1, V2, V3>::accumulateF1(const K& k, const V1& v){
 	pk->accumulate(buckets_[b].v1, v);
 	pk->priority(buckets_[b].priority, buckets_[b].v2, buckets_[b].v1, buckets_[b].v3);
 
+	++total_receive;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -738,6 +747,8 @@ void StateTable<K, V1, V2, V3>::accumulateF2(const K& k, const V2& v){
 	V2 old = buckets_[b].v2;
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->accumulate(buckets_[b].v2, v);
 	update_local_sum(old, v);
+
+	++total_updates;
 }
 
 template<class K, class V1, class V2, class V3>
@@ -867,19 +878,28 @@ bool StateTable<K, V1, V2, V3>::Bucket::update_input(
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::Bucket::reset_v1_from_input(IterateKernel<K, V1, V3>* kernel)
 {
-	v1 = kernel->default_v();
-	for(auto& p : input){
-		if(kernel->better(p.second, v1)) {
-			kernel->accumulate(v1, p.second);
-			bp = p.first;
+	if(input.empty())
+		return;
+	auto it = input.begin();
+	V1 temp = it->second;
+	K b = it->first;
+	while(++it != input.end()){
+		if(kernel->better(it->second, temp)){
+			temp = it->second;
+			b = it->first;
 		}
 	}
+	v1 = temp;
+	bp = b;
 }
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::Bucket::reset_best_pointer(IterateKernel<K, V1, V3>* kernel){
-	if(input.empty())
+	if(input.empty()){
+		v1 = kernel->default_v();
+		bp = K();
 		return;
+	}
 	auto itbest=input.begin(), it=input.begin(), itend=input.end();
 	for(++it; it!=itend; ++it){
 		if(kernel->better(it->second, itbest->second))
@@ -966,9 +986,8 @@ void StateTable<K, V1, V2, V3>::reset_best_pointer(){
 	VLOG(1)<<"rest bp on state table"<<helper_id();
 	for(uint64_t i=0; i<size_; ++i) {
 		if(buckets_[i].in_use) {
-			if(i == 264 || i == 248) {
-			  VLOG(1)<<"Reset bp for "<<i<<" size: "<<buckets_[i].input.size();
-			}
+			// if(i == 264 || i == 248)
+			//   VLOG(1)<<"Reset bp for "<<i<<" size: "<<buckets_[i].input.size();
 			buckets_[i].reset_best_pointer(i, pk);
 		}
 	}

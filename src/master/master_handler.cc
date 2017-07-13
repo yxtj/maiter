@@ -98,6 +98,10 @@ void Master::registerHandlers(){
 	rph_.activateType(MTYPE_KERNEL_DONE);
 	// called by handleTermcheckDone()
 	rph_.addType(MTYPE_TERMCHECK_LOCAL, ReplyHandler::condFactory(EACH_ONE,nw),
+//			[&](){
+//		VLOG(1)<<"termcheck done notified";
+//		su_term.notify();
+//	});
 			bind(&SyncUnit::notify, &su_term));
 	rph_.activateType(MTYPE_TERMCHECK_LOCAL);
 
@@ -130,6 +134,8 @@ void Master::handleKernelDone(const std::string& d, const RPCInfo& info){
 	}
 
 	int w_id = req.wid();
+
+	VLOG(1)<<"Receive Kernel done from worker "<<w_id<< ": "<<req.kernel().kernel();
 
 	Taskid task_id(req.kernel().table(), req.kernel().shard());
 	WorkerState& w = *workers_[w_id];
@@ -167,9 +173,9 @@ void Master::handleKernelDone(const std::string& d, const RPCInfo& info){
 		}
 	});
 
-	if(dispatched_ < current_run_.shards.size()){
-		dispatched_ += startWorkers(current_run_);
-	}
+//	if(dispatched_ < current_run_.shards.size()){
+//		dispatched_ += startWorkers(current_run_);
+//	}
 
 	finished_++;
 	rph_.input(MTYPE_KERNEL_DONE, w_id);
@@ -180,8 +186,9 @@ void Master::handleTermcheckDone(const std::string& d, const RPCInfo& info){
 	resp.ParseFromString(d);
 	int worker_id=resp.wid();
 	VLOG(1) << "receive from " << resp.wid() << " with (" << resp.delta()<<" , "<<resp.ndefault()<<")";
-	workers_[worker_id]->current = resp.delta();
+	workers_[worker_id]->receives = resp.receives();
 	workers_[worker_id]->updates = resp.updates();
+	workers_[worker_id]->current = resp.delta();
 	workers_[worker_id]->ndefault = resp.ndefault();
 
 	rph_.input(MTYPE_TERMCHECK_LOCAL, resp.wid());

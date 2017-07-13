@@ -19,10 +19,8 @@ struct TermCheckerBase {
 	std::pair<double, int64_t> last;
 	std::pair<double, int64_t> curr;
 	TermCheckerBase():last(-std::numeric_limits<double>::max(), 0), curr(0.0, 0){}
-	std::pair<double, int64_t> get_curr() { return curr; }
+	std::pair<double, int64_t> get_curr() const { return curr; }
 };
-
-#ifndef SWIG
 
 template<class K, class V>
 struct TermChecker: public TermCheckerBase{
@@ -46,8 +44,6 @@ double TermChecker<K,V>::estimate_prog(LocalTableIterator<K, V>* statetable){
 	}
 	return partial_curr;
 }
-
-#endif //SWIG
 
 } //namespace std
 

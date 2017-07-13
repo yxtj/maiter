@@ -27,7 +27,7 @@ def get_key_from_name(fn):
     # graph, delta, k, top, alpha
     m = re.match(NAME_PAT, fn)
     if m:
-        return (m.group(1), m.group(2), m.group(3), m.group(4), m.group(5))
+        return (m.group(1), m.group(2), int(m.group(3)), m.group(4), m.group(5))
     return None
 
 def get_time_one_file(fn):
@@ -37,7 +37,7 @@ def get_time_one_file(fn):
         res=[0 for i in range(4)]
         for m in l:
             idx=map_kernel(m[0])
-            total_t='%.3f' % m[1]
+            total_t='%.3f' % float(m[1])
             #shard_t=m[2]
             res[idx]=total_t
         return res if all(isinstance(v, str) for v in res) else None
@@ -74,7 +74,7 @@ def main(folder, out_file, append):
             f.write('#graph	delta	k	top	alpha	ld-g	ld-d	comp	dump-res')
             f.write('\n')
         for key, value in sorted(res.items()):
-            line1='\t'.join(key)
+            line1='\t'.join(str(k) for k in key)
             line2='\t'.join(value)
             line=line1+'\t'+line2
             f.write(line)

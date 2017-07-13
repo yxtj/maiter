@@ -1,3 +1,4 @@
+#pragma once
 #ifndef CLIENT_H_
 #define CLIENT_H_
 
@@ -22,6 +23,20 @@
 DECLARE_int32(shards);
 DECLARE_int32(iterations);
 #endif
+
+struct Link{
+	Link(int inend, float inweight) :
+			end(inend), weight(inweight){
+	}
+	int end;
+	float weight;
+};
+inline bool operator==(const Link& lth, const Link& rth){
+	return lth.end == rth.end;
+}
+inline bool operator==(const Link& lth, const int rth){
+	return lth.end == rth;
+}
 
 // These are expanded by the preprocessor; these macro definitions
 // are just for documentation.

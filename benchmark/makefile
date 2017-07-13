@@ -5,24 +5,24 @@ CPPFLAGS += -std=c++11
 DBGFLAGS = $(CPPFLAGS) -g
 RELFLAGS = $(CPPFLAGS) -O2
 
-SRC = sssp #pagerank 
+EXE = sssp sswp pagerank concomp
 
 #export CXX CC CFLAGS CPPFLAGS
 
 all: release
 
 %.o: %.cpp
-	$(CXX) $(RELFLAGS) $^ -c -o $@
+	$(CXX) $(CPPFLAGS) $^ -c -o $@
 
-sssp.exe: sssp.o common.o
-	$(CXX) $(RELFLAGS) $^ -o $@
+%.exe: %.o common.o
+	$(CXX) $(CPPFLAGS) $^ -o $@
 
-release: $(SRC:=.exe)
+release: 
+	$(MAKE) $(EXE:=.exe) CPPFLAGS="$(RELFLAGS)"
 
 debug: 
-	$(CXX) $(DBGFLAGS) sssp.cpp -o sssp.exe
-	#$(CXX) $(DBGFLAGS) pagerank.cpp -o pagerank.exe
-
+	$(MAKE) $(EXE:=.exe) CPPFLAGS="$(DBGFLAGS)"
+	
 clean:
 	rm -rf *.o
 	rm -rf *.exe

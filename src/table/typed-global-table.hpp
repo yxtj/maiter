@@ -96,16 +96,17 @@ public:
 	void add_ineighbor_from_out(const K &from, const V1 &v1, const std::vector<K>& ons);
 	// fill the in-neighbor information base on all local data. "process" means whether to send processed initial delta.
 	void fill_ineighbor_cache(bool process);
-	void allpy_inneighbor_cache_local();
+	void apply_inneighbor_cache_local();
 	// generate and send messages of in-neighbor information
 	void send_ineighbor_cache_remote();
 	void clear_ineighbor_cache();
 	void reset_ineighbor_bp();
+
 	// receive in-neighbor information
 	virtual void add_ineighbor(const dsm::InNeighborData& req);
 	// apply graph changes
 	virtual void change_graph(const K& k, const ChangeEdgeType& type, const V3& change);
-	//virtual void update_ineighbor_cache(const K& k, const ChangeEdgeType& type, const V3& change);
+	void recal_v2_from_inerghbor_cache(const K& k);
 
 	virtual void ProcessRequest(const ValueRequest& req);
 
@@ -187,7 +188,7 @@ public:
 //		VLOG(1)<<"processing";
 		processing_=true;
 		// automatically reset processing to false when this function exits
-		std::shared_ptr<bool> guard_process(&processing_, [](bool* p){
+		std::shared_ptr<bool> guard_processing(&processing_, [](bool* p){
 			*p=false;
 		});
 //		Timer t;
@@ -222,6 +223,7 @@ public:
 				static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
 		//pre-process
 		kernel->process_delta_v(k, v1, v2, v3);
+		//process
 		if(kernel->is_selective()){
 			// replace v with delta_v
 			updateF2(k, v1);
@@ -230,6 +232,9 @@ public:
 			//process delta_v before accumulate
 			accumulateF2(k, v1);
 		}
+
+		// get the new F2 after process
+//		V2 vv2 = get_localF2(k);
 
 		//invoke api, perform g(delta_v) and send messages to out-neighbors
 		std::vector<std::pair<K,V1> > output;
@@ -269,14 +274,16 @@ public:
 
 	void bufferGeneratedMessage(const K& from, const K& to, const V1& delta){
 		int shard = get_shard(to);
-		Arg *a = update_buffer[shard].add_kv_data();
+		//Arg *a = update_buffer[shard].add_kv_data();
+		Arg a;
 		string temp;
 		kmarshal()->marshal(to, &temp);
-		a->set_key(temp);
+		a.set_key(temp);
 		v1marshal()->marshal(delta, &temp);
-		a->set_value(temp);
+		a.set_value(temp);
 		kmarshal()->marshal(from, &temp);
-		a->set_src(temp);
+		a.set_src(temp);
+		addIntoUpdateBuffer(shard, a);
 	}
 
 	void sendRequest(const K& local, const K& source);
@@ -301,6 +308,7 @@ protected:
 	bool binit;
 	// XXX: evolving graph
 	std::vector<std::unordered_multimap<K, std::pair<K,V1>>> in_neighbor_cache;
+	std::mutex b_icache;
 };
 
 static const int kWriteFlushCount = 1000000;
@@ -367,6 +375,7 @@ void TypedGlobalTable<K, V1, V2, V3>::add_ineighbor_from_out(
 
 template<class K, class V1, class V2, class V3>
 void TypedGlobalTable<K, V1, V2, V3>::fill_ineighbor_cache(bool process){
+	std::lock_guard<std::recursive_mutex> lg(get_mutex());
 	IterateKernel<K, V1, V3>* kernel=
 			static_cast<IterateKernel<K, V1, V3>*>(info().iterkernel);
 	V1 default_v=kernel->default_v();
@@ -403,7 +412,7 @@ void TypedGlobalTable<K, V1, V2, V3>::fill_ineighbor_cache(bool process){
 }
 
 template<class K, class V1, class V2, class V3>
-void TypedGlobalTable<K, V1, V2, V3>::allpy_inneighbor_cache_local(){
+void TypedGlobalTable<K, V1, V2, V3>::apply_inneighbor_cache_local(){
 	std::lock_guard<std::recursive_mutex> lg(get_mutex());
 	for(int i = 0; i < info().num_shards; ++i){
 		if(!is_local_shard(i))
@@ -419,6 +428,7 @@ void TypedGlobalTable<K, V1, V2, V3>::allpy_inneighbor_cache_local(){
 
 template<class K, class V1, class V2, class V3>
 void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache_remote(){
+	std::lock_guard<std::recursive_mutex> lg(get_mutex());
 	Marshal<K> * km = kmarshal();
 	Marshal<V1> * vm = v1marshal();
 	int size=std::max<int>(bufmsg, 1024);
@@ -439,13 +449,13 @@ void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache_remote(){
 			p->set_from(from);
 			p->set_weight(weight);
 			if(++n%size == 0){
-				VLOG(1)<<"sending in-neighbor message from "<<helper_id()<<" to "<<i<<" with size "<<msg.data_size();
+				// VLOG(1)<<"sending in-neighbor message from "<<helper_id()<<" to "<<i<<" with size "<<msg.data_size();
 				info().helper->realSendInNeighbor(owner(i), msg);
 				msg.clear_data();
 			}
 		}
 		if(msg.data_size()!=0){
-			VLOG(1)<<"sending in-neighbor message from "<<helper_id()<<" to "<<i<<" with size "<<msg.data_size();
+			// VLOG(1)<<"sending in-neighbor message from "<<helper_id()<<" to "<<i<<" with size "<<msg.data_size();
 			info().helper->realSendInNeighbor(owner(i), msg);
 		}
 	}
@@ -453,6 +463,7 @@ void TypedGlobalTable<K, V1, V2, V3>::send_ineighbor_cache_remote(){
 
 template<class K, class V1, class V2, class V3>
 void TypedGlobalTable<K, V1, V2, V3>::clear_ineighbor_cache(){
+	std::lock_guard<std::recursive_mutex> lg(get_mutex());
 	in_neighbor_cache.clear();
 }
 
@@ -528,22 +539,11 @@ inline void TypedGlobalTable<K, V1, V2, V3>::ProcessRequest(const ValueRequest &
 			//} else {
 
 			//CHECK(it != output.end());
-			std::vector<std::pair<K, V1> > output;
-			kernel->g_func(key, c.v1, c.v2, c.v3, &output);
+			V1 res = kernel->g_func(key, c.v1, c.v2, c.v3, src);
 			std::vector<std::pair<K, V1> > temp;
-			for(std::pair<K, V1> pp : output) {
-				if(pp.first == src) {
-					//if(src == 264)// || src == 31)
-					//VLOG(1)<<"Reply src: "<<src<<" from key: "<<key<<" "<<c.v1<<" "<<c.v2<<" v: "<<pp.second<<" pp.first: "<<pp.first;;
-					temp.push_back(pp);
-					break;
-				}
-			}
+			temp.emplace_back(src, res);
 
-			//temp.push_back(*it);
 			handleGeneratedInformation(key, temp);
-			//handleGeneratedInformation(src, output); old
-			//}
 		}
 	} else {
 		VLOG(1) << "not local request";

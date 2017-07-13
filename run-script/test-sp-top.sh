@@ -1,7 +1,7 @@
 DELTA_NAME=top
 # relationship between top-portion and runtime
 if [ $# -lt 4 ]; then
-	echo "Usage: <prefix> <graph-name> <k-start> <k-end> [snapshot]"
+	echo "Usage: <prefix> <graph-name> <k-start> <k-end> [degree] [snapshot]"
 	echo '  File structure:'
 	echo '    graph-folder        = <prefix>/input/<graph-name>'
 	echo '    initializing-folder = <prefix>/ref/<graph-name>'
@@ -9,6 +9,7 @@ if [ $# -lt 4 ]; then
 	echo '    result-folder       = <prefix>/output/<graph-name>'
 	echo '  <graph-name>: <head>-<#-of-parts>, number of parts is automatically parsed from the last part of graph-name'
 	echo '  <k-start> and <k-end>: the ID for delta-graphs (close range). Control the number of delta-graphs for each parameters. Can be used for parallelization'
+	echo '  [degree]: (=0) use degree in setting priority'
 	echo '  [snapshot]: (=0.1) the interval of termination check, in seconds'
 	exit
 fi
@@ -32,21 +33,29 @@ DELTA_FDR=$PRE/delta/$FOLDER/$DELTA_NAME/
 
 LOG_FDR=../log/sp-$DELTA_NAME
 
-SNAPSHOT=0.1
+DEGREE=0
 if [ $# -ge 5 ]; then
-	SNAPSHOT=$5
+	DEGREE=$5
+fi
+
+SNAPSHOT=0.1
+if [ $# -ge 6 ]; then
+	SNAPSHOT=$6
 fi
 
 mkdir -p $RESULT_FDR
 mkdir -p $DELTA_FDR
 mkdir -p $LOG_FDR
 
-DELTA_RATIOS="0.01 0.05"
+DELTA_RATIOS="0.05"
+CRT_RATIOS="0.1"
 GOOD_RATIOS="0 0.5 1"
 EW_RATIOS="0.2"
 
 PORTIONS="1 0.1 0.01 0.001 0.0001 0.00001 0.000001"
 ALPHAS="1"
 
-./test-sp-kernel.sh $PARTS $GRAPH_FDR $INIT_FDR $DELTA_FDR $RESULT_FDR $LOG_FDR $SNAPSHOT\
-  "$DELTA_RATIOS" "$GOOD_RATIOS" "$EW_RATIOS" $K_START $K_END "$PORTIONS" "$ALPHAS" 
+N=3
+
+./test-kernel-cr.sh ShortestPath $PARTS $GRAPH_FDR $INIT_FDR $DELTA_FDR $RESULT_FDR $LOG_FDR $SNAPSHOT\
+  "$DELTA_RATIOS" "$CRT_RATIOS" "$GOOD_RATIOS" "$EW_RATIOS" $K_START $K_END "$PORTIONS" "$ALPHAS" $DEGREE $N

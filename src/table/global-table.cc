@@ -1,6 +1,7 @@
 #include "global-table.h"
 #include "util/timer.h"
 #include <memory>
+#include <string>
 #include <gflags/gflags.h>
 
 DECLARE_double(snapshot_interval);
@@ -104,7 +105,7 @@ MutableGlobalTableBase::MutableGlobalTableBase(){
 	pending_send_ = 0;
 
 	bufmsg=1;
-	buftime=std::min(FLAGS_buftime, FLAGS_snapshot_interval/4);
+	buftime=min(FLAGS_buftime, FLAGS_snapshot_interval/4);
 }
 
 void MutableGlobalTableBase::resetProcessMarker(){
@@ -128,7 +129,7 @@ bool MutableGlobalTableBase::canSend(){
 }
 
 bool MutableGlobalTableBase::canPnS(){
-	auto m = std::max(pending_process_, pending_send_);
+	auto m = max(pending_process_, pending_send_);
 	return// m > FLAGS_bufmsg
 			//||
 			(m != 0 && tmr_send.elapsed() > buftime);
@@ -241,11 +242,11 @@ void MutableGlobalTable::restore(const string& pre){
 }
 
 void MutableGlobalTable::SendUpdates(){
-	std::lock_guard<std::recursive_mutex> lg(get_mutex());
+	lock_guard<recursive_mutex> lg(get_mutex());
 	// prepare
 	sending_=true;
 	// automatically reset processing to false when this function exits
-	std::shared_ptr<bool> guard_process(&sending_, [](bool* p){
+	shared_ptr<bool> guard_process(&sending_, [](bool* p){
 		*p=false;
 	});
 	if(FLAGS_local_aggregate){
@@ -253,7 +254,7 @@ void MutableGlobalTable::SendUpdates(){
 	}
 	// send
 	int n = num_shards();
-	lock_guard<std::mutex> lgub(mub);
+	lock_guard<mutex> lg2(m_buff);
 	for(int i = 0; i < n; ++i){
 		if(is_local_shard(i))
 			continue;
@@ -270,34 +271,39 @@ void MutableGlobalTable::SendUpdates(){
 void MutableGlobalTable::TermCheck(){
 	termchecking_=true;
 	// automatically reset processing to false when this function exits
-	std::shared_ptr<bool> guard_process(&termchecking_, [](bool* p){
+	shared_ptr<bool> guard_process(&termchecking_, [](bool* p){
 		*p=false;
 	});
+	uint64_t total_receives = 0;
 	uint64_t total_updates = 0;
 	double total_current = 0;
 	uint64_t total_default = 0;
 	for(int i = 0; i < partitions_.size(); ++i){
 		if(is_local_shard(i)){
 			LocalTable *t = partitions_[i];
+			uint64_t part_receive;
 			uint64_t part_update;
 			double part_sum;
 			uint64_t part_def;
-			t->termcheck(StringPrintf("snapshot/iter%d-part%d", snapshot_index, i),
-					&part_update, &part_sum, &part_def);
+			string name("snapshot/iter"+to_string(snapshot_index)+"-part"+to_string(i));
+//			t->termcheck(StringPrintf("snapshot/iter%d-part%d", snapshot_index, i),
+//					&part_update, &part_sum, &part_def);
+			t->termcheck(name, &part_receive, &part_update, &part_sum, &part_def);
+			total_receives += part_receive;
 			total_updates += part_update;
 			total_current += part_sum;
 			total_default += part_def;
 		}
 	}
 	if(helper()){
-		helper()->realSendTermCheck(snapshot_index, total_updates, total_current, total_default);
+		helper()->realSendTermCheck(snapshot_index, total_receives, total_updates, total_current, total_default);
 	}
 
 	snapshot_index++;
 }
 
 void MutableGlobalTable::setUpdatesFromAggregated(){	// aggregated way
-	lock_guard<std::mutex> lg(mub);
+	lock_guard<mutex> lg(m_buff);
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
 		if(!is_local_shard(i) && (get_partition_info(i)->dirty || !t->empty())){
@@ -312,9 +318,10 @@ void MutableGlobalTable::setUpdatesFromAggregated(){	// aggregated way
 }
 
 void MutableGlobalTable::addIntoUpdateBuffer(int shard, Arg& arg){	// non-aggregated way
+	lock_guard<std::mutex> lg(m_buff);
 	KVPairData& put=update_buffer[shard];
 	Arg* p = put.add_kv_data();
-	*p=std::move(arg);
+	p->Swap(&arg);
 }
 
 int64_t MutableGlobalTable::pending_write_bytes(){
@@ -340,8 +347,8 @@ void MutableGlobalTable::local_swap(GlobalTableBase *b){
 
 void MutableGlobalTable::InitUpdateBuffer(){
 	int n=num_shards();
+	lock_guard<mutex> lg(m_buff);
 //	VLOG(0)<<"num-shards: "<<n;
-	lock_guard<std::mutex> lg(mub);
 	update_buffer.resize(n);
 	for(int i = 0; i < n; ++i){
 		if(is_local_shard(i))

@@ -96,7 +96,7 @@ def main(path1, path2, merge_parts, show_detail, error):
             cnt+=num
             nKeys+=len(r1)
     print('Total different nodes', cnt, '/', nKeys)
-    print('Total difference:', total, 'maximum difference:', maxDif, 'number of infinity:', nInf)
+    print('Total difference:', total, ', maximum difference:', maxDif, ', number of infinity:', nInf)
 
 if __name__=='__main__':
     argc=len(sys.argv)

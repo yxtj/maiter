@@ -1,19 +1,27 @@
 import os, sys, re
 
-def get_file_names(graph_folder, delta_name):
+def get_graph_file_names(graph_folder):
     l=os.listdir(graph_folder);
     gpat=re.compile(r'^part\d+$')
-    dpat=re.compile('^'+delta_name+r'-\d+$')
     gfiles=[]
-    dfiles=[]
     for fn in l:
         if gpat.match(fn):
             gfiles.append(fn)
-        elif dpat.match(fn):
-            dfiles.append(fn)
     gfiles.sort()
+    return gfiles
+
+def get_delta_file_names(delta_prefix):
+    folder=re.sub(r'[/\\]+[^/\\]+$','',delta_prefix)
+    namep=re.sub(r'^.*[/\\]','',delta_prefix)
+    l=os.listdir(folder);
+    dpat=re.compile('^'+namep+r'-\d+$')
+    dfiles=[]
+    for fn in l:
+        if dpat.match(fn):
+            dfiles.append(fn)
     dfiles.sort()
-    return (gfiles, dfiles)
+    #dfiles=[namep+str(i) for i in range(n)]
+    return (folder, dfiles)
 
 def merge_weight(gfn, dfn):
     with open(gfn) as f:
@@ -74,12 +82,12 @@ def dump_weight(fn, g):
 
 def merge_unweight(gfn, dfn):
     with open(gfn) as f:
-        gdata=f.read().split('\n')
+        gdata=[l for l in f.read().split('\n') if len(l)!=0]
     with open(dfn) as f:
-        ddata=f.read().split('\n')
+        ddata=[l for l in f.read().split('\n') if len(l)!=0]
     # parse graph
     g={}
-    for i in len(gdata):
+    for i in range(len(gdata)):
         key, line=gdata[i].split('\t')
         line = [l for l in line.split(' ') if len(l)!=0]
         g[int(key)]=[int(e) for e in line]
@@ -118,8 +126,9 @@ def dump_unweight(fn, g):
                 f.write(' ')
             f.write('\n')
 
-def main(graph_folder, delta_name, output_folder, weight):
-    gfiles, dfiles = get_file_names(graph_folder, delta_name)
+def main(graph_folder, delta_prefix, output_folder, weighted):
+    gfiles=get_graph_file_names(graph_folder)
+    delta_folder, dfiles = get_delta_file_names(delta_prefix)
     print(gfiles)
     print(dfiles)
     if len(gfiles)==0:
@@ -131,31 +140,33 @@ def main(graph_folder, delta_name, output_folder, weight):
     elif len(gfiles) != len(dfiles):
         print('Error: number of parts do not match with number of delta')
         exit(1)
-    if weight:
+    if weighted:
         fun_merge=merge_weight
         fun_dump=dump_weight
     else:
         fun_merge=merge_unweight
         fun_dump=dump_unweight
+        
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     for i in range(len(gfiles)):
         print('processing file',i)
-        g=fun_merge(graph_folder+'/'+gfiles[i], graph_folder+'/'+dfiles[i])
+        g=fun_merge(graph_folder+'/'+gfiles[i], delta_folder+'/'+dfiles[i])
+        print('dumping file',i)
         fun_dump(output_folder+'/part'+str(i), g)
 
 if __name__=='__main__':
     if len(sys.argv) < 4:
         print('Merge a graph with its delta-graph.')
-        print('Usage: <grpah-path> <delta-name> <output-folder> [weight]\n'
-            '  [weight]: (=1) whether the graph is weighted graph.')
+        print('Usage: <grpah-path> <delta-prefix> <output-folder> [weighted]\n'
+            '  [weighted]: (=1) whether the graph is weighted graph.')
         exit()
     graph_folder=sys.argv[1]
-    delta_name=sys.argv[2]
+    delta_prefix=sys.argv[2]
     output_folder=sys.argv[3]
-    weight=True
+    weighted=True
     if len(sys.argv) > 4 and sys.argv[4].lower() not in {'1', 'y', 'yes', 't', 'true'}:
-        weight=False
-    print('weighted graph = '+str(weight))
-    main(graph_folder, delta_name, output_folder, weight)
+        weighted=False
+    print('weighted graph = '+str(weighted))
+    main(graph_folder, delta_prefix, output_folder, weighted)
 

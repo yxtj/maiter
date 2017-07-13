@@ -77,3 +77,23 @@ bool dump(const std::vector<std::string>& fnouts, const std::vector<float>& res)
 		delete fouts[i];
 	return true;
 }
+
+bool dump(const std::vector<std::string>& fnouts, const std::vector<int>& res){
+	size_t parts=fnouts.size();
+	vector<ofstream*> fouts;
+	for(size_t i=0;i<parts;++i){
+		ofstream* pf=new ofstream(fnouts[i]);
+		if(!pf || !pf->is_open())
+			return false;
+		fouts.push_back(pf);
+	}
+	size_t size=res.size();
+	for(size_t i=0;i<size;++i){
+		(*fouts[i%parts])<<i<<"\t0:"<<res[i]<<"\n";
+	}
+	for(size_t i=0;i<parts;++i)
+		delete fouts[i];
+	return true;
+}
+
+

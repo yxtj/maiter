@@ -138,6 +138,8 @@ void Worker::MsgLoop(){
 void Worker::KernelProcess(){
 	stats_["idle_time"]+=tmr_.elapsed();
 
+	DVLOG(1)<<"Start kernel process";
+
 	runKernel();
 	finishKernel();
 
@@ -148,6 +150,8 @@ void Worker::KernelProcess(){
 }
 
 void Worker::runKernel(){
+	VLOG(1)<<"Kernel started: "<<kreq;
+
 	KernelInfo *helper = KernelRegistry::Get()->kernel(kreq.kernel());
 	DSMKernel* d = helper->create();
 	d->initialize_internal(this, kreq.table(), kreq.shard());
@@ -206,7 +210,7 @@ void Worker::finishKernel(){
 	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 		GlobalTableBase* t = i->second;
-		VLOG(1)<<"Kernel Done of table "<<i->first;
+		DVLOG(1)<<"Kernel Done of table "<<i->first;
 		for(int j = 0; j < t->num_shards(); ++j){
 			if(t->is_local_shard(j)){
 				ShardInfo *si = kd.add_shards();
@@ -264,19 +268,22 @@ void Worker::realSendRequest(int dstWorkerID, const ValueRequest& req) {
 	network_->Send(peers_[dstWorkerID].net_id, MTYPE_VALUE_REQUEST, req);
 }
 
-void Worker::realSendTermCheck(int snapshot, uint64_t updates, double current, uint64_t ndefault){
+void Worker::realSendTermCheck(int snapshot,
+		uint64_t receives, uint64_t updates, double current, uint64_t ndefault){
 	lock_guard<recursive_mutex> sl(state_lock_);
 
 	TermcheckDelta req;
 	req.set_wid(id());
 	req.set_index(snapshot);
+	req.set_receives(receives);
 	req.set_updates(updates);
 	req.set_delta(current);
 	req.set_ndefault(ndefault);
 	network_->Send(config_.master_id(), MTYPE_TERMCHECK_LOCAL, req);
 
-	VLOG(1) << "termination condition of subpass " << snapshot << " worker " << id()
-			<< " sent to master... with total current (" << current << " , " << ndefault << ")";
+	VLOG(1) << "termination condition of " << " worker-" << id() << " pass-" << snapshot
+			<< " sent to master... with current (" << current << " , " << ndefault << ")"
+			<< " progress (" << receives << " , " << updates << ")";
 }
 
 void Worker::realSendUpdates(int dstWorkerID, const KVPairData& put){

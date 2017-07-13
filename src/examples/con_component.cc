@@ -8,12 +8,13 @@ using namespace std;
 DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
+DECLARE_double(weight_alpha);
+DECLARE_bool(priority_degree);
 
-struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
-    int zero;
+struct ConCompIterateKernel : public IterateKernel<int, int, vector<int> > {
+    const int zero;
 
-
-    PagerankIterateKernel() : zero(0){}
+    ConCompIterateKernel() : zero(0){}
 
     void read_data(string& line, int& k, vector<int>& data){
 		//line: "k\ta b c "
@@ -29,6 +30,10 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
 			data.push_back(to);
 			pos=spacepos+1;
 		}
+		// add a self loop edge to maintain correctness, especially running with an evolving graph
+		auto it=find(data.begin(), data.end(), k);
+		if(it==data.end())
+			data.push_back(k);
 	}
 	void read_init(std::string& line, int& k, int& delta, int& value){
 		// format: "<key>\t<delta>:<value>"
@@ -61,40 +66,48 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
 		change.push_back(dst);
 	}
 
+	int get_key(const int& d){
+		return d;
+	}
 	std::vector<int> get_keys(const vector<int>& d){
 		return d;
 	}
 
     void init_c(const int& k, int& delta, vector<int>& data){
-            int  init_delta = k;
-            delta = init_delta;
+		delta = k;
     }
-    void init_v(const int& k,int& v,vector<int>& data){
-            v=0;
+    void init_v(const int& k, int& value, vector<int>& data){
+		value = -1;
     }
 
     void accumulate(int& a, const int& b){
-            a=std::max(a,b);
+		a=std::max(a,b);
     }
 	bool better(const int& a, const int& b){
-            return a > b;
+		return a > b;
     }
 	bool is_selective() const{
 		return true;
 	}
 
     void priority(int& pri, const int& value, const int& delta, const vector<int>& data){
-            pri = value-std::max(value,delta);
+		//pri = value-std::max(value,delta);
+		int dif = (value - delta) * (FLAGS_priority_degree? data.size() : 1);
+		if(dif<=0)	// good news
+			pri = -dif;
+		else
+			pri = static_cast<int>(FLAGS_weight_alpha * dif);
     }
 
-    void g_func(const int& k,const int& delta, const int& value, const vector<int>& data, vector<pair<int, int> >* output){
-            int outv = value;
-            
-            //cout << "size " << size << endl;
-            for(vector<int>::const_iterator it=data.begin(); it!=data.end(); it++){
-                    int target = *it;
-                    output->push_back(make_pair(target, outv));
-            }
+    int g_func(const int& k,const int& delta, const int& value, const vector<int>& data, const int& dst){
+    	return delta;
+    }
+    void g_func(const int& k,const int& delta, const int& value, const vector<int>& data,
+    		vector<pair<int, int> >* output)
+    {
+		for(vector<int>::const_iterator it=data.begin(); it!=data.end(); ++it){
+			output->push_back(make_pair(*it, delta));
+		}
     }
 
     const int& default_v() const {
@@ -103,11 +116,11 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
 };
 
 
-static int Pagerank(ConfigData& conf) {
+static int ConComp(ConfigData& conf) {
     MaiterKernel<int, int, vector<int> >* kernel = new MaiterKernel<int, int, vector<int> >(
                                         conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
                                         new Sharders::Mod,
-                                        new PagerankIterateKernel,
+                                        new ConCompIterateKernel,
                                         new TermCheckers<int, int>::Diff);
     
     
@@ -122,5 +135,5 @@ static int Pagerank(ConfigData& conf) {
     return 0;
 }
 
-REGISTER_RUNNER(Pagerank);
+REGISTER_RUNNER(ConComp);
 

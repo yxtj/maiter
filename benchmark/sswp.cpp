@@ -10,62 +10,33 @@
 
 using namespace std;
 
-vector<float> cal_sp_dijkstra(vector<vector<Edge>>& g, int source){
+vector<float> cal_wp_spfa(vector<vector<Edge>>& g, int source){
+	static constexpr float inf = numeric_limits<float>::infinity();
 	size_t n=g.size();
-	vector<float> res(n, numeric_limits<float>::infinity());
-	vector<bool> found(n, false);
-	priority_queue<Edge, vector<Edge>, greater<Edge>> heap; // Edge is re-used as struct <dis, node>
-	Edge e{source, 0.0f};
-	heap.push(e);
-	res[source]=0.0f;
-	size_t nf=0;
-	while(nf<n && !heap.empty()){
-		Edge top;
-		do{
-			top=heap.top();
-			heap.pop();
-		}while(found[top.node]);	// quickly skip found nodes
-		++nf;
-		found[top.node]=true;
-		float dis=top.weight;
-		res[top.node]=dis;
-		for(auto& e : g[top.node]){
-			float temp=dis+e.weight;
-			if(temp<res[e.node]){
-				Edge xx{e.node, temp};
-				res[e.node]=temp;
-				heap.push(xx);
-			}
-		}
-	}
-	return res;
-}
-
-vector<float> cal_sp_spfa(vector<vector<Edge>>& g, int source){
-	size_t n=g.size();
-	vector<float> res(n, numeric_limits<float>::infinity());
+	vector<float> res(n, 0.0f);
 	vector<bool> inque(n, false);
 	deque<int> rque;
 	int f=0, l=0, nf=0;
 	float total=0;
 	rque.push_back(source);
-	res[source]=0;
+	res[source]=inf;
 	++nf;
 	while(!rque.empty()){
-		/* // standard version without any optimization
+		 // standard version without any optimization
 		int t=rque.front();
 		rque.pop_front();
 		inque[t]=false;
 		for(auto& e: g[t]){
-			float temp=res[t]+e.weight;
-			if(temp<res[e.node]){
+			float temp=min(res[t], e.weight);
+			if(temp>res[e.node]){
 				res[e.node]=temp;
 				if(!inque[e.node]){
 					rque.push_back(e.node);
 					inque[e.node]=true;
 				}
 			}
-		}*/
+		}
+		/*
 		int t=rque.front();
 		rque.pop_front();
 		while(res[t]*nf>total){	// LLL
@@ -73,13 +44,13 @@ vector<float> cal_sp_spfa(vector<vector<Edge>>& g, int source){
 			t=rque.front();
 			rque.pop_front();
 		}
-		float dis=res[t];
+		float width=res[t];
 		inque[t]=false;
-		total-=dis;
+		total-=width;
 		--nf;
 		for(auto& e: g[t]){
-			float temp=dis+e.weight;
-			if(temp<res[e.node]){
+			float temp=min(width, e.weight);
+			if(temp>res[e.node]){
 				res[e.node]=temp;
 				if(!inque[e.node]){
 					if(temp*nf<total)	// SLF
@@ -91,33 +62,34 @@ vector<float> cal_sp_spfa(vector<vector<Edge>>& g, int source){
 					++nf;
 				}
 			}
-		}
+		}*/
 	}
 	return res;
 }
 
-vector<float> cal_sp(vector<vector<Edge>>& g, int source, const string& method){
-	if(method=="dijkstra")
-		return cal_sp_dijkstra(g, source);
-	else //if(method=="spfa")
-		return cal_sp_spfa(g, source);
+vector<float> cal_wp(vector<vector<Edge>>& g, int source, const string& method){
+	return cal_wp_spfa(g, source);
 }
 
 // track source of each node to find out the critical edges
 
-vector<pair<int,int>> cal_critical_edges(const vector<vector<Edge>>& g, const vector<float>& sp, const int source){
+vector<pair<int,int>> cal_critical_edges(const vector<vector<Edge>>& g, const vector<float>& wp, const int source){
 	size_t n=g.size();
 	vector<pair<int,int>> res;
 	queue<int> que;
+	vector<bool> used(n, false);
 	que.push(source);
+	used[source]=true;
 	while(!que.empty()){
 		int src=que.front();
 		que.pop();
-		float sd=sp[src];
 		for(const Edge& e : g[src]){
-			if(sp[e.node] == sd + e.weight){
+			if(wp[e.node] == e.weight){
 				res.emplace_back(src, e.node);
+			}
+			if(!used[e.node]){
 				que.push(e.node);
+				used[e.node]=true;
 			}
 		}
 	}
@@ -144,46 +116,16 @@ bool dump_cedge(const vector<string>& fncedge, const vector<pair<int, int>>& ced
 	return true;
 }
 
-// for checking
-void build_sp_with_critical_edges(const vector<vector<Edge>>& g, const vector<pair<int, int>>& cedges, string fn){
-	size_t n=g.size();
-	vector<float> sd(n, numeric_limits<float>::infinity());
-	queue<int> que;
-	sd[0]=0;
-	que.push(0);
-	while(!que.empty()){
-		int t=que.front();
-		que.pop();
-		auto it=find_if(cedges.begin(), cedges.end(), [&](const pair<int,int>& p){
-			return p.first==t;
-		});
-		while(it!=cedges.end()){
-			int dst=it->second;
-			que.push(dst);
-			auto jt=find_if(g[t].begin(), g[t].end(), [&](const Edge& e){
-				return e.node==dst;
-			});
-			sd[dst]=sd[t]+jt->weight;
-			it=find_if(++it, cedges.end(), [&](const pair<int,int>& p){
-				return p.first==t;
-			});
-		}
-	}
-	ofstream fout(fn);
-	for(size_t i=0;i<n;++i){
-		fout<<i<<"\t0:"<<sd[i]<<"\n";
-	}
-}
-
 int main(int argc, char* argv[]){
 	if(argc<=3){
-		cerr<<"Calculate SSSP."<<endl;
+		cerr<<"Calculate Singe Source Widest Path."<<endl;
 		cerr<<"Usage: <#parts> <in-folder> <out-folder> [source] [opt-critical-edge] [algorithm]\n"
 			<<"  <in-folder>: input file prefix, file name: 'part<id>' is automatically used\n"
 			<<"  <out-folder>: output file prefix, file name 'part-<id>' is automatically used\n"
 			<<"  [source]: (=0) the source node in the graph\n"
 			<<"  [opt-critical-edge]: (=0) whether to output the critical edge in the shortest paths (file name prefix: cedge)\n"
-			<<"  [algorithm]: (=dijkstra) the algorithm for SSSP. Supports: dijkstra, spfa"<<endl;
+			<<"  [algorithm]: (=spfa) the algorithm for SSWP. Supports: spfa"
+			<<endl;
 		return 1;
 	}
 	int parts=stoi(argv[1]);
@@ -199,11 +141,11 @@ int main(int argc, char* argv[]){
 		if(opt=="1" || opt=="y" || opt=="t" || opt=="yes" || opt=="true")
 			get_cedge=true;
 	}
-	string method="dijkstra";
+	string method="spfa";
 	if(argc>6){
 		method=argv[6];
 	}
-	if(method!="dijkstra" && method!="spfa"){
+	if(method!="spfa"){
 		cerr<<"Error: unsupported algorithm: "<<method<<endl;
 		return 2;
 	}
@@ -226,20 +168,20 @@ int main(int argc, char* argv[]){
 	cout<<"  load "<<g.size()<<" nodes in "<<elapsed.count()<<" seconds"<<endl;
 	
 	// calculate
-	cout<<"calculating SSSP"<<endl;
+	cout<<"calculating SSWP"<<endl;
 	start_t = chrono::system_clock::now();
-	vector<float> sp = cal_sp(g, source, method);
+	vector<float> wp = cal_wp(g, source, method);
     elapsed = chrono::system_clock::now()-start_t;
 	cout<<"  finished in "<<elapsed.count()<<" seconds"<<endl;
 	
 	// dump
-	cout<<"dumping SSSP"<<endl;
+	cout<<"dumping SSWP"<<endl;
 	start_t = chrono::system_clock::now();
 	vector<string> fnout;
 	for(int i=0;i<parts;++i){
 		fnout.push_back(outprefix+"/part-"+to_string(i));
 	}
-	if(!dump(fnout, sp)){
+	if(!dump(fnout, wp)){
 		cerr<<"Error: cannot write to given file(s)"<<endl;
 		return 4;
 	}
@@ -252,7 +194,7 @@ int main(int argc, char* argv[]){
 	
 	cout<<"calculating critical edges"<<endl;
 	start_t = chrono::system_clock::now();
-	vector<pair<int, int>> cedges = cal_critical_edges(g, sp, source);
+	vector<pair<int, int>> cedges = cal_critical_edges(g, wp, source);
 	elapsed = chrono::system_clock::now()-start_t;
 	cout<<"  found "<<cedges.size()<<" critical edges"<<endl;
 	cout<<"  finished in "<<elapsed.count()<<" seconds"<<endl;
@@ -269,7 +211,5 @@ int main(int argc, char* argv[]){
 	elapsed = chrono::system_clock::now()-start_t;
 	cout<<"  finished in "<<elapsed.count()<<" seconds"<<endl;
 
-	//build_sp_with_critical_edges(g, cedges, outprefix+"/xx.txt");
-	
 	return 0;
 }

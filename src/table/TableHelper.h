@@ -38,7 +38,7 @@ struct TableHelper{
 	virtual void realSendRequest(int dstWorkerID, const ValueRequest& req) = 0;
 //	virtual void HandlePutRequest() = 0;
 //	virtual void FlushUpdates() = 0;
-	virtual void realSendTermCheck(int index, uint64_t updates, double current, uint64_t ndefault) = 0;
+	virtual void realSendTermCheck(int index, uint64_t receives, uint64_t updates, double current, uint64_t ndefault) = 0;
 
 	virtual void realSendInNeighbor(int dstWorkerID, const InNeighborData& data) = 0;
 

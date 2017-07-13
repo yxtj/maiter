@@ -23,7 +23,7 @@ using namespace std;
 
 struct Edge{
 	int u, v;
-	string w;
+	float w;
 };
 
 struct ModifyThreshold{
@@ -52,7 +52,7 @@ pair<int, vector<Edge>> parseFromLine(const string& line){
 	while((spacepos = line.find(' ', pos)) != line.npos){
 		size_t cut = line.find(',', pos + 1);
 		int node = stoi(line.substr(pos, cut - pos));
-		string weight = line.substr(cut + 1, spacepos - cut - 1);
+		float weight = stof(line.substr(cut + 1, spacepos - cut - 1));
 		Edge e{ key, node, weight };
 		data.push_back(e);
 		pos = spacepos + 1;
@@ -62,7 +62,7 @@ pair<int, vector<Edge>> parseFromLine(const string& line){
 
 // normal return: (totalV, totalE, maxV)
 // return by reference: resultSet = {addSet, rmvSet, incSet, decSet}
-tuple<int, int, int> loadChanges(ifstream& fin, int maxV, const ModifyThreshold& threshold,
+tuple<int, int, int> changeOne(ifstream& fin, int maxV, const ModifyThreshold& threshold,
 		uniform_real_distribution<double>& rnd_prob, uniform_int_distribution<int>& rnd_node,
 		uniform_real_distribution<float>& rnd_weight, mt19937& gen,
 		ModifyEdges& resultSet)
@@ -94,13 +94,13 @@ tuple<int, int, int> loadChanges(ifstream& fin, int maxV, const ModifyThreshold&
 			}else if(r < threshold.add){
 				++addCnt;
 			}else if(r < threshold.rmv){
-				rmvSet.push_back(move(e));
+				rmvSet.push_back(e);
 			}else if(r < threshold.inc){
-				e.w = to_string(stof(e.w) * (1 + rnd_weight(gen)));
-				incSet.push_back(move(e));
+				e.w = e.w * (1 + rnd_weight(gen));
+				incSet.push_back(e);
 			}else if(r < threshold.dec){
-				e.w = to_string(stof(e.w) * rnd_weight(gen));
-				decSet.push_back(move(e));
+				e.w = e.w * rnd_weight(gen);
+				decSet.push_back(e);
 			}
 		}
 		totalE += hs.size();
@@ -114,8 +114,8 @@ tuple<int, int, int> loadChanges(ifstream& fin, int maxV, const ModifyThreshold&
 				newV = rnd_node(gen) % maxV;
 			}while(dests.find(newV) != dests.end() && rpt++ < 10);
 			if(rpt < 10){
-				Edge e{ u, newV, to_string(rnd_weight(gen)) };
-				addSet.push_back(move(e));
+				Edge e{ u, newV, rnd_weight(gen) };
+				addSet.push_back(e);
 			}else{
 				// ++failAdd;
 			}
@@ -139,7 +139,7 @@ void dumpChangeOneSet(ofstream& fout, const vector<Edge>& edgeSet, char type, bo
 
 int changeGraph(const string& dir, const string& deltaPrefix,
 		const int nPart, const int seed, const double rate,
-		const double addRate, const double rmvRate, const double incRate, const double decRate)
+		const double addRate, const double rmvRate, const double incRate, const double decRate, const bool bidir)
 {
 	vector<ifstream*> fin;
 	vector<ofstream*> fout;
@@ -181,7 +181,7 @@ int changeGraph(const string& dir, const string& deltaPrefix,
 	for(int i = 0; i < nPart; i++){
 		// generate
 		ModifyEdges modifiedSet;
-		tuple<int, int, int> ret = loadChanges(
+		tuple<int, int, int> ret = changeOne(
 				*fin[i], maxV, threshold, rnd_prob, rnd_node, rnd_weight, gen, modifiedSet);
 		totalV += get<0>(ret);
 		totalE += get<1>(ret);
@@ -190,13 +190,13 @@ int changeGraph(const string& dir, const string& deltaPrefix,
 
 		// dump
 		addCnt += modifiedSet.addSet.size();
-		dumpChangeOneSet(*fout[i], modifiedSet.addSet, 'A', false);
+		dumpChangeOneSet(*fout[i], modifiedSet.addSet, 'A', bidir);
 		rmvCnt += modifiedSet.rmvSet.size();
-		dumpChangeOneSet(*fout[i], modifiedSet.rmvSet, 'R', false);
+		dumpChangeOneSet(*fout[i], modifiedSet.rmvSet, 'R', bidir);
 		incCnt += modifiedSet.incSet.size();
-		dumpChangeOneSet(*fout[i], modifiedSet.incSet, 'I', false);
+		dumpChangeOneSet(*fout[i], modifiedSet.incSet, 'I', bidir);
 		decCnt += modifiedSet.decSet.size();
-		dumpChangeOneSet(*fout[i], modifiedSet.decSet, 'D', false);
+		dumpChangeOneSet(*fout[i], modifiedSet.decSet, 'D', bidir);
 
 		delete fout[i];
 	} // file
@@ -213,17 +213,20 @@ int changeGraph(const string& dir, const string& deltaPrefix,
 // ------ main ------
 
 struct Option{
-	int nPart, nNode;
+	string graphFolder;
+	int nPart;
 	string deltaPrefix;
+	
 	double alpha; // for power-law distribution
+	
 	string weight;
 	double wmin, wmax;
-	string outDir;
-	int prop;
-	unsigned long seed;
 	double rate;	// rate of changed edges
 	double addRate, rmvRate, incRate, decRate;
 
+	bool dir;
+	unsigned long seed;
+	
 	void parse(int argc, char* argv[]);
 private:
 	bool setWeight(string& method);
@@ -233,8 +236,8 @@ private:
 };
 
 void Option::parse(int argc, char* argv[]){
-	outDir = argv[1];
-	nPart = stoi(string(argv[2]));
+	nPart = stoi(string(argv[1]));
+	graphFolder = argv[2];
 //	nNode=stoi(string(argv[2]));
 	deltaPrefix = argv[3];
 	rate = stod(string(argv[4]));
@@ -242,9 +245,12 @@ void Option::parse(int argc, char* argv[]){
 	rmvRate = stod(string(argv[6]));
 	incRate = stod(string(argv[7]));
 	decRate = stod(string(argv[8]));
-	seed = 1535345;
+	dir = true;
 	if(argc > 9)
-		seed = stoul(string(argv[9]));
+		dir = stoi(string(argv[9]))==1;
+	seed = 1535345;
+	if(argc > 10)
+		seed = stoul(string(argv[10]));
 	if(!normalizeRates())
 		throw invalid_argument("Given rates do not make sense.");
 }
@@ -285,20 +291,21 @@ bool Option::normalizeRates(){
 }
 
 int main(int argc, char* argv[]){
-	if(argc < 3 || argc > 10){
+	if(argc < 9 || argc > 11){
 		cerr << "Wrong usage.\n"
-				"Usage: \"deltaGen <dir> <#parts> <delta-prefix> <deltaRate> <addRate> <rmvRate> <incRate> <decRate> [random-seed]\""
+				"Usage: <graph-folder> <#parts> <delta-prefix> <deltaRate> <addRate> <rmvRate> <incRate> <decRate> [dir] [random-seed]"
 				<< endl;
-		cerr << "  <dir>: the folder of graphs.\n"
-				"  <#parts>: number of parts the graphs are separated (the number of files to operate).\n"
+		cerr <<	"  <#parts>: number of parts the graphs are separated (the number of files to operate).\n"
+				"  <graph-folder>: the folder of graphs.\n"
 				"  <delta-prefix>: the path and name prefix of generated delta graphs, naming format: \"<delta-prefix>-<part>\".\n"
 				"  <deltaRate>: the rate of changed edges.\n"
 				"  <addRate>, <rmvRate>, <incRate>, <decRate>: "
-				"among the changed edges the rate for edge-addition, edge-removal, weight-increase and weight-decrease. "
+				"among the changed edges the rates for edge-addition, edge-removal, weight-increase and weight-decrease. "
 				"They are automatically normalized.\n"
+				"  [dir]: (=1) whether it is a directional graph\n"
 				"  [random-seed]: (=1535345) seed for random numbers\n"
-				"i.e.: ./deltaGen.exe graphDir 2 delta-rd 0.05 0 0.3 0 0.7 123456\n"
-				"i.e.: ./deltaGen.exe input 2 ../delta/d2 0.01 0.2 0.2 0.3 0.3\n"
+				"i.e.: ./delta-gen.exe 1 graphDir delta-rd 0.05 0 0.3 0 0.7 123456\n"
+				"i.e.: ./delta-gen.exe 2 input ../delta/d2 0.01 0.2 0.2 0.3 0.3\n"
 				<< endl;
 		return 1;
 	}
@@ -310,10 +317,10 @@ int main(int argc, char* argv[]){
 		return 2;
 	}
 	ios_base::sync_with_stdio(false);
-	cout << "Loading " << opt.nPart << " parts, from folder: " << opt.outDir << endl;
+	cout << "Loading " << opt.nPart << " parts, from folder: " << opt.graphFolder << endl;
 
-	int n = changeGraph(opt.outDir, opt.deltaPrefix, opt.nPart, opt.seed, opt.rate,
-			opt.addRate, opt.rmvRate, opt.incRate, opt.decRate);
+	int n = changeGraph(opt.graphFolder, opt.deltaPrefix, opt.nPart, opt.seed, opt.rate,
+			opt.addRate, opt.rmvRate, opt.incRate, opt.decRate, !opt.dir);
 
 	cout << "success " << n << " files. fail " << opt.nPart - n << " files." << endl;
 	return n > 0 ? 0 : 3;
