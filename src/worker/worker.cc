@@ -210,7 +210,7 @@ void Worker::finishKernel(){
 	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
 		GlobalTableBase* t = i->second;
-		VLOG(1)<<"Kernel Done of table "<<i->first;
+		DVLOG(1)<<"Kernel Done of table "<<i->first;
 		for(int j = 0; j < t->num_shards(); ++j){
 			if(t->is_local_shard(j)){
 				ShardInfo *si = kd.add_shards();
@@ -277,8 +277,9 @@ void Worker::realSendTermCheck(int snapshot,
 	req.set_ndefault(ndefault);
 	network_->Send(config_.master_id(), MTYPE_TERMCHECK_LOCAL, req);
 
-	VLOG(1) << "termination condition of subpass " << snapshot << " worker " << id()
-			<< " sent to master... with total current (" << current << " , " << ndefault << ")";
+	VLOG(1) << "termination condition of " << " worker-" << id() << " pass-" << snapshot
+			<< " sent to master... with current (" << current << " , " << ndefault << ")"
+			<< " progress (" << receives << " , " << updates << ")";
 }
 
 void Worker::realSendUpdates(int dstWorkerID, const KVPairData& put){
