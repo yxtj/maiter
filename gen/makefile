@@ -2,7 +2,7 @@ CXX ?= g++
 CC ?= gcc
 MAKE ?= make
 CPPFLAGS += -std=c++11
-EXE = gen delta-gen delta-gen-uw delta-gen-ce
+EXE = gen gen2 delta-gen delta-gen-uw delta-gen-ce
 
 DBGFLAGS = $(CPPFLAGS) -g
 RELFLAGS = $(CPPFLAGS) -O2
@@ -15,6 +15,9 @@ all: release
 #	$(CXX) $(CPPFLAGS) $^ -o $@
 
 gen.exe: gen.o
+	$(CXX) $(CPPFLAGS) $^ -o $@
+	
+gen2.exe: gen2.o
 	$(CXX) $(CPPFLAGS) $^ -o $@
 
 delta-gen.exe: delta-gen.o
