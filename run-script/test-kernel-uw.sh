@@ -3,15 +3,15 @@
 # k-range (close range between k-start and k-end)
 # top-portion, priority-alpha
 
-if [ $# -lt 16 ] || [ $# -gt 17 ] ; then
+if [ $# -lt 15 ] || [ $# -gt 16 ] ; then
 	echo "Require 16~17 parameters but $# is given. Try to use \" \" arround ratios"
 	echo "  1: algorithm, 2: #-parts, "
 	echo "  3: graph-folder, 4: initial-folder, 5: delta-folder, 6: result-folder, 7: log-folder, "
 	echo "  8: snapshot-interval, "
-	echo "  9: delta-ratios, 10: critical-edge-ratios, 11: good-ratios, "
-	echo "  12: k-start, 13: k-end, "
-	echo "  14: top-portions, 15: alphas, 16: priority-degree (1/0), "
-	echo "  17: n-parallel (=1)"
+	echo "  9: delta-ratios, 10: good-ratios, "
+	echo "  11: k-start, 12: k-end, "
+	echo "  13: top-portions, 14: alphas, 15: priority-degree (1/0), "
+	echo "  16: n-parallel (=1)"
 	exit
 fi
 
@@ -31,29 +31,28 @@ FOLDER=$(basename $GRAPH_FDR)
 
 # delta parameters
 DELTA_RATIOS=$9
-CRT_RATIOS=${10}
-GOOD_RATIOS=${11}
+#CRT_RATIOS=${10}
+GOOD_RATIOS=${10}
 #EW_RATIOS=${11}
 
-K_START=${12}
-K_END=${13}
+K_START=${11}
+K_END=${12}
 
 # run parameters
-PORTIONS=${14}
-ALPHAS=${15}
-DEGREE=${16}
+PORTIONS=${13}
+ALPHAS=${14}
+DEGREE=${15}
 
 N=1
-if [ $# -ge 17 ] && [ ! -z ${17// /} ]; then
-	N=${17}
+if [ $# -ge 16 ] && [ ! -z ${16// /} ]; then
+	N=${16}
 fi
 
-for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
+for dr in $DELTA_RATIOS; do
 	drn=$( printf '%.0f\n' $(echo "100*$dr"|bc))
-	crn=$( printf '%.0f\n' $(echo "10*$cr"|bc))
 	for gr in $GOOD_RATIOS; do 
 		grn=$( printf '%.0f\n' $(echo "10*$gr"|bc))
-		dname=c$drn-$crn-$grn
+		dname=u$drn-$grn
 		for k in $(seq $K_START $K_END); do
 			temp_result_fdr=$RESULT_FDR/$k/$dname
 			temp_delta_fdr=$DELTA_FDR/$k/$dname	# use temporary folders for output (one for each k, inorder to parallelize)
@@ -81,4 +80,4 @@ for dr in $DELTA_RATIOS; do for cr in $CRT_RATIOS; do
 			rm -rf $temp_result_fdr
 		done
 	done
-done; done
+done

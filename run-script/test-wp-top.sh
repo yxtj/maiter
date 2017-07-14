@@ -9,7 +9,6 @@ if [ $# -lt 4 ]; then
 	echo '    result-folder       = <prefix>/output/<graph-name>'
 	echo '  <graph-name>: <head>-<#-of-parts>, number of parts is automatically parsed from the last part of graph-name'
 	echo '  <k-start> and <k-end>: the ID for delta-graphs (close range). Control the number of delta-graphs for each parameters. Can be used for parallelization'
-	echo "  <log-sub-fdr>: sub folder for the log files. Log-folder = ../log/sp-$DELTA_NAME/<log-sub-fdr>"
 	echo '  [degree]: (=0) use degree in setting priority'
 	echo '  [snapshot]: (=0.1) the interval of termination check, in seconds'
 	exit
@@ -32,17 +31,16 @@ RESULT_FDR=$PRE/output/$FOLDER
 INIT_FDR=$PRE/ref/$FOLDER
 DELTA_FDR=$PRE/delta/$FOLDER/$DELTA_NAME/
 
-LOG_SUB_FDR=$5
-LOG_FDR=../log/sp-$DELTA_NAME/$LOG_SUB_FDR
+LOG_FDR=../log/wp-$DELTA_NAME
 
 DEGREE=0
-if [ $# -ge 6 ]; then
-	DEGREE=$6
+if [ $# -ge 5 ]; then
+	DEGREE=$5
 fi
 
 SNAPSHOT=0.1
-if [ $# -ge 7 ]; then
-	SNAPSHOT=$7
+if [ $# -ge 6 ]; then
+	SNAPSHOT=$6
 fi
 
 mkdir -p $RESULT_FDR
@@ -50,7 +48,7 @@ mkdir -p $DELTA_FDR
 mkdir -p $LOG_FDR
 
 DELTA_RATIOS="0.05"
-CRT_RATIOS="0.2"
+CRT_RATIOS="0.1"
 GOOD_RATIOS="0.2 0.8"
 EW_RATIOS="0.2"
 
@@ -59,5 +57,5 @@ ALPHAS="1"
 
 N=3
 
-./test-kernel-cr.sh ShortestPath $PARTS $GRAPH_FDR $INIT_FDR $DELTA_FDR $RESULT_FDR $LOG_FDR $SNAPSHOT\
+./test-kernel-cr.sh WidestPath $PARTS $GRAPH_FDR $INIT_FDR $DELTA_FDR $RESULT_FDR $LOG_FDR $SNAPSHOT\
   "$DELTA_RATIOS" "$CRT_RATIOS" "$GOOD_RATIOS" "$EW_RATIOS" $K_START $K_END "$PORTIONS" "$ALPHAS" $DEGREE $N
