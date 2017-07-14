@@ -1,3 +1,4 @@
+syntax = "proto2";
 package dsm;
 
 import "msg/mtype.proto";
@@ -8,6 +9,7 @@ message EmptyMessage {}
 
 message ReplyMessage {
   required MessageTypes type = 1;
+  optional bool result = 2 [ default = true ];
 }
 
 enum CheckpointType {
@@ -17,18 +19,45 @@ enum CheckpointType {
   CP_ASYNC = 3;
 };
 
+message CheckpointInfo {
+  required int32 checkpoint_epoch = 1;
+  required int32 kernel_epoch = 2;
+}
+
+message CheckpointRequest {
+  required int32 epoch = 1;
+  repeated int32 table = 2;
+}
+
+message CheckpointSyncSig {
+  required int32 wid = 1;
+  required int32 epoch = 2;
+}
+
+message CheckpointLocalDone {
+  required int32 wid = 1;
+  required int32 epoch = 2;
+}
+
 message RegisterWorkerRequest {
   required int32 id = 1;
 }
 
-message ShardAssignment {
-  required int32 table = 1;
-  required int32 shard = 2;
-//  required int32 old_worker = 3;
-  required int32 new_worker = 4;
+message WorkerIDMapList {
+  message WorkerIDMap {
+    required int32 worker_id = 1;
+    required int32 network_id = 2;
+  }
+  repeated WorkerIDMap workers = 1;
 }
 
 message ShardAssignmentRequest {
+  message ShardAssignment {
+    required int32 table = 1;
+    required int32 shard = 2;
+//    required int32 old_worker = 3;
+    required int32 new_worker = 4;
+  }
   repeated ShardAssignment assign = 1;
 }
 
@@ -52,6 +81,10 @@ message KernelRequest {
   optional int32 table = 3;
   optional int32 shard = 4;
   required Args args = 5;
+  required CheckpointType cp_type = 6;
+  required bool termcheck = 7;
+  required bool restore = 8;
+  optional int32 restore_from_epoch = 9 [default = -1]; //-1 means no restore
 }
 
 message KernelDone {
@@ -114,23 +147,12 @@ message KVPairData {
   optional bool missing_key = 13;
 }
 
-message CheckpointRequest {
-  required int32 epoch = 1;
-  required int32 checkpoint_type = 2;
-  repeated int32 table = 3;
-}
-
 message TerminationNotification {
   required int32 epoch = 1;
 }
 
 message RestoreRequest {
   required int32 epoch = 1;
-}
-
-message CheckpointInfo {
-  required int32 checkpoint_epoch = 1;
-  required int32 kernel_epoch = 2;
 }
 
 message SwapTable {
@@ -146,4 +168,35 @@ message EnableTrigger {
   required int32 trigger_id = 1;
   required int32 table = 2;
   required bool enable = 3;
+}
+
+// init in-neighbors
+message InNeighborUnit {
+  required bytes from = 1;
+  required bytes to = 2;
+  optional bytes weight = 3;
+}
+
+message InNeighborData {
+  required uint32 table = 1;
+  repeated InNeighborUnit data = 2;
+}
+
+// load graph changes
+message GraphChangeReq {
+  required string filename = 1;
+  required uint32 table = 2;
+}
+
+message ChangedEdge{
+  required bytes src = 1;
+  required bytes dst = 2;
+  required float weight = 3;
+}
+
+message GraphChangeInfo{
+  repeated ChangedEdge added = 1;
+  repeated ChangedEdge removed = 2;
+  repeated ChangedEdge increased = 3;
+  repeated ChangedEdge decreased = 4;
 }

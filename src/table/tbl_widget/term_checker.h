@@ -10,25 +10,24 @@
 
 #include <vector>
 #include <limits>
+#include <utility>
 #include "table/table_iterator.h"
 
 namespace dsm{
 
 struct TermCheckerBase {
-	double last;
-	double curr;
-	TermCheckerBase():last(-std::numeric_limits<double>::max()), curr(0){}
-	double get_curr() { return curr; }
+	std::pair<double, int64_t> last;
+	std::pair<double, int64_t> curr;
+	TermCheckerBase():last(-std::numeric_limits<double>::max(), 0), curr(0.0, 0){}
+	std::pair<double, int64_t> get_curr() const { return curr; }
 };
-
-#ifndef SWIG
 
 template<class K, class V>
 struct TermChecker: public TermCheckerBase{
 	//generate local report, the default version is summing over all entries
 	virtual double estimate_prog(LocalTableIterator<K, V>* table_itr);
 	//decide whether to terminate with
-	virtual bool terminate(const std::vector<double>& local_reports)=0;
+	virtual bool terminate(const std::vector<std::pair<double, uint64_t>>& local_reports)=0;
 	virtual ~TermChecker(){}
 };
 
@@ -45,8 +44,6 @@ double TermChecker<K,V>::estimate_prog(LocalTableIterator<K, V>* statetable){
 	}
 	return partial_curr;
 }
-
-#endif //SWIG
 
 } //namespace std
 

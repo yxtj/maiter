@@ -7,6 +7,7 @@
 
 #include "DSMKernel.h"
 #include "table/table-registry.h"
+#include "table/global-table.h"
 #include <glog/logging.h>
 
 namespace dsm {

@@ -9,7 +9,10 @@
 #define MASTER_WORKER_HANDLE_H_
 
 #include "run-descriptor.h"
-#include "table/table-registry.h"
+#include "util/noncopyable.h"
+#include "util/timer.h"
+#include <glog/logging.h>
+
 #include <vector>
 #include <set>
 #include <map>
@@ -67,8 +70,10 @@ struct WorkerState: private noncopyable{
 		last_task_start = 0.0;
 		total_runtime = 0.0;
 		checkpointing = false;
-		current = 0;
+		receives = 0;
 		updates = 0;
+		current = 0;
+		ndefault = 0;
 	}
 
 	TaskMap work;
@@ -87,8 +92,12 @@ struct WorkerState: private noncopyable{
 	double total_runtime;
 
 	bool checkpointing;
+
+	uint64_t receives;
+	uint64_t updates;
+
 	double current;
-	long updates;
+	uint64_t ndefault;
 
 	// Order by number of pending tasks and last update time.
 	static bool PendingCompare(WorkerState *a, WorkerState* b){

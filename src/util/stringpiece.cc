@@ -85,9 +85,16 @@ string StringPrintf(StringPiece fmt, ...) {
 }
 
 string VStringPrintf(StringPiece fmt, va_list l) {
-  char buffer[32768];
-  vsnprintf(buffer, 32768, fmt.AsString().c_str(), l);
-  return string(buffer);
+  const string& str=fmt.AsString();
+  va_list copy;
+  va_copy(copy, l);
+  int len=vsnprintf(NULL, 0, str.c_str(), copy) + 1;
+  va_end(copy);
+  char *buffer=new char[len];
+  vsnprintf(buffer, len, str.c_str(), l);
+  string res(buffer);
+  delete[] buffer;
+  return res;
 }
 
 }

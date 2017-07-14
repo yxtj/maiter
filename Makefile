@@ -4,6 +4,8 @@ CMAKE = cmake
 TOP = $(shell pwd)
 MAKE := $(MAKE) --no-print-directory
 CMAKE_FLAGS = 
+#CFLAGS := -m32
+#CPPFLAGS := -m32
 #OPROFILE = 1
 
 #ifeq ($(shell which distcc > /dev/null; echo $$?), 0)
@@ -16,18 +18,20 @@ CMAKE_FLAGS =
 
 export CXX CC CFLAGS CPPFLAGS OPROFILE
 
-all: debug 
+all: release 
 
 release: 
 	@mkdir -p bin/release
 	@cd bin/release && $(CMAKE) $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=Release $(TOP)/src
 	@cd bin/release && $(MAKE) -j${PARALLELISM}
+	@cp bin/release/examples/maiter .
 
 debug: 
 	@mkdir -p bin/debug
 	@cd bin/debug && $(CMAKE) $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=Debug $(TOP)/src
 	@cd bin/debug  && $(MAKE) -j${PARALLELISM}
-
+	@cp bin/debug/examples/maiter .
+	
 eclipse:
 	#CMAKE_FLAGS = -G"Eclipse CDT4 - Unix Makefiles"
 	@make debug CMAKE_FLAGS=-G"Eclipse CDT4 - Unix Makefiles"

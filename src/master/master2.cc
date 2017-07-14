@@ -7,15 +7,10 @@
 
 #include "master.h"
 #include "master/worker-handle.h"
-#include "table/local-table.h"
-#include "table/table.h"
 #include "table/global-table.h"
-//#include "net/NetworkThread.h"
 #include "net/Task.h"
 
-#include <set>
-#include <sstream>
-#include <iomanip>
+//#include <iomanip>
 #include <thread>
 #include <chrono>
 //#include <functional>
@@ -32,23 +27,39 @@ void Master::shutdownWorkers(){
 		network_->Send(i, MTYPE_WORKER_SHUTDOWN, msg);
 	}
 }
+
+void Master::signalToProcess(){
+	EmptyMessage msg;
+	network_->Broadcast(MTYPE_LOOP_PROCESS,msg);
+}
+void Master::signalToSend(){
+	EmptyMessage msg;
+	network_->Broadcast(MTYPE_LOOP_SEND,msg);
+}
+void Master::signalToTermCheck(){
+	EmptyMessage msg;
+	network_->Broadcast(MTYPE_LOOP_TERMCHECK,msg);
+}
+
 void Master::realSwap(const int tid1, const int tid2){
 	SwapTable req;
 	req.set_table_a(tid1);
 	req.set_table_b(tid2);
-	VLOG(2) << StringPrintf("Sending swap request (%d <--> %d)", req.table_a(), req.table_b());
+	VLOG(2) << "Sending swap request " << req.table_a() << " <--> " + req.table_b() << ")";
+		//StringPrintf("Sending swap request (%d <--> %d)", req.table_a(), req.table_b());
 
 	su_swap.reset();
-	network_->Broadcast(MTYPE_SWAP_TABLE, req);
+	network_->Broadcast(MTYPE_TABLE_SWAP, req);
 	su_swap.wait();
 }
 void Master::realClear(const int tid){
 	ClearTable req;
 	req.set_table(tid);
-	VLOG(2) << StringPrintf("Sending clear request (%d)", req.table());
+	VLOG(2) << "Sending clear request (" << req.table() <<")";
+			//StringPrintf("Sending clear request (%d)", req.table());
 
 	su_clear.reset();
-	network_->Broadcast(MTYPE_CLEAR_TABLE, req);
+	network_->Broadcast(MTYPE_TABLE_CLEAR, req);
 	su_clear.wait();
 }
 
@@ -64,12 +75,6 @@ void Master::enable_trigger(const TriggerID triggerid, int table, bool enable){
 }
 
 void Master::terminate_iteration(){
-//	for(int i = 0; i < workers_.size(); ++i){
-//		int worker_id = i;
-//		TerminationNotification req;
-//		req.set_epoch(0);
-//		network_->Send(1 + worker_id, MTYPE_TERMINATION, req);
-//	}
 	TerminationNotification req;
 	req.set_epoch(0);
 	VLOG(1) << "Sent termination notifications ";
@@ -87,9 +92,12 @@ void Master::finishKernel(){
 	//2nd round-trip to make sure all workers have applied all updates
 	//XXX: incorrect if MPI does not guarantee remote delivery
 //	network_->SyncBroadcast(MTYPE_WORKER_APPLY, empty);
-	su_wapply.reset();
-	network_->Broadcast(MTYPE_WORKER_APPLY, empty);
-	su_wapply.wait();
+	if(current_run_.kernel=="MaiterKernel2" && current_run_.method=="map"){
+		su_wapply.reset();
+		VLOG(1)<<"Waiting workers for applying local delta.";
+		network_->Broadcast(MTYPE_WORKER_APPLY, empty);
+		su_wapply.wait();
+	}
 
 	kernel_terminated_=true;
 
@@ -109,7 +117,7 @@ void Master::send_table_assignments(){
 	for(int i = 0; i < workers_.size(); ++i){
 		WorkerState& w = *workers_[i];
 		for(ShardSet::iterator j = w.shards.begin(); j != w.shards.end(); ++j){
-			ShardAssignment* s = req.add_assign();
+			ShardAssignmentRequest::ShardAssignment* s = req.add_assign();
 			s->set_new_worker(i);
 			s->set_table(j->table);
 			s->set_shard(j->shard);
@@ -124,5 +132,15 @@ void Master::send_table_assignments(){
 	DVLOG(1)<<"table assignment finished";
 }
 
+void Master::broadcastWorkerInfo(){
+	WorkerIDMapList req;
+	for(int i = 0; i < workers_.size(); ++i){
+		WorkerState& w = *workers_[i];
+		WorkerIDMapList::WorkerIDMap* p=req.add_workers();
+		p->set_worker_id(w.id);
+		p->set_network_id(w.net_id);
+	}
+	network_->Broadcast(MTYPE_WORKER_LIST,req);
+}
 
 } //namespace dsm

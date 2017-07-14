@@ -2,48 +2,65 @@
 #define WORKER_H_
 
 #include "util/common.h"
-#include "kernel/kernel.h"
 #include "table/TableHelper.h"
-#include "table/table.h"
-#include "table/local-table.h"
-#include "table/global-table.h"
 #include "msg/message.pb.h"
 #include "net/RPCInfo.h"
 #include "driver/MsgDriver.h"
+#include "driver/tools/ReplyHandler.h"
+#include "driver/tools/SyncUnit.h"
 
+#include <thread>
 #include <mutex>
 
 namespace dsm {
 
 class NetworkThread;
+class GlobalTableBase;
 
 // If this node is the master, return false immediately.  Otherwise
 // start a worker and exit when the computation is finished.
 bool StartWorker(const ConfigData& conf);
 
 class Worker: public TableHelper, private noncopyable{
-	struct Stub;
 public:
 	Worker(const ConfigData &c);
 	~Worker();
 
 	void Run();
 
-	void KernelLoop();
+	void KernelProcess();
 	void MsgLoop();
 
-	void CheckForMasterUpdates();
-	void CheckNetwork();
-
-	void realSwap(const int tid1, const int tid2);
-	void realClear(const int tid);
+	virtual void realSwap(const int tid1, const int tid2);
+	virtual void realClear(const int tid);
 	void HandleSwapRequest(const std::string& d, const RPCInfo& rpc);
 	void HandleClearRequest(const std::string& d, const RPCInfo& rpc);
 
+	// step 0: evolving graph: coordinate in-neighbors
+	void HandleAddInNeighbor(const std::string& d, const RPCInfo& rpc);
+	virtual void realSendInNeighbor(int dstWorkerID, const InNeighborData& data);
+
 	void HandleShardAssignment(const std::string& d, const RPCInfo& rpc);
 
-	void SendPutRequest(int dstWorkerID, const KVPairData& msg);
+	// step 1: get input PutRequest data and merge it into current local table
 	void HandlePutRequest(const std::string& data, const RPCInfo& info);
+
+	// step 2: process current local table, and store updates into their local mirror table
+	virtual void signalToProcess();
+	void HandleProcessUpdates(const std::string&, const RPCInfo&);	//dummy parameters
+
+	// step 3: send out data in local mirrors
+	virtual void signalToSend();
+	void HandleSendUpdates(const std::string&, const RPCInfo&);	//dummy parameters
+	virtual void realSendUpdates(int dstWorkerID, const KVPairData& msg);
+
+	virtual void signalToPnS();	// process and send
+	void HandlePnS(const std::string&, const RPCInfo&);	//dummy parameters
+
+	// step 4: check whether current task is finished
+	virtual void signalToTermCheck();
+	void HandleTermCheck(const std::string&, const RPCInfo&);	//dummy parameters
+	virtual void realSendTermCheck(int index, uint64_t receives, uint64_t updates, double current, uint64_t ndefault);
 
 	// Barrier: wait until all table data is transmitted.
 	void HandleFlush(const std::string& d, const RPCInfo& rpc);
@@ -55,10 +72,13 @@ public:
 	// terminate iteration
 	void HandleTermNotification(const std::string& d, const RPCInfo& rpc);
 
-	//my new handlers:
 	void HandleRunKernel(const std::string& d, const RPCInfo& rpc);
 	void HandleShutdown(const std::string& d, const RPCInfo& rpc);
+
+	void HandleWorkerList(const std::string& d, const RPCInfo& rpc);
+
 	void HandleReply(const std::string& d, const RPCInfo& rpc);
+
 
 	int ownerOfShard(int table_id, int shard) const;
 	int id() const{
@@ -82,74 +102,105 @@ private:
 	void registerHandlers();
 	void registerWorker();
 
-	void waitKernel();
+//	void waitKernel();
 	void runKernel();
 	void finishKernel();
 
-	void sendReply(const RPCInfo& rpc);
+	void sendReply(const RPCInfo& rpc, const bool res=true);
 
-	void SendTermcheck(int index, long updates, double current);
-	void UpdateEpoch(int peer, int peer_epoch);
+	void HandlePutRequestReal(const KVPairData& put);
 
 //functions for checkpoint
+	void initialCP(CheckpointType cpType);
 	void HandleStartCheckpoint(const std::string& d, const RPCInfo& rpc);
 	void HandleFinishCheckpoint(const std::string& d, const RPCInfo& rpc);
 	void HandleRestore(const std::string& d, const RPCInfo& rpc);
+	void HandleCheckpointSig(const std::string& d, const RPCInfo& rpc);
 
-	void checkpoint(const int epoch, const CheckpointType type);
-	void startCheckpoint(const int epoch, const CheckpointType type);
-	void finishCheckpoint();
+	bool startCheckpoint(const int epoch);
+	bool processCPSig(const int wid, const int epoch);
+	bool finishCheckpoint(const int epoch);
 	void restore(int epoch);
+
+	void _CP_start();
+	void _sendCPFlushSig();
+	void _CP_report();
+	void _CP_stop();
 
 	void _startCP_Sync();
 	void _finishCP_Sync();
+	SyncUnit su_cp_sig;
 	void _startCP_SyncSig();
 	void _finishCP_SyncSig();
+	void _processCPSig_SyncSig(const int wid);
 	void _startCP_Async();
 	void _finishCP_Async();
+	void _processCPSig_Async(const int wid);
+	void _HandlePutRequest_AsynCP(const std::string& d, const RPCInfo& info);
+	//assume there is only one table. General form: xx[# of table][# of worker]
+	std::vector<bool> _cp_async_sig_rec;
+
+	void removeCheckpoint(const int epoch);
 //end functions for checkpoint
 
 	typedef void (Worker::*callback_t)(const string&, const RPCInfo&);
-	void RegDSPImmediate(const int type, callback_t fp, bool spawnThread=false);
-	void RegDSPProcess(const int type, callback_t fp, bool spawnThread=false);
+	void RegDSPImmediate(const int type, callback_t fp);
+	void RegDSPProcess(const int type, callback_t fp);
 	void RegDSPDefault(callback_t fp);
+
+	void clearUnprocessedPut();
+	void _enableProcess();
+	void _disableProcess();
 
 	mutable std::recursive_mutex state_lock_;
 
 	// The current epoch this worker is running within.
 	int epoch_;
 
-	int num_peers_;
+	Timer tmr_;
 	bool running_;	//whether this worker is running
-
 	bool running_kernel_;	//whether this kernel is running
 	KernelRequest kreq;	//the kernel running row
+	std::thread* th_ker_;
 
-	CheckpointType active_checkpoint_;
+	//the following state variables are used to control too frequent signal
+	bool st_will_process_;	//set at signalToProcess(), reset at HandleProcessUpdates() & HandlePnS()
+	bool st_will_send_;	//set at signalToSend(), reset at HandleSendUpdates() & HandlePnS()
+	bool st_will_termcheck_;	//set at signalToTermCheck(), reset at HandleTermCheck()
+
+//	CheckpointType active_checkpoint_;
+	bool st_checkpointing_;
 //	typedef unordered_map<int, bool> CheckpointMap;
 //	CheckpointMap checkpoint_tables_;
+	Timer tmr_cp_block_;
+	std::thread* th_cp_;	//for name reusing (std::thread can not be assigned)
 
 	ConfigData config_;
 
 	// The status of other workers.
-	vector<Stub*> peers_;
+	struct Stub{
+	//	int id;
+		int net_id;
+		int epoch;
+
+	//	Stub(int id) : id(id), net_id(0), epoch(0){}
+		Stub() : net_id(-1), epoch(0){}
+	};
+	std::vector<Stub> peers_;
+	std::unordered_map<int,int> nid2wid;
+	SyncUnit su_regw;
 
 	NetworkThread *network_;
-	unordered_set<GlobalTableBase*> dirty_tables_;
+	std::unordered_set<GlobalTableBase*> dirty_tables_;
 
 	Stats stats_;
 
 	MsgDriver driver;
-	bool driver_paused_;
-};
+	bool pause_pop_msg_;
+	ReplyHandler rph;
 
-struct Worker::Stub: private noncopyable{
-	int32_t id;
-	int32_t epoch;
-
-	Stub(int id) :
-			id(id), epoch(0){
-	}
+	// XXX: evolving graph
+	SyncUnit su_neigh;
 };
 
 

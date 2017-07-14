@@ -1,97 +1,97 @@
 #include "client/client.h"
-
+#include <string>
 
 using namespace dsm;
+using namespace std;
 
 DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
-DECLARE_int32(adsorption_starts);
-DECLARE_double(adsorption_damping);
+DEFINE_int32(adsorption_starts, 100, "");
+DEFINE_double(adsorption_damping, 0.1, "");
 
 struct Link{
-  Link(int inend, float inweight) : end(inend), weight(inweight) {}
-  int end;
-  float weight;
+	Link(int inend, float inweight) : end(inend), weight(inweight){}
+	int end;
+	float weight;
 };
 
-struct AdsorptionIterateKernel : public IterateKernel<int, float, vector<Link> > {
-    
-    float zero;
+struct AdsorptionIterateKernel: public IterateKernel<int, float, vector<Link> > {
 
-    AdsorptionIterateKernel() : zero(0){}
+	float zero;
 
-    void read_data(string& line, int* k, vector<Link>* data){
-        string linestr(line);
-        int pos = linestr.find("\t");
-        int source = stoi(linestr.substr(0, pos));
+	AdsorptionIterateKernel() :
+			zero(0){
+	}
 
-        vector<Link> linkvec;
-        int spacepos = 0;
-        string links = linestr.substr(pos+1);
-        while((spacepos = links.find_first_of(" ")) != links.npos){
-            Link to(0, 0);
+	void read_data(string& line, int& k, vector<Link>& data){
+		//line: "k\tai,aw bi,bw ci,cw "
+		size_t pos = line.find('\t');
 
-            if(spacepos > 0){
-                string link = links.substr(0, spacepos);
-                int cut = links.find_first_of(",");
-                to.end = stoi(link.substr(0, cut));
-                to.weight = stof(link.substr(cut+1));
-            }
-            links = links.substr(spacepos+1);
-            linkvec.push_back(to);
-        }
+		k = stoi(line.substr(0, pos));
+		++pos;
 
-        *k = source;
-        *data = linkvec;
-    }
+		data.clear();
+		size_t spacepos;
+		while((spacepos = line.find(' ', pos)) != line.npos){
+			size_t cut = line.find(',', pos + 1);
+			Link to(stoi(line.substr(pos, cut - pos)),
+					stof(line.substr(cut + 1, spacepos - cut - 1)));
+			data.push_back(to);
+			pos = spacepos + 1;
+		}
 
-    void init_c(const int& k, float* delta){
-        if(k < FLAGS_adsorption_starts){
-            *delta = 10;
-        }else{
-            *delta = 0;
-        }
-    }
+	}
 
-    void accumulate(float* a, const float& b){
-        *a = *a + b;
-    }
+	void init_c(const int& k, float& delta, vector<Link>& ){
+		if(k < FLAGS_adsorption_starts){
+			delta = 10;
+		}else{
+			delta = 0;
+		}
+	}
 
-    void priority(float* pri, const float& value, const float& delta){
-        *pri = delta;
-    }
+	void init_v(const int& k, float& v, vector<Link>& ){
+		v=default_v();
+	}
 
-    void g_func(const float& delta, const vector<Link>& data, vector<pair<int, float> >* output){
-        for(vector<Link>::const_iterator it=data.begin(); it!=data.end(); it++){
-            Link target = *it;
-            float outv = delta * FLAGS_adsorption_damping * target.weight;
-            output->push_back(make_pair(target.end, outv));
-        }
-    }
+	void accumulate(float& a, const float& b){
+		a = a + b;
+	}
 
-    const float& default_v() const {
-        return zero;
-    }
+	void priority(float& pri, const float& value, const float& delta){
+		pri = delta;
+	}
+
+	void g_func(const int& k, const float& delta, const float& value, const vector<Link>& data, vector<pair<int, float> >* output){
+		for(vector<Link>::const_iterator it = data.begin(); it != data.end(); it++){
+			Link target = *it;
+			float outv = delta * FLAGS_adsorption_damping * target.weight;
+			output->push_back(make_pair(target.end, outv));
+		}
+	}
+
+	const float& default_v() const{
+		return zero;
+	}
 };
 
-static int Adsorption(ConfigData& conf) {
-    MaiterKernel<int, float, vector<Link> >* kernel = new MaiterKernel<int, float, vector<Link> >(
-                                        conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
-                                        new Sharders::Mod,
-                                        new AdsorptionIterateKernel,
-                                        new TermCheckers<int, float>::Diff);
-    
-    
-    kernel->registerMaiter();
+static int Adsorption(ConfigData& conf){
+	MaiterKernel<int, float, vector<Link> >* kernel = new MaiterKernel<int, float, vector<Link> >(
+			conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
+			new Sharders::Mod,
+			new AdsorptionIterateKernel,
+			new TermCheckers<int, float>::Diff);
 
-    if (!StartWorker(conf)) {
-        Master m(conf);
-        m.run_maiter(kernel);
-    }
-    
-    delete kernel;
-    return 0;
+	kernel->registerMaiter();
+
+	if(!StartWorker(conf)){
+		Master m(conf);
+		m.run_maiter(kernel);
+	}
+
+	delete kernel;
+	return 0;
 }
 
 REGISTER_RUNNER(Adsorption);

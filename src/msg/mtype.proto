@@ -1,49 +1,62 @@
+syntax = "proto2";
 package dsm;
 
 enum MessageTypes {
-  MTYPE_RUN_KERNEL = 1;
-  MTYPE_KERNEL_DONE = 2;
-  
-  MTYPE_REPLY = 3;
-  
-  MTYPE_PUT_REQUEST = 4;  
-  
-  MTYPE_GET = 5;
-    
-  MTYPE_WORKER_SHUTDOWN = 8;
-  MTYPE_REGISTER_WORKER = 9;
-  
-  MTYPE_START_CHECKPOINT = 10;
-  MTYPE_FINISH_CHECKPOINT = 11;
-  MTYPE_CHECKPOINT_DONE = 12;
-  
-  MTYPE_CHECKPOINT_ASYN_INIT=40;	//master tell all workers to start asynchronous checkpoint (ACP)
-  MTYPE_CHECKPOINT_ASYN_REPORT=41;	//worker report its success to all the others
-  MTYPE_CHECKPOINT_ASYN_REPORT_FAIL=42;	//worker report its failure to all the others
-  MTYPE_CHECKPOINT_ASYN_SUCC=43;	//master tell all workers to commit this ACP
-  MTYPE_CHECKPOINT_ASYN_FAIL=44;	//master tell all workers to cancel this ACP and rollback
-  
-  MTYPE_RESTORE = 13;
-  MTYPE_RESTORE_DONE = 14;
-  
-  MTYPE_WORKER_FLUSH = 15;
-  MTYPE_WORKER_FLUSH_DONE = 16;
-  
-  MTYPE_SHARD_ASSIGNMENT = 17;
-  MTYPE_SHARD_ASSIGNMENT_DONE = 18;
-  
-  MTYPE_ITERATOR = 20;
+// Basic info and main working loop control: 
+	MTYPE_KERNEL_RUN = 1;
+	MTYPE_KERNEL_DONE = 2;
+	
+	MTYPE_REPLY = 3;
+	
+	// step 1/4: get input update data and merge into local table
+	MTYPE_PUT_REQUEST = 4;
+	// step 2/4: process merged local delta data and store the results locally
+	MTYPE_LOOP_PROCESS = 5;
+	// step 3/4: send out the update belonging to remote shards
+	MTYPE_LOOP_SEND = 6;
+	// step 4/4: check whether the iterative process can be terminated
+	MTYPE_LOOP_TERMCHECK = 7;
+	MTYPE_TERMCHECK_LOCAL = 8;	//report local check result
+	MTYPE_TERMINATION = 9;	//command workers to terminate
+	
+	// shortcut for both step 2 and step 3 
+	MTYPE_LOOP_PNS = 10;
+	
+// Worker control:
+	MTYPE_WORKER_REGISTER = 20;
+	MTYPE_WORKER_LIST = 21;
+	MTYPE_WORKER_FLUSH = 22;
+	MTYPE_WORKER_APPLY = 23;
+	MTYPE_WORKER_SHUTDOWN = 24;
+	
+	MTYPE_SHARD_ASSIGNMENT = 25;
+	
+// Fault tolerance:
+	MTYPE_CHECKPOINT_START = 30;
+	MTYPE_CHECKPOINT_LOCAL_DONE = 31;
+	MTYPE_CHECKPOINT_FINISH = 32;
+	MTYPE_CHECKPOINT_SIG=33;	//signal of last message while taking checkpoint
+	MTYPE_CHECKPOINT_FAIL=34;	//master tell all workers to cancel this ACP and rollback
+	
+	MTYPE_RESTORE = 35;
+	MTYPE_RESTORE_DONE = 36;
+	
+// Other table control:
+	MTYPE_TABLE_SWAP = 41;	
+	MTYPE_TABLE_CLEAR = 42;
 
-  MTYPE_TERMCHECK_DONE = 21;
-  MTYPE_TERMINATION = 22;
+// Triger:
+	MTYPE_ENABLE_TRIGGER = 50;
 
-  MTYPE_SYNC_REPLY = 31;
+// Graph Change
+	MTYPE_ADD_INNEIGHBOR = 60;
 
-  MTYPE_WORKER_APPLY = 33;
-  MTYPE_WORKER_APPLY_DONE = 34;
+	MTYPE_UPDATE_GRAPH = 62;
 
-  MTYPE_SWAP_TABLE = 35;  
-  MTYPE_CLEAR_TABLE = 37;
+	MTYPE_ADD_EDGE = 65;
+	MTYPE_REMOVE_EDGE = 66;
+	MTYPE_INCREASE_WEIGHT = 67;
+	MTYPE_DECREASE_WEIGHT = 68;
 
-  MTYPE_ENABLE_TRIGGER = 38;
+
 };

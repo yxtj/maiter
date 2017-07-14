@@ -60,10 +60,8 @@ string JoinString(Iterator start, Iterator end, string delim=" ") {
   return out;
 }
 
-#ifndef SWIG
 string StringPrintf(StringPiece fmt, ...);
 string VStringPrintf(StringPiece fmt, va_list args);
-#endif
 
 string ToString(int32_t);
 string ToString(int64_t);

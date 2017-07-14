@@ -83,6 +83,9 @@ public:
 	const TableDescriptor& info() const{
 		return info_;
 	}
+	TableDescriptor& info(){
+		return info_;
+	}
 	TableDescriptor& mutable_info(){
 		return info_;
 	}
@@ -148,9 +151,11 @@ public:
 	virtual V3 getF3(const K &k) = 0;
 	virtual ClutterRecord<K, V1, V2, V3> get(const K &k) = 0;
 	virtual void put(const K &k, const V1 &v1, const V2 &v2, const V3 &v3) = 0;
+	virtual void put(K &&k, V1 &&v1, V2 &&v2, V3 &&v3) = 0;
 	virtual void updateF1(const K &k, const V1 &v) = 0;
 	virtual void updateF2(const K &k, const V2 &v) = 0;
 	virtual void updateF3(const K &k, const V3 &v) = 0;
+	virtual void accumulateF1(const K& from, const K &to, const V1 &v) = 0;
 	virtual void accumulateF1(const K &k, const V1 &v) = 0; //4 TypeTable
 	virtual void accumulateF2(const K &k, const V2 &v) = 0;
 	virtual void accumulateF3(const K &k, const V3 &v) = 0;
@@ -203,6 +208,7 @@ public:
 	virtual void put(const K &k, const V1 &v1) = 0;
 	virtual void update(const K &k, const V1 &v) = 0;
 	virtual void accumulate(const K &k, const V1 &v) = 0;
+	virtual void accumulate(const K &k, const K &from, const V1 &v) = 0;
 	virtual bool remove(const K &k) = 0;
 
 	// Default specialization for untyped methods
@@ -233,185 +239,6 @@ public:
 protected:
 	virtual Marshal<K> *kmarshal() = 0;
 	virtual Marshal<V1> *v1marshal() = 0;
-};
-
-struct DecodeIteratorBase {};
-
-// Added for the sake of triggering on remote updates/puts <CRM>
-template <typename K, typename V1, typename V2, typename V3>
-struct FileDecodeIterator :
-		public TypedTableIterator<K, V1, V2, V3>, public DecodeIteratorBase
-{
-	Marshal<K>* kmarshal(){
-		return nullptr;
-	}
-	Marshal<V1>* v1marshal(){
-		return nullptr;
-	}
-	Marshal<V2>* v2marshal(){
-		return nullptr;
-	}
-	Marshal<V3>* v3marshal(){
-		return nullptr;
-	}
-
-	FileDecodeIterator(){
-		clear();
-		rewind();
-	}
-	void append(K k, V1 v1, V2 v2, V3 v3){
-		ClutterRecord<K, V1, V2, V3> thispair(k, v1, v2, v3);
-		decodedeque.push_back(thispair);
-//    LOG(ERROR) << "APPEND";
-	}
-	void clear(){
-		decodedeque.clear();
-//    LOG(ERROR) << "CLEAR";
-	}
-	void rewind(){
-		intit = decodedeque.begin();
-//    LOG(ERROR) << "REWIND: empty? " << (intit == decodedeque.end());
-	}
-	bool done(){
-		return intit == decodedeque.end();
-	}
-	bool Next(){
-		intit++;
-		return true;
-	}
-	const K& key(){
-		static K k2;
-		if(intit != decodedeque.end()){
-			k2 = intit->k;
-		}
-		return k2;
-	}
-	V1& value1(){
-		static V1 vv;
-		if(intit != decodedeque.end()){
-			vv = intit->v1;
-		}
-		return vv;
-	}
-	V2& value2(){
-		static V2 vv;
-		if(intit != decodedeque.end()){
-			vv = intit->v2;
-		}
-		return vv;
-	}
-	V3& value3(){
-		static V3 vv;
-		if(intit != decodedeque.end()){
-			vv = intit->v3;
-		}
-		return vv;
-	}
-
-private:
-	std::vector<ClutterRecord<K, V1, V2, V3> > decodedeque;
-	typename std::vector<ClutterRecord<K, V1, V2, V3> >::iterator intit;
-};
-
-template <typename K, typename V1>
-struct NetDecodeIterator :
-		public PTypedTableIterator<K, V1>, public DecodeIteratorBase
-{
-	Marshal<K>* kmarshal(){
-		return nullptr;
-	}
-	Marshal<V1>* v1marshal(){
-		return nullptr;
-	}
-
-	NetDecodeIterator(){
-		clear();
-		rewind();
-	}
-	void append(K k, V1 v1){
-		std::pair<K, V1> thispair(k, v1);
-		decodedeque.push_back(thispair);
-//    LOG(ERROR) << "APPEND";
-	}
-	void clear(){
-		decodedeque.clear();
-//    LOG(ERROR) << "CLEAR";
-	}
-	void rewind(){
-		intit = decodedeque.begin();
-//    LOG(ERROR) << "REWIND: empty? " << (intit == decodedeque.end());
-	}
-	bool done(){
-		return intit == decodedeque.end();
-	}
-	bool Next(){
-		++intit;
-		return true;
-	}
-	const K& key(){
-		static K k2;
-		if(intit != decodedeque.end()){
-			k2 = intit->first;
-		}
-		return k2;
-	}
-	V1& value1(){
-		static V1 vv;
-		if(intit != decodedeque.end()){
-			vv = intit->second;
-		}
-		return vv;
-	}
-
-private:
-	std::vector<std::pair<K, V1> > decodedeque;
-	typename std::vector<std::pair<K, V1> >::iterator intit;
-};
-
-// Checkpoint and restoration.
-class Checkpointable{
-public:
-	virtual void start_checkpoint(const std::string& f) = 0;
-	virtual void write_message(const KVPairData& put) = 0;
-	virtual void finish_checkpoint() = 0;
-	virtual void restore(const std::string& f) = 0;
-	virtual ~Checkpointable(){}
-};
-
-// Interface for serializing tables, either to disk or for transmitting via RPC.
-struct TableCoder{
-	virtual void WriteEntryToFile(StringPiece k, StringPiece v1, StringPiece v2, StringPiece v3) = 0;
-	virtual bool ReadEntryFromFile(std::string* k, std::string *v1, std::string *v2, std::string *v3) = 0;
-
-	virtual ~TableCoder(){}
-};
-
-// Interface for serializing tables, either to disk or for transmitting via RPC.
-struct KVPairCoder{
-	virtual void WriteEntryToNet(StringPiece k, StringPiece v1) = 0;
-	virtual bool ReadEntryFromNet(std::string* k, std::string *v1) = 0;
-
-	virtual ~KVPairCoder(){}
-};
-
-class Serializable{
-public:
-	virtual void deserializeFromFile(TableCoder *in, DecodeIteratorBase *it) = 0;
-	virtual void serializeToFile(TableCoder* out) = 0;
-	virtual ~Serializable(){}
-};
-
-class Transmittable{
-public:
-	virtual void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *it) = 0;
-	virtual void serializeToNet(KVPairCoder* out) = 0;
-	virtual ~Transmittable(){}
-};
-
-class Snapshottable{
-public:
-	virtual void serializeToSnapshot(const std::string& f, long* updates, double* totalF2) = 0;
-	virtual ~Snapshottable(){}
 };
 
 }

@@ -1,12 +1,69 @@
+# cmake cache files:
+CMakeFiles
+CMakeCache.txt
+*.cmake
 
-#eclipse project files:
+# VS project:
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+[Xx]64/
+[Xx]86/
+[Bb]uild/
+bld/
+[Bb]in/
+[Oo]bj/
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+.vs/
+*_i.c
+*_p.c
+*_i.h
+*.ilk
+*.meta
+*.obj
+*.pch
+*.pdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+ipch/
+*.aps
+*.ncb
+*.opendb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.vcproj.filters
+*.vcxproj.filters
 
+*.vcxproj
+*.sln
+
+# vscode project files:
+.vscode/
+
+# eclipse project files:
 .cproject
 .project
 .settings/
 
-#compiled binary files:
-
+# compiled binary files:
 bin/
 *.exe
 *.o
@@ -14,7 +71,6 @@ bin/
 *.so
 
 #temporary files:
-
 *~
 
 #test files:
@@ -25,4 +81,9 @@ conf/
 /Makefile
 Makefile
 track_log
+log
+maiter
+*.sh
+log*
+*log
 

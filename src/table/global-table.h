@@ -3,6 +3,7 @@
 
 #include "local-table.h"
 #include "table.h"
+#include "table-interfaces.h"
 #include "util/timer.h"
 #include <mutex>
 #include <unordered_map>
@@ -67,20 +68,61 @@ protected:
 
 class MutableGlobalTableBase: virtual public GlobalTableBase{
 public:
-	// Handle updates from the master or other workers.
-	virtual void SendUpdates() = 0;
+	MutableGlobalTableBase();
+
+	// Four main working steps: merge - process - send - term
 	virtual void MergeUpdates(const KVPairData& req) = 0;
 	virtual void ProcessUpdates() = 0;
+	virtual void SendUpdates() = 0;
 	virtual void TermCheck() = 0;
 
-	virtual int pending_write_bytes() = 0;
+	//helpers for main working loop (for conditional invocation)
+	void BufProcessUpdates();
+	void BufSendUpdates();
+	void BufTermCheck();
 
+	// XXX: evolving graph
+	virtual void add_ineighbor(const InNeighborData& req) = 0;
+
+	bool allowProcess() const { return allow2Process_; }
+	void enableProcess(){ allow2Process_=true; }
+	void disableProcess(){ allow2Process_=false; }
+	bool is_processing() const { return processing_; }
+	bool is_sending() const { return sending_; }
+	bool is_termchecking() const { return termchecking_; }
+
+	//helpers for main working loop
+	void resetProcessMarker();
+	void resetSendMarker();
+	void resetTermMarker();
+	//helpers for main working loop (for checking availability)
+	bool canProcess();
+	bool canSend();
+	bool canPnS();
+	bool canTermCheck();
+
+	virtual int64_t pending_write_bytes() = 0;
+
+	virtual bool initialized() = 0;
 	virtual void resize(int64_t new_size) = 0;
 
 	virtual void clear() = 0;
 	// Exchange the content of this table with that of table 'b'.
 	virtual void swap(GlobalTableBase *b) = 0;
 	virtual void local_swap(GlobalTableBase *b) = 0;
+
+protected:
+	bool allow2Process_ = true;
+	bool processing_ = false;
+	bool sending_ = false;
+	bool termchecking_ = false;
+
+	Timer tmr_process, tmr_send, tmr_term;
+	int64_t pending_process_;
+	int64_t pending_send_;
+
+	int64_t bufmsg;	//updated at InitStateTable with (state-table-size * bufmsg_portion)
+	double buftime; //initialized in the constructor with min(FLAGS_buftime, FLAGS_snapshot_interval/4)
 };
 
 class GlobalTable: virtual public GlobalTableBase{
@@ -115,14 +157,12 @@ public:
 protected:
 	virtual int shard_for_key_str(const StringPiece& k) = 0;
 
-	int worker_id_;
-
 	std::vector<LocalTable*> partitions_;
 	std::vector<LocalTable*> cache_;
 
 	std::recursive_mutex m_;
 	std::mutex m_trig_;
-	std::recursive_mutex& mutex(){
+	std::recursive_mutex& get_mutex(){
 		return m_;
 	}
 	std::mutex& trigger_mutex(){
@@ -144,44 +184,42 @@ class MutableGlobalTable:
 		virtual public MutableGlobalTableBase,
 		virtual public Checkpointable{
 public:
-	MutableGlobalTable(){
-		pending_writes_ = 0;
-		snapshot_index = 0;
-//		sent_bytes_ = 0;
-	}
+	MutableGlobalTable();
 
-	void BufSend();
-	void SendUpdates();
+	//main working loop
 	virtual void MergeUpdates(const KVPairData& req) = 0;
 	virtual void ProcessUpdates() = 0;
-	void TermCheck();
+	virtual void SendUpdates();
+	virtual void TermCheck();
 
-	int pending_write_bytes();
+	void InitUpdateBuffer();
+	int64_t pending_write_bytes();
 
 	void clear();
 	void resize(int64_t new_size);
 
 	//override from Checkpointable
-	void start_checkpoint(const string& f);
+	void start_checkpoint(const string& pre);
 	void write_message(const KVPairData& d);
 	void finish_checkpoint();
-	void restore(const string& f);
+	void restore(const string& pre);
+	//convenient functions for checkpoint
+	void start_checkpoint(const int taskid, const int epoch);
+	void restore(const int taskid, const int epoch);
 
 	void swap(GlobalTableBase *b);
 	void local_swap(GlobalTableBase *b);
 
 //	int64_t sent_bytes_;
-	Timer timer;
-	int timerindex;
 
 protected:
-	int64_t pending_writes_;
-	int snapshot_index;
-	void termcheck();
+	void setUpdatesFromAggregated();	// aggregated way
+	void addIntoUpdateBuffer(int shard, Arg& arg);	// non-aggregated way
 
-	//double send_overhead;
-	//double objectcreate_overhead;
-	//int sendtime;
+	std::vector<KVPairData> update_buffer;
+	std::mutex m_buff;
+
+	int snapshot_index;
 };
 
 }

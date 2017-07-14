@@ -5,7 +5,10 @@
  *      Author: tzhou
  */
 
-#include <worker-handle.h>
+#include "worker-handle.h"
+#include "table/table-registry.h"
+
+#include <algorithm>
 
 using namespace std;
 

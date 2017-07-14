@@ -1,9 +1,7 @@
 #include "master.h"
 #include "master/worker-handle.h"
-#include "table/local-table.h"
-#include "table/table.h"
 #include "table/global-table.h"
-//#include "net/NetworkThread.h"
+#include "table/tbl_widget/term_checker.h"
 #include "net/Task.h"
 
 #include <set>
@@ -12,15 +10,11 @@
 #include <thread>
 #include <chrono>
 #include <functional>
+#include <algorithm>
 
 //DEFINE_string(dead_workers, "",
 //		"For failure testing; comma delimited list of workers to pretend have died.");
 DEFINE_bool(work_stealing, true, "Enable work stealing to load-balance tasks between machines.");
-
-DEFINE_bool(restore, false, "If true, enable restore.");
-
-DEFINE_string(track_log, "track_log", "");
-DEFINE_bool(sync_track, false, "");
 
 DECLARE_double(sleep_time);
 
@@ -48,11 +42,6 @@ Master::Master(const ConfigData &conf) :
 	running_ = true;
 	network_ = NetworkThread::Get();
 	shards_assigned_ = false;
-	conv_track_log.open(FLAGS_track_log.c_str());
-	if(FLAGS_sync_track){
-		sync_track_log.open("sync_track_log");
-		iter = 0;
-	}
 
 	//initial workers_ before message loop because handleRegisterWorker will use it
 	for(int i = 0; i < config_.num_workers(); ++i){
@@ -67,7 +56,11 @@ Master::Master(const ConfigData &conf) :
 
 	tmsg=thread(bind(&Master::MsgLoop,this));
 
-	su_regw.wait();
+	su_regw.wait();//use it for MTYPE_WORKER_REGISTER
+	su_regw.reset();
+
+	broadcastWorkerInfo();
+	su_regw.wait();//reuse it for MTYPE_WORKER_LIST
 	su_regw.reset();
 
 	LOG(INFO)<< "All workers registered; starting up.";
@@ -81,8 +74,6 @@ Master::Master(const ConfigData &conf) :
 }
 
 Master::~Master(){
-	conv_track_log.close();
-	if(FLAGS_sync_track) sync_track_log.close();
 	LOG(INFO)<< "Total runtime: " << runtime_.elapsed();
 
 	ostringstream buff;
@@ -116,8 +107,9 @@ void Master::MsgLoop(){
 	RPCInfo info;
 	info.dest=network_->id();
 	while(running_){
-		if(network_->TryReadAny(data,&info.source,&info.tag)){
-//			DVLOG(1)<<"Got a pkg from "<<info.source<<" to "<<info.dest<<", type "<<info.tag;
+		while(network_->TryReadAny(data,&info.source,&info.tag)){
+			DVLOG(1)<<"Got a pkg from "<<info.source<<" to "<<info.dest<<", type "<<info.tag<<
+					", queue length="<<driver_.queSize();
 			driver_.pushData(data,info);
 		}
 		while(!driver_.empty()){
@@ -126,6 +118,10 @@ void Master::MsgLoop(){
 		}
 		Sleep();
 	}
+}
+
+int Master::ownerOfShard(int table, int shard) const{
+	return tables_[table]->owner(shard);
 }
 
 void Master::termcheck(){
@@ -137,26 +133,25 @@ void Master::termcheck(){
 		if(kernel_terminated_)
 			break;
 
-		Timer cp_timer;
-		long total_updates = 0;
-		vector<double> partials;
+		//Timer cp_timer;
+		uint64_t total_receives= 0;
+		uint64_t total_updates = 0;
+		vector<pair<double, uint64_t>> partials;
 		partials.reserve(workers_.size());
 		for(int i = 0; i < workers_.size(); ++i){
+			total_receives += workers_[i]->receives;
 			total_updates += workers_[i]->updates;
-			partials.push_back(workers_[i]->current);
+			partials.emplace_back(workers_[i]->current, workers_[i]->ndefault);
 		}
 
 		//we only have one table
 		TermChecker<int, double>* ptc=static_cast<TermChecker<int, double>*>(tables_[0]->info_.termchecker);
 		bool bterm = ptc->terminate(partials);
+		pair<double, int64_t> p=ptc->get_curr();
 
-		LOG(INFO) << "Termination check at " << barrier_timer->elapsed() << " finished in "
-				<< cp_timer.elapsed() << " total current "<< StringPrintf("%.05f",ptc->get_curr())
-				<< " total updates " << total_updates;
-		conv_track_log << "Termination check at " << barrier_timer->elapsed() << " finished in "
-				<< cp_timer.elapsed() << " total current "<< StringPrintf("%.05f",ptc->get_curr())
-				<< " total updates " << total_updates << "\n";
-		conv_track_log.flush();
+		LOG(INFO) << "Termination check at " << barrier_timer->elapsed() <<
+				" total current ("<< to_string(p.first)<<" , "<<p.second << ")"
+				" total receives " << total_receives << " total updates " << total_updates;
 
 		kernel_terminated_=bterm;
 		if(kernel_terminated_){
@@ -164,19 +159,6 @@ void Master::termcheck(){
 		}
 	}
 	VLOG(1)<<"termination checking thread finished";
-}
-
-void Master::run_all(RunDescriptor r){
-	run_range(r, range(r.table->num_shards()));
-}
-
-void Master::run_one(RunDescriptor r){
-	run_range(r, range(1));
-}
-
-void Master::run_range(RunDescriptor r, const vector<int>& shards){
-	r.shards = shards;
-	run(r);
 }
 
 WorkerState* Master::worker_for_shard(int table, int shard){
@@ -303,6 +285,11 @@ void Master::assign_tasks(const RunDescriptor& r, vector<int> shards){
 int Master::startWorkers(const RunDescriptor& r){
 	int num_dispatched = 0;
 	KernelRequest w_req;
+	w_req.set_cp_type(r.checkpoint_type);
+	w_req.set_termcheck(r.termcheck);
+	w_req.set_restore(r.restore);
+	if(r.restore)
+		w_req.set_restore_from_epoch(r.restore_from_epoch);
 	for(int i = 0; i < workers_.size(); ++i){
 		WorkerState& w = *workers_[i];
 		if(w.num_pending() > 0 && w.num_active() == 0){
@@ -311,7 +298,7 @@ int Master::startWorkers(const RunDescriptor& r){
 			w_req.mutable_args()->CopyFrom(*p);
 			delete p;
 			num_dispatched++;
-			network_->Send(w.id + 1, MTYPE_RUN_KERNEL, w_req);
+			network_->Send(w.net_id, MTYPE_KERNEL_RUN, w_req);
 		}
 	}
 	return num_dispatched;
@@ -320,7 +307,8 @@ int Master::startWorkers(const RunDescriptor& r){
 void Master::dump_stats(){
 	string status;
 	for(int k = 0; k < config_.num_workers(); ++k){
-		status += StringPrintf("%d/%d ", workers_[k]->num_finished(), workers_[k]->num_assigned());
+		status += to_string(workers_[k]->num_finished()) + "/" + to_string(workers_[k]->num_assigned());
+			//StringPrintf("%d/%d ", workers_[k]->num_finished(), workers_[k]->num_assigned());
 	}
 	//LOG(INFO) << StringPrintf("Running %s (%d); %s; assigned: %d done: %d",
 	//current_run_.method.c_str(), current_run_.shards.size(),
@@ -360,12 +348,6 @@ int Master::reap_one_task(){
 
 		w.total_runtime += Now() - w.last_task_start;
 
-		if(FLAGS_sync_track){
-			sync_track_log << "iter " << iter << " worker_id " << w_id << " iter_time "
-					<< barrier_timer->elapsed() << " total_time " << w.total_runtime << "\n";
-			sync_track_log.flush();
-		}
-
 		mstats.set_shard_time(mstats.shard_time() + Now() - w.last_task_start);
 		mstats.set_shard_calls(mstats.shard_calls() + 1);
 		w.ping();
@@ -376,7 +358,20 @@ int Master::reap_one_task(){
 	}
 }
 
-void Master::run(RunDescriptor r){
+void Master::run_all(RunDescriptor&& r){
+	run_range(move(r), range(r.table->num_shards()));
+}
+
+void Master::run_one(RunDescriptor&& r){
+	run_range(move(r), range(1));
+}
+
+void Master::run_range(RunDescriptor&& r, const vector<int>& shards){
+	r.shards = shards;
+	run(move(r));
+}
+
+void Master::run(RunDescriptor&& r){
 	kernel_terminated_=false;
 //	if(!FLAGS_checkpoint && r.checkpoint_type != CP_NONE){
 //		LOG(INFO)<< "Checkpoint is disabled by flag.";
@@ -394,9 +389,13 @@ void Master::run(RunDescriptor r){
 	KernelInfo *k = KernelRegistry::Get()->kernel(r.kernel);
 	CHECK_NE(r.table, (void*)NULL) << "Table locality must be specified!";
 	CHECK_NE(k, (void*)NULL) << "Invalid kernel class " << r.kernel;
-	CHECK_EQ(k->has_method(r.method), true) << "Invalid method: " << MP(r.kernel, r.method);
-
-	VLOG(1) << "Running: " << r.kernel << " : " << r.method << " : " << *r.params.ToMessage();
+	CHECK_EQ(k->has_method(r.method), true) << "Invalid method: " << r.kernel<<" : "<< r.method;
+	{
+		Args* p=r.params.ToMessage();
+		VLOG(1) << "Running: " << r.kernel << " : " << r.method << " : " << *p
+				<<", CP="<<CheckpointType_Name(r.checkpoint_type)<<", termcheck="<<r.termcheck;
+		delete p;
+	}
 
 	vector<int> shards = r.shards;
 
@@ -426,14 +425,17 @@ void Master::run(RunDescriptor r){
 	su_term.reset();
 	su_kerdone.reset();
 	dispatched_ = startWorkers(current_run_);
+	CHECK_EQ(dispatched_, current_run_.shards.size()) << "Not all workers started: "
+			<<dispatched_<<"/"<<current_run_.shards.size();
 
 	thread t_cp;
 	if(current_run_.checkpoint_type != CP_NONE){
-		t_cp=thread(&Master::checkpoint,this);
+		t_cp=thread(&Master::checkpoint, this);
 	}
-//	if(this kernel has a term_checker)
-	thread t_term(&Master::termcheck, this);
-
+	thread t_term;
+	if(current_run_.termcheck){
+		t_term=thread(&Master::termcheck, this);
+	}
 	barrier2();
 
 	finishKernel();

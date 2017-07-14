@@ -23,33 +23,44 @@ struct RunDescriptor{
 
 	GlobalTableBase *table;
 	bool barrier;
+	bool termcheck;
 
-	CheckpointType checkpoint_type;
+	CheckpointType checkpoint_type;	//CP_NONE means do no t do checkpoint
 	double checkpoint_interval;
 
 	// Tables to checkpoint.  If empty, commit all tables.
 	std::vector<int> checkpoint_tables;
 	std::vector<int> shards;
 
-	int epoch;
+	//bool change_graph;
+	//std::vector<std::pair<int,std::string>> delta_graph;
+
+	bool restore;
+	int restore_from_epoch;	//-1 means do not do restore
 
 	// Key-value map of arguments to pass to kernel functions
 	MarshalledMap params;
 
 	RunDescriptor(){
-		Init("bogus", "bogus", nullptr);
+		Init("bogus", "bogus", nullptr, false, false, false);
 	}
 
 	RunDescriptor(const std::string& kernel,
 			const std::string& method,
 			GlobalTableBase *table,
+			const bool checkpoint,
+			const bool termcheck,
+			const bool restore,
 			std::vector<int> cp_tables = std::vector<int>()){
-		Init(kernel, method, table, cp_tables);
+		Init(kernel, method, table, checkpoint, termcheck, restore, cp_tables);
 	}
 
 	void Init(const std::string& kernel,
 			const std::string& method,
 			GlobalTableBase *table,
+			const bool checkpoint,
+			const bool termcheck,
+			const bool restore,
 			const std::vector<int>& cp_tables = std::vector<int>());
 };
 

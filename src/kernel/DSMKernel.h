@@ -16,10 +16,8 @@
 namespace dsm {
 
 class GlobalTableBase;
-
 template<class K, class V1, class V2, class V3>
 class TypedGlobalTable;
-
 class Worker;
 
 class DSMKernel{

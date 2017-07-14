@@ -3,25 +3,17 @@
 
 #include "util/marshalled_map.hpp"
 //#include "IterateKernel.h"
-#include "DSMKernel.h"
-#include "table/table.h"
-#include "table/table-registry.h"
-#include "table/typed-global-table.hpp"
-#include "table/tbl_widget/IterateKernel.h"
+//#include "DSMKernel.h"
+#include <glog/logging.h>
 
-#include <fstream>
-//#include <iostream>
 #include <string>
 #include <map>
-#include <thread>
-
-DECLARE_string(graph_dir);
 
 namespace dsm {
 
-
 template<class K, class V, class D>
 class MaiterKernel;
+class DSMKernel;
 
 struct KernelInfo{
 	KernelInfo(const std::string& name) : name_(name){}
@@ -134,217 +126,6 @@ struct RunnerRegistrationHelper{
 
 #define REGISTER_RUNNER(r)\
   static RunnerRegistrationHelper r_helper_ ## r ## _(&r, #r);
-
-/**
- * Maiter Kernel part:
- */
-
-//template<class K, class V, class D>
-//class MaiterKernel0: public DSMKernel{
-//private:
-//	MaiterKernel<K, V, D>* maiter;
-//public:
-//	void run(){
-//		VLOG(0) << "initializing table ";
-//		init_table(maiter->table);
-//	}
-//};
-
-template<class K, class V, class D>
-class MaiterKernel1: public DSMKernel{           //the first phase: initialize the local state table
-private:
-	MaiterKernel<K, V, D>* maiter;                          //user-defined iteratekernel
-public:
-	void set_maiter(MaiterKernel<K, V, D>* inmaiter){
-		maiter = inmaiter;
-	}
-
-	void read_file(TypedGlobalTable<K, V, V, D>* table){
-		std::string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
-		//cout<<"Unable to open file: " << patition_file<<endl;
-		std::ifstream inFile(patition_file);
-		if(!inFile){
-			LOG(FATAL) << "Unable to open file" << patition_file;
-//			cerr << system("ifconfig -a | grep 192.168.*") << endl;
-			exit(1); // terminate with error
-		}
-
-		std::string line;
-		//read a line of the input file
-		while(getline(inFile,line)){
-			K key;
-			V delta;
-			D data;
-			V value;
-			maiter->iterkernel->read_data(line, key, data); //invoke api, get the value of key field and data field
-			maiter->iterkernel->init_v(key, value, data); //invoke api, get the initial v field value
-			maiter->iterkernel->init_c(key, delta, data); //invoke api, get the initial delta v field value
-			//cout<<"key: "<<key<<"delta: "<<delta<<"value: "<<value<<"   "<<data[0][0]<<"  "<<data[1][0]<<"   "<<data[2][0]<<endl;
-			table->put(key, delta, value, data);      //initialize a row of the state table (a node)
-		}
-	}
-
-	void init_table(TypedGlobalTable<K, V, V, D>* a){
-		if(!a->initialized()){
-			a->InitStateTable();        //initialize the local state table
-		}
-		a->resize(maiter->num_nodes);   //create local state table based on the input size
-
-		read_file(a);               //initialize the state table fields based on the input data file
-	}
-
-	void run(){
-		VLOG(0) << "initializing table ";
-		init_table(maiter->table);
-	}
-};
-
-template<class K, class V, class D>
-class MaiterKernel2: public DSMKernel{ //the second phase: iterative processing of the local state table
-private:
-	MaiterKernel<K, V, D>* maiter;                  //user-defined iteratekernel
-	std::vector<std::pair<K, V> > output;                    //the output buffer
-
-public:
-	void set_maiter(MaiterKernel<K, V, D>* inmaiter){
-		maiter = inmaiter;
-	}
-	void run_loop(TypedGlobalTable<K, V, V, D>* tgt){
-		tgt->ProcessUpdates();
-		std::vector<Table*> t;
-		for(int i = 0; i < tgt->num_shards(); ++i){
-			if(tgt->is_local_shard(i))
-				t.push_back(tgt->get_partition(i));
-		}
-		bool single=tgt->num_shards()==1;
-		bool finish=false;
-		while(!finish){
-			finish=true;
-			for(Table* p : t)
-				if(p->alive())
-					finish=false;
-			if(single)
-				tgt->ProcessUpdates();
-			tgt->BufSend();
-			tgt->TermCheck();
-			std::this_thread::sleep_for(std::chrono::duration<double>(0.01));
-		}
-	}
-
-	void map(){
-		VLOG(0) << "start performing iterative update";
-		run_loop(maiter->table);
-	}
-};
-
-template<class K, class V, class D>
-class MaiterKernel3: public DSMKernel{ //the third phase: dumping the result, write the in-memory table to disk
-private:
-	MaiterKernel<K, V, D>* maiter;              //user-defined iteratekernel
-public:
-	void set_maiter(MaiterKernel<K, V, D>* inmaiter){
-		maiter = inmaiter;
-	}
-
-	void dump(TypedGlobalTable<K, V, V, D>* a){
-		double totalF1 = 0;	//the sum of delta_v, it should be smaller enough when iteration converges
-		double totalF2 = 0;	//the sum of v, it should be larger enough when iteration converges
-		std::string file = StringPrintf("%s/part-%d", maiter->output.c_str(), current_shard()); //the output path
-		std::ofstream File(file);	//the output file containing the local state table infomation
-
-		//get the iterator of the local state table
-		typename TypedGlobalTable<K, V, V, D>::Iterator *it = a->get_entirepass_iterator(current_shard());
-
-		while(!it->done()){
-//			bool cont = it->Next();
-//			if(!cont) break;
-
-			totalF1 += it->value1();
-			totalF2 += it->value2();
-			File << it->key() << "\t" << it->value1() << ":" << it->value2() << "\n";
-			it->Next();
-		}
-		delete it;
-
-		File.close();
-		VLOG(0)<<"W"<<maiter->conf.worker_id()<<":\ntotal F1 : " << totalF1 << "\ntotal F2 : " << totalF2;
-	}
-
-	void run(){
-		VLOG(0) << "dumping result";
-		dump(maiter->table);
-	}
-};
-
-class ConfigData;
-
-template<class K, class V, class D>
-class MaiterKernel{
-public:
-	int64_t num_nodes;
-	double schedule_portion;
-	ConfigData conf;
-	std::string output;
-	Sharder<K> *sharder;
-	IterateKernel<K, V, D> *iterkernel;
-	TermChecker<K, V> *termchecker;
-	TypedGlobalTable<K, V, V, D> *table;
-
-	MaiterKernel(){
-		Reset();
-	}
-	MaiterKernel(ConfigData& inconf, int64_t nodes, double portion, std::string outdir,
-			Sharder<K>* insharder,                  //the user-defined partitioner
-			IterateKernel<K, V, D>* initerkernel,   //the user-defined iterate kernel
-			TermChecker<K, V>* intermchecker){     //the user-defined terminate checker
-		Reset();
-
-		conf = inconf;                  //configuration
-		num_nodes = nodes;              //local state table size
-		schedule_portion = portion;     //priority scheduling, scheduled portion
-		output = outdir;                //output dir
-		sharder = insharder;            //the user-defined partitioner
-		iterkernel = initerkernel;      //the user-defined iterate kernel
-		termchecker = intermchecker;    //the user-defined terminate checker
-	}
-
-	~MaiterKernel(){}
-
-	void Reset(){
-		num_nodes = 0;
-		schedule_portion = 1;
-		output = "result";
-		sharder = nullptr;
-		iterkernel = nullptr;
-		termchecker = nullptr;
-	}
-
-public:
-	int registerMaiter(){
-		VLOG(0) << "Number of shards: " << conf.num_workers();
-		table = CreateTable<K, V, V, D>(0, conf.num_workers(), schedule_portion, sharder,
-				iterkernel, termchecker);
-
-		//initialize table job
-		KernelRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", this);
-		MethodRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", "run",
-				&MaiterKernel1<K, V, D>::run, this);
-
-		//iterative update job
-		if(iterkernel != nullptr && termchecker != nullptr){
-			KernelRegistrationHelper<MaiterKernel2<K, V, D>, K, V, D>("MaiterKernel2", this);
-			MethodRegistrationHelper<MaiterKernel2<K, V, D>, K, V, D>("MaiterKernel2", "map",
-					&MaiterKernel2<K, V, D>::map, this);
-		}
-
-		//dumping result to disk job
-		KernelRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", this);
-		MethodRegistrationHelper<MaiterKernel3<K, V, D>, K, V, D>("MaiterKernel3", "run",
-				&MaiterKernel3<K, V, D>::run, this);
-
-		return 0;
-	}
-};
 
 }
 #endif /* KERNEL_H_ */

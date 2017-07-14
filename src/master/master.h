@@ -6,6 +6,7 @@
 #include "kernel/kernel.h"
 #include "table/TableHelper.h"
 #include "table/table-registry.h"
+#include "table/tbl_widget/trigger.h"
 #include "net/NetworkThread.h"
 #include "net/RPCInfo.h"
 
@@ -16,6 +17,8 @@
 
 #include <vector>
 #include <unordered_map>
+#include <string>
+#include <fstream>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -24,6 +27,8 @@ namespace dsm {
 
 class WorkerState;
 class TaskState;
+template<class K, class V, class D>
+class MaiterKernel;
 
 class Master: public TableHelper{
 public:
@@ -37,63 +42,50 @@ public:
 	int epoch() const{
 		return kernel_epoch_;
 	}
-	int ownerOfShard(int table, int shard) const{
-		return tables_[table]->owner(shard);
-	}
-	void SendPutRequest(int dstWorkerID, const KVPairData& put){}
-	void SendTermcheck(int index, long updates, double current){}
+	int ownerOfShard(int table, int shard) const;
 
-	void realSwap(const int tid1, const int tid2);
-	void realClear(const int tid);
+	// the following 3 work-loop-related-function will not to be called by master under normal condition
+	virtual void signalToProcess();
+	virtual void signalToSend();
+	virtual void signalToTermCheck();
 
-	void run_all(RunDescriptor r);
-	void run_one(RunDescriptor r);
-	void run_range(RunDescriptor r, const std::vector<int>& shards);
+	virtual void realSendUpdates(int dstWorkerID, const KVPairData& put){}
+	virtual void realSendTermCheck(int index, uint64_t receives, uint64_t updates, double current, uint64_t ndefault){}
+
+	virtual void realSendInNeighbor(int dstWorkerID, const InNeighborData& data){}
+
+	virtual void realSwap(const int tid1, const int tid2);
+	virtual void realClear(const int tid);
+
+	void run_all(RunDescriptor&& r);
+	void run_one(RunDescriptor&& r);
+	void run_range(RunDescriptor&& r, const std::vector<int>& shards);
 
 	// N.B.  All run_* methods are blocking.
-	void run_all(const string& kernel, const string& method, GlobalTableBase* locality){
-		run_all(RunDescriptor(kernel, method, locality));
+	void run_all(const string& kernel, const string& method, GlobalTableBase* locality,
+			const bool checkpoint, const bool termcheck, const bool restore){
+		run_all(RunDescriptor(kernel, method, locality, checkpoint, termcheck, restore));
 	}
+	// Run the given kernel function on one (arbitrary) worker node.
+	void run_one(const string& kernel, const string& method, GlobalTableBase* locality,
+			const bool checkpoint, const bool termcheck, const bool restore){
+		run_one(RunDescriptor(kernel, method, locality, termcheck, checkpoint, restore));
+	}
+	// Run the kernel function on the given set of shards.
+	void run_range(const string& kernel, const string& method, GlobalTableBase* locality,
+			const bool checkpoint, const bool termcheck, const bool restore, const std::vector<int>& shards){
+		run_range(RunDescriptor(kernel, method, locality, checkpoint, termcheck, restore), shards);
+	}
+
+	void run(RunDescriptor&& r);
 
 	//maiter program
 	template<class K, class V, class D>
-	void run_maiter(MaiterKernel<K, V, D>* maiter){
-		if(maiter->sharder == nullptr){
-			LOG(FATAL)<<"sharder is not specified in current kernel";
-			return;
-		}
-
-		run_all("MaiterKernel1", "run", maiter->table);
-
-		if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
-			run_all("MaiterKernel2", "map", maiter->table);
-		}
-
-		run_all("MaiterKernel3", "run", maiter->table);
-	}
-
-	// Run the given kernel function on one (arbitrary) worker node.
-	void run_one(const string& kernel, const string& method, GlobalTableBase* locality){
-		run_one(RunDescriptor(kernel, method, locality));
-	}
-
-	// Run the kernel function on the given set of shards.
-	void run_range(const string& kernel, const string& method,
-			GlobalTableBase* locality, const std::vector<int>& shards){
-		run_range(RunDescriptor(kernel, method, locality), shards);
-	}
+	void run_maiter(MaiterKernel<K, V, D>* maiter);
+	template<class T>
+	T& get_cp_var(const string& key, T defval = T());
 
 	void enable_trigger(const TriggerID triggerid, int table, bool enable);
-
-	void run(RunDescriptor r);
-
-	template<class T>
-	T& get_cp_var(const string& key, T defval = T()){
-		if(!cp_vars_.contains(key)){
-			cp_vars_.put(key, defval);
-		}
-		return cp_vars_.get<T>(key);
-	}
 
 	void barrier();
 	void barrier2();
@@ -108,7 +100,8 @@ public:
 
 	// Attempt restore from a previous checkpoint for this job.  If none exists,
 	// the process is left in the original state, and this function returns false.
-	bool restore();
+	// When epoch == -1 , restore to the latest checkpoint.
+	bool restore(const int epoch=-1);
 
 private:
 	std::thread tmsg;
@@ -119,15 +112,15 @@ private:
 
 	//helpers for registering message handlers
 	typedef void (Master::*callback_t)(const string&, const RPCInfo&);
-	void RegDSPImmediate(const int type, callback_t fp, bool spawnThread=false);
-	void RegDSPProcess(const int type, callback_t fp, bool spawnThread=false);
+	void RegDSPImmediate(const int type, callback_t fp);
+	void RegDSPProcess(const int type, callback_t fp);
 	void RegDSPDefault(callback_t fp);
 
 	SyncUnit su_swap;
 	SyncUnit su_clear;
 
 	void handleRegisterWorker(const std::string& d, const RPCInfo& info);
-	SyncUnit su_regw;
+	SyncUnit su_regw; // reused for both MTYPE_WORKER_REGISTER and MTYPE_WORKER_LIST
 
 	SyncUnit su_wflush;
 	SyncUnit su_wapply;
@@ -137,18 +130,21 @@ private:
 
 	void finishKernel();
 
+	void broadcastWorkerInfo();
 	void shutdownWorkers();
 
+	// checkpointing
 	std::condition_variable cv_cp; //for shutdown cp thread, only be notified after kernel termination
 //	std::std::vector<SyncUnit> su_cpdone;
-//	void handleCheckpointDone(const std::string& d, const RPCInfo& info);
 	void start_checkpoint();
 	void start_worker_checkpoint(int worker_id, const RunDescriptor& r);
-	void finish_worker_checkpoint(int worker_id, const RunDescriptor& r);
+	void handleCPLocalDone(const std::string& d, const RPCInfo& info);
+//	void finish_worker_checkpoint(int worker_id);
 	void finish_checkpoint();
-	SyncUnit su_cp_start, su_cp_finish;
+	SyncUnit su_cp_start, su_cp_local, su_cp_finish;
 	SyncUnit su_cp_restore;
 
+	// termination check
 	void handleTermcheckDone(const std::string& d, const RPCInfo& info);
 	SyncUnit su_term;
 	void terminate_iteration();
@@ -193,14 +189,13 @@ private:
 	double last_checkpoint_;
 	double last_termcheck_;
 	Timer* barrier_timer;
-	ofstream conv_track_log;
 	ofstream sync_track_log;
 	int iter;
 
 	std::vector<WorkerState*> workers_;
 	std::unordered_map<int, WorkerState*> netId2worker_;//map network id (rpc source) to worker
 
-	typedef map<string, MethodStats> MethodStatsMap;
+	typedef std::map<std::string, MethodStats> MethodStatsMap;
 	MethodStatsMap method_stats_;
 
 	TableRegistry::Map& tables_;

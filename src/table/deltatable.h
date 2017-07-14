@@ -24,10 +24,11 @@ private:
 #pragma pack(push, 1)
 	struct Bucket{
 		K k;
+		K src;
 		V1 v1;
 		bool in_use;
 	};
-	#pragma pack(pop)
+#pragma pack(pop)
 
 public:
 	typedef FileDecodeIterator<K, V1, int, int> FileUpdateDecoder;
@@ -52,11 +53,6 @@ public:
 			}while(pos < parent_.size_ && !parent_.buckets_[pos].in_use);
 
 			return pos<parent_.size_;
-//			if(pos >= parent_.size_){
-//				return false;
-//			}else{
-//				return true;
-//			}
 		}
 
 		bool done(){
@@ -89,12 +85,14 @@ public:
 		Table::Init(td);
 	}
 
-	V1 get(const K& k);
-	bool contains(const K& k);
-	void put(const K& k, const V1& v1);
-	void update(const K& k, const V1& v);
-	void accumulate(const K& k, const V1& v);
-	bool remove(const K& k){
+	virtual V1 get(const K& k);
+	virtual bool contains(const K& k);
+	virtual void put(const K& k, const V1& v1);
+	void put(K&& k, V1&& v1);
+	virtual void update(const K& k, const V1& v);
+	virtual void accumulate(const K& k, const V1& v);
+	virtual void accumulate(const K &k, const K &from, const V1 &v);
+	virtual bool remove(const K& k){
 		LOG(FATAL)<< "Not implemented.";
 		return false;
 	}
@@ -103,6 +101,7 @@ public:
 
 	bool empty(){return size() == 0;}
 	int64_t size(){return entries_;}
+	int64_t capacity(){return size_;}
 
 	void clear(){
 		for (int i = 0; i < size_; ++i){buckets_[i].in_use = 0;}
@@ -132,7 +131,7 @@ public:
 	void serializeToNet(KVPairCoder *out);
 	void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
 	void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase);
-	void serializeToSnapshot(const string& f, long* updates, double* totalF2){return;}
+	void serializeToSnapshot(const string& f, uint64_t* receives, uint64_t* updates, double* totalF2, uint64_t* defaultF2){return;}
 
 	Marshal<K>* kmarshal(){return ((Marshal<K>*)info_.key_marshal);}
 	Marshal<V1>* v1marshal(){return ((Marshal<V1>*)info_.value1_marshal);}
@@ -156,6 +155,24 @@ private:
 				return -1;
 			}
 
+			b = (b + 1) % size_;
+		}while (b != start);
+
+		return -1;
+	}
+	//get bucket to access a key.
+	//when key exists return its bucket;
+	//when key do not exist return a bucket to insert it (-1 when no place to insert)
+	int bucket_for_access_key(const K& k){
+		int start = bucket_idx(k);
+		int b = start;
+
+		do{
+			if(!buckets_[b].in_use){
+				return b;
+			}else if(buckets_[b].k==k){
+				return b;
+			}
 			b = (b + 1) % size_;
 		}while (b != start);
 
@@ -250,7 +267,7 @@ void DeltaTable<K, V1, D>::resize(int64_t size){
 	if(size_ == size)
 		return;
 
-	std::vector<Bucket> old_b = buckets_;
+	std::vector<Bucket> old_b = move(buckets_);
 	int old_entries = entries_;
 
 	DVLOG(2) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
@@ -299,47 +316,92 @@ void DeltaTable<K, V1, D>::accumulate(const K& k, const V1& v){
 	if(b == -1){
 		put(k, v);
 	}else{
-		//((IterateKernel<K, V1, D>*)info_.iterkernel)->accumulate(&buckets_[b].v1, v);
 		((IterateKernel<K, V1, D>*)info_.iterkernel)->accumulate(buckets_[b].v1, v);
 	}
 }
 
 template<class K, class V1, class D>
-void DeltaTable<K, V1, D>::put(const K& k, const V1& v1){
-	int start = bucket_idx(k);
-	int b = start;
-	bool found = false;
+void DeltaTable<K, V1, D>::accumulate(const K& k, const K& from, const V1& v){
+	int b = bucket_for_key(k);
 
-	VLOG(2) << "put " << k << "," << v1 << " into deltatable";
-	do{
-		if(!buckets_[b].in_use){
-			break;
-		}
-
-		if(buckets_[b].k == k){
-			found = true;
-			break;
-		}
-
-		b = (b + 1) % size_;
-	}while(b != start);
-
-	// Inserting a new entry:
-	if(!found){
-		if(entries_ > size_ * kLoadFactor){
-			resize((int)(1 + size_ * 2));
-			put(k, v1);
-		}else{
-			buckets_[b].in_use = 1;
-			buckets_[b].k = k;
-			buckets_[b].v1 = v1;
-			++entries_;
-		}
+	if(b == -1){
+		put(k, v);
 	}else{
-		// Replacing an existing entry
-		buckets_[b].v1 = v1;
+		((IterateKernel<K, V1, D>*)info_.iterkernel)->accumulate(buckets_[b].v1, v);
+		if(v == buckets_[b].v1){
+			buckets_[b].src=from;
+		}
 	}
 }
+
+template<class K, class V1, class D>
+void DeltaTable<K, V1, D>::put(const K& k, const V1& v1){
+	int b=bucket_for_access_key(k);
+	if(b==-1){
+		resize(1 + size_ * 2);
+		b=bucket_for_access_key(k);
+	}
+
+	VLOG(3) << "put " << k << "," << v1 << " into deltatable";
+	if(buckets_[b].in_use!=true){
+		buckets_[b].in_use = true;
+		buckets_[b].k = k;
+		++entries_;
+	}
+	buckets_[b].v1 = v1;
+	return;
+
+//	int start = bucket_idx(k);
+//	int b = start;
+//	bool found = false;
+//
+//	do{
+//		if(!buckets_[b].in_use){
+//			break;
+//		}
+//
+//		if(buckets_[b].k == k){
+//			found = true;
+//			break;
+//		}
+//
+//		b = (b + 1) % size_;
+//	}while(b != start);
+//
+//	// Inserting a new entry:
+//	if(!found){
+//		if(entries_ > size_ * kLoadFactor){
+//			resize((int)(1 + size_ * 2));
+//			put(k, v1);
+//		}else{
+//			buckets_[b].in_use = 1;
+//			buckets_[b].k = k;
+//			buckets_[b].v1 = v1;
+//			++entries_;
+//		}
+//	}else{
+//		// Replacing an existing entry
+//		buckets_[b].v1 = v1;
+//	}
 }
+
+template<class K, class V1, class D>
+void DeltaTable<K, V1, D>::put(K&& k, V1&& v1){
+	int b=bucket_for_access_key(k);
+	if(b==-1){
+		resize(1 + size_ * 2);
+		b=bucket_for_access_key(k);
+	}
+
+	VLOG(3) << "put " << k << "," << v1 << " into deltatable";
+	if(buckets_[b].in_use!=true){
+		buckets_[b].in_use = true;
+		buckets_[b].k = std::forward<K>(k);
+	}
+	buckets_[b].v1 = std::forward<V1>(v1);
+	++entries_;
+}
+
+} //namespace dsm
 
 #endif /* DELTATABLE_H_ */

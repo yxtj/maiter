@@ -6,26 +6,18 @@
  */
 
 #include "MsgDriver.h"
-#include "net/NetworkThread.h"
-#include <gflags/gflags.h>
-#include <glog/logging.h>
 #include <thread>
-
-DECLARE_double(sleep_time);
 
 using namespace std;
 
 namespace dsm {
 
 //Helper
-void Sleep(){
-	this_thread::sleep_for(chrono::duration<double>(FLAGS_sleep_time));
-}
 MsgDriver::callback_t MsgDriver::GetDummyHandler(){
 	static callback_t dummy=[](const std::string&, const RPCInfo&){};
 	return dummy;
 }
-MsgDriver::MsgDriver():running_(false),net(nullptr)
+MsgDriver::MsgDriver():running_(false)
 {
 	clear();
 }
@@ -34,6 +26,9 @@ void MsgDriver::terminate(){
 	running_=false;
 }
 bool MsgDriver::empty() const{
+	return que.empty();
+}
+bool MsgDriver::emptyStrict() const{
 	return !inDisper.busy() && que.empty();
 }
 bool MsgDriver::busy() const{
@@ -41,14 +36,14 @@ bool MsgDriver::busy() const{
 }
 
 //Register
-void MsgDriver::registerImmediateHandler(const int type, callback_t cb, bool spawnThread){
-	inDisper.registerDispFun(type,cb,spawnThread);
+void MsgDriver::registerImmediateHandler(const int type, callback_t cb){
+	inDisper.registerDispFun(type,cb);
 }
 void MsgDriver::unregisterImmediateHandler(const int type){
 	inDisper.unregisterDispFun(type);
 }
-void MsgDriver::registerProcessHandler(const int type, callback_t cb, bool spawnThread){
-	outDisper.registerDispFun(type,cb,spawnThread);
+void MsgDriver::registerProcessHandler(const int type, callback_t cb){
+	outDisper.registerDispFun(type,cb);
 }
 void MsgDriver::unregisterProcessHandler(const int type){
 	outDisper.unregisterDispFun(type);
@@ -65,6 +60,7 @@ void MsgDriver::resetProcessHandler(){
 	outDisper.clear();
 }
 void MsgDriver::resetWaitingQueue(){
+//	lock_guard<mutex> ql(lockQue);
 	que.clear();
 }
 void MsgDriver::resetDefaultOutHandler(){
@@ -76,11 +72,24 @@ void MsgDriver::clear(){
 	resetWaitingQueue();
 	resetDefaultOutHandler();
 }
+size_t MsgDriver::abandonData(const int type){
+//	lock_guard<mutex> ql(lockQue);
+	size_t f=0,l=0;
+	while(l<que.size()){
+		if(que[l].second.tag==type){
+			que[f++]=move(que[l++]);
+		}else{
+			++l;
+		}
+	}
+	que.erase(que.begin()+f,que.end());
+	return l-f;
+}
 
 //Process
-bool MsgDriver::processInput(string& data, RPCInfo& info){
+bool MsgDriver::processInput(string&& data, RPCInfo& info){
 	if(!inDisper.receiveData(info.tag, data, info)){
-		lock_guard<mutex> ql(lockQue);
+//		lock_guard<mutex> ql(lockQue);
 		que.push_back(make_pair(move(data),move(info)));
 		return true;
 	}
@@ -96,13 +105,23 @@ bool MsgDriver::processOutput(string& data, RPCInfo& info){
 
 //Main working functions
 bool MsgDriver::pushData(string& data, RPCInfo& info){
-	return processInput(data,info);
+	return processInput(move(data),info);
+}
+bool MsgDriver::pushData(string&& data, RPCInfo& info){
+	return processInput(move(data),info);
 }
 bool MsgDriver::popData(){
 	if(que.empty())	return false;
-	pair<string, RPCInfo> t=move(que.front());
-	que.pop_front();
-	return processOutput(t.first, t.second);
+//	string d;
+//	RPCInfo r;
+//	{
+//		lock_guard<mutex> ql(lockQue);
+//		tie(d,r)=move(que.front());
+	auto p=move(que.front());
+		que.pop_front();
+//	}
+//	return processOutput(d, r);
+	return processOutput(p.first,p.second);
 }
 
 } /* namespace dsm */

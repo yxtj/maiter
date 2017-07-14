@@ -8,10 +8,9 @@
 #include "ReplyHandler.h"
 #include <algorithm>
 #include <thread>
+#include <mutex>
 
 using namespace std;
-
-namespace dsm {
 
 /*
  * Condition part:
@@ -23,37 +22,42 @@ struct ConditionAny:public ReplyHandler::Condition{
 struct ConditionEachOne:public ReplyHandler::Condition{
 	ConditionEachOne(const int num):state(num,false){}
 	bool update(const int source){
-		state.at(source)=true;
-//		state[source]=true;
+		// writing on vector<bool> is not thread safe. (8-bit in one byte)
+		// when multiple thread try to write the bits in the same byte, the new one over-writing old ones.
+		lock_guard<mutex> lg(ms);
+		state.at(source) = true;
 		if(all_of(state.begin(), state.end(), [](const bool b){return b;})){
-			reset();
 			return true;
 		}
 		return false;
 	}
 	void reset(){
+		lock_guard<mutex> lg(ms);
 		fill(state.begin(),state.end(),false);
 	}
 private:
+	mutex ms;
 	vector<bool> state;
 };
 struct ConditionGeneral:public ReplyHandler::Condition{
 	ConditionGeneral(const vector<int>& expect):
-			expected(expect),state(expect){}
-	ConditionGeneral(vector<int>&& expect):
 			expected(expect),state(expected){}
+	ConditionGeneral(vector<int>&& expect):
+			expected(move(expect)),state(expected){}
 	bool update(const int source){
+		lock_guard<mutex> lg(ms);
 		--state[source];
 		if(all_of(state.begin(), state.end(),[](const int v){return v<=0;})){
-			reset();
 			return true;
 		}
 		return false;
 	}
 	void reset(){
+		lock_guard<mutex> lg(ms);
 		state=expected;
 	}
 private:
+	mutex ms;
 	vector<int> expected;
 	vector<int> state;
 };
@@ -95,7 +99,7 @@ ReplyHandler::Condition* ReplyHandler::condFactory(
  */
 
 ReplyHandler::Item::Item():
-		cond(nullptr),spwanThread(false),activated(false){}
+		cond(nullptr),spwanThread(false),activated(true){}
 ReplyHandler::Item::Item(const Item& i):fn(i.fn), cond(nullptr),
 		spwanThread(i.spwanThread),activated(i.activated)
 {
@@ -107,7 +111,7 @@ ReplyHandler::Item::Item(Item&& i):fn(move(i.fn)),cond(nullptr),
 	std::swap(cond,i.cond);
 }
 ReplyHandler::Item::Item(std::function<void()> f, Condition* c, const bool st):
-	fn(f), cond(c), spwanThread(st), activated(false){}
+	fn(f), cond(c), spwanThread(st), activated(true){}
 
 ReplyHandler::Item::~Item(){
 	delete cond;
@@ -123,6 +127,7 @@ bool ReplyHandler::input(const int type, const int source){
 	if(it==cont.end() || !it->second.activated )	return false;
 	if(it->second.cond->update(source)){
 		launch(it->second);
+		it->second.cond->reset();
 	}
 	return true;
 }
@@ -135,8 +140,17 @@ void ReplyHandler::addType(const int type, Condition* cond,
 }
 void ReplyHandler::removeType(const int type){
 	auto it=cont.find(type);
-	if(it!=cont.end())
+	if(it != cont.end()) {
+		delete it->second.cond;
 		cont.erase(it);
+	}
+}
+
+void ReplyHandler::clear(){
+	for(auto& p : cont) {
+		delete p.second.cond;
+	}
+	cont.clear();
 }
 
 void ReplyHandler::launch(Item& item){
@@ -147,5 +161,3 @@ void ReplyHandler::launch(Item& item){
 		t.detach();
 	}
 }
-
-} /* namespace dsm */
