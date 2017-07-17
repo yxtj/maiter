@@ -1,7 +1,7 @@
-DELTA_NAME=top
-# relationship between top-portion and runtime
-if [ $# -lt 4 ]; then
-	echo "Usage: <prefix> <graph-name> <k-start> <k-end> [degree] [snapshot]"
+DELTA_NAME=scale
+# relationship between alpha and good-ratio
+if [ $# -lt 5 ]; then
+	echo "Usage: <prefix> <graph-name> <k-start> <k-end> <log-sub-fdr> [degree] [snapshot]"
 	echo '  File structure:'
 	echo '    graph-folder        = <prefix>/input/<graph-name>'
 	echo '    initializing-folder = <prefix>/ref/<graph-name>'
@@ -20,8 +20,8 @@ PRE=$1
 FOLDER=$2
 #FOLDER=tw6-1-1
 #HEAD=$(echo $FOLDER | sed -r 's/-[0-9]+//')
-#PARTS=$(echo $FOLDER | sed -r 's/^.*?-//g')
-PARTS=1
+PARTS=$(echo $FOLDER | sed -r 's/^.*?-//g')
+#PARTS=1
 #WORKERS=$(( PARTS+1 ))
 
 K_START=$3
@@ -33,7 +33,7 @@ INIT_FDR=$PRE/ref/$FOLDER
 DELTA_FDR=$PRE/delta/$FOLDER/$DELTA_NAME/
 
 LOG_SUB_FDR=$5
-LOG_FDR=../log/sp-$DELTA_NAME/$LOG_SUB_FDR
+LOG_FDR=../log/sp-$DELTA_NAME-worker/$LOG_SUB_FDR
 
 DEGREE=0
 if [ $# -ge 6 ]; then
@@ -49,15 +49,17 @@ mkdir -p $RESULT_FDR
 mkdir -p $DELTA_FDR
 mkdir -p $LOG_FDR
 
+#DELTA_RATIOS="0.01 0.05"
 DELTA_RATIOS="0.05"
-CRT_RATIOS="0.2"
-GOOD_RATIOS="0.2 0.8"
+CRT_RATIOS="0.1"
+
+GOOD_RATIOS="0.4"
 EW_RATIOS="0.2"
 
-PORTIONS="1 0.1 0.01 0.001 0.0001 0.00001 0.000001"
+PORTIONS="0.01"
 ALPHAS="1"
 
-N=3
+N=1
 
 ./test-kernel-cr.sh ShortestPath $PARTS $GRAPH_FDR $INIT_FDR $DELTA_FDR $RESULT_FDR $LOG_FDR $SNAPSHOT\
   "$DELTA_RATIOS" "$CRT_RATIOS" "$GOOD_RATIOS" "$EW_RATIOS" $K_START $K_END "$PORTIONS" "$ALPHAS" $DEGREE $N

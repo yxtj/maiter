@@ -68,6 +68,6 @@ mkdir -p $RESULT_FDR
 ../maiter --hostfile=$HOSTFILE --runner=$ALGORITHM --workers=$WORKERS --num_nodes=$NODES\
   --graph_dir=$GRAPH_FDR --result_dir=$RESULT_FDR --init_dir=$INIT_FDR --delta_prefix=$DELTA_PRE\
   --local_aggregate=$LOCAL_AGG --snapshot_interval=$SNAPSHOT --portion=$PORTION --weight_alpha=$ALPHA --priority_degree=$DEGREE\
-  --sleep_time=0.003 --termcheck_threshold=$TERMTHRESH --buftime=$BUFTIME -- v=$VERBOSE_LVL
+  --sleep_time=0.003 --termcheck_threshold=$TERMTHRESH --buftime=$BUFTIME --v=$VERBOSE_LVL
 #  --checkpoint_type=$CP_TYPE --checkpoint_interval=$CP_TIME
 

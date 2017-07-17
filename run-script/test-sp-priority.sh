@@ -1,7 +1,7 @@
-DELTA_NAME=top
-# relationship between top-portion and runtime
-if [ $# -lt 4 ]; then
-	echo "Usage: <prefix> <graph-name> <k-start> <k-end> [degree] [snapshot]"
+DELTA_NAME=priority
+# relationship between alpha and good-ratio
+if [ $# -lt 5 ]; then
+	echo "Usage: <prefix> <graph-name> <k-start> <k-end> <log-sub-fdr> [degree] [snapshot]"
 	echo '  File structure:'
 	echo '    graph-folder        = <prefix>/input/<graph-name>'
 	echo '    initializing-folder = <prefix>/ref/<graph-name>'
@@ -49,12 +49,14 @@ mkdir -p $RESULT_FDR
 mkdir -p $DELTA_FDR
 mkdir -p $LOG_FDR
 
+#DELTA_RATIOS="0.01 0.05"
 DELTA_RATIOS="0.05"
 CRT_RATIOS="0.2"
-GOOD_RATIOS="0.2 0.8"
+
+GOOD_RATIOS="0 0.2 0.4 0.6 0.8 1"
 EW_RATIOS="0.2"
 
-PORTIONS="1 0.1 0.01 0.001 0.0001 0.00001 0.000001"
+PORTIONS="0.01"
 ALPHAS="1"
 
 N=3
