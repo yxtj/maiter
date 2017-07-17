@@ -19,8 +19,8 @@ PRE=$1
 FOLDER=$2
 #FOLDER=tw6-1-1
 #HEAD=$(echo $FOLDER | sed -r 's/-[0-9]+//')
-#PARTS=$(echo $FOLDER | sed -r 's/^.*?-//g')
-PARTS=1
+PARTS=$(echo $FOLDER | sed -r 's/^.*?-//g')
+#PARTS=1
 #WORKERS=$(( PARTS+1 ))
 
 K_START=$3

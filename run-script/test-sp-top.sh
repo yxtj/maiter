@@ -1,7 +1,7 @@
 DELTA_NAME=top
 # relationship between top-portion and runtime
 if [ $# -lt 4 ]; then
-	echo "Usage: <prefix> <graph-name> <k-start> <k-end> [degree] [snapshot]"
+	echo "Usage: <prefix> <graph-name> <k-start> <k-end> <log-sub-fdr> [degree] [snapshot]"
 	echo '  File structure:'
 	echo '    graph-folder        = <prefix>/input/<graph-name>'
 	echo '    initializing-folder = <prefix>/ref/<graph-name>'
@@ -20,8 +20,8 @@ PRE=$1
 FOLDER=$2
 #FOLDER=tw6-1-1
 #HEAD=$(echo $FOLDER | sed -r 's/-[0-9]+//')
-#PARTS=$(echo $FOLDER | sed -r 's/^.*?-//g')
-PARTS=1
+PARTS=$(echo $FOLDER | sed -r 's/^.*?-//g')
+#PARTS=1
 #WORKERS=$(( PARTS+1 ))
 
 K_START=$3
