@@ -248,7 +248,7 @@ bool Option::normalizeRates(){
 int main(int argc, char* argv[]){
 	if(argc < 7 || argc > 9){
 		cerr << "Wrong usage.\n"
-				"Usage: <graph-folder> <#parts> <delta-prefix> <deltaRate> <addRate> <rmvRate> [dir] [random-seed]"
+				"Usage: <#parts> <graph-folder> <delta-prefix> <deltaRate> <addRate> <rmvRate> [dir] [random-seed]"
 				<< endl;
 		cerr <<	"  <#parts>: number of parts the graphs are separated (the number of files to operate).\n"
 				"  <graph-folder>: the folder of graphs.\n"
