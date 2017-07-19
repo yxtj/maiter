@@ -39,10 +39,11 @@ vector<float> cal_pr(const vector<vector<int> >& g, const float damp, const int 
 int main(int argc, char* argv[]){
 	if(argc<=3){
 		cerr<<"Calculate PageRank."<<endl;
-		cerr<<"Usage: <#parts> <in-folder> <out-folder> [dump-factor] [max-iter] [epsilon]\n"
+		cerr<<"Usage: <#parts> <in-folder> <out-folder> [dump-factor] [normalize] [max-iter] [epsilon]\n"
 			<<"  <in-folder>: input file prefix, file name: 'part<id>' is automatically used\n"
 			<<"  <out-folder>: output file prefix, file name 'part-<id>' is automatically used\n"
 			<<"  [damp-factor]: (=0.8) the damping factor (the portion of values transitted) for PageRank\n"
+			<<"  [normalize]: (=0) normalized the result before output\n"
 			<<"  [max-iter]: (=inf) the maximum number of iterations until termination\n"
 			<<"  [epsilon]: (=1e-6) the minimum difference between consecutive iterations for termination check"
 			<<endl;
@@ -55,11 +56,14 @@ int main(int argc, char* argv[]){
 	if(argc>4)
 		damp=stof(argv[4]);
 	int maxIter=numeric_limits<int>::max();
+	bool normalize=false;
 	if(argc>5)
-		maxIter=stoi(argv[5]);
-	double termDiff=1e-6;
+		normalize=argv[5]=="1" || argv[5]=="y" || argv[5]=="Y";
 	if(argc>6)
-		termDiff=stod(argv[6]);
+		maxIter=stoi(argv[6]);
+	double termDiff=1e-6;
+	if(argc>7)
+		termDiff=stod(argv[7]);
 	
 	chrono::time_point<std::chrono::system_clock> start_t;
 	chrono::duration<double> elapsed;
@@ -83,6 +87,11 @@ int main(int argc, char* argv[]){
 	cout<<"calculating"<<endl;
 	start_t = chrono::system_clock::now();
 	vector<float> res = cal_pr(g, damp, maxIter, termDiff);
+	if(normalize){
+		int n=res.size();
+		for(float& v : res)
+			v/=n;
+	}
     elapsed = chrono::system_clock::now()-start_t;
 	cout<<"  finished in "<<elapsed.count()<<" seconds"<<endl;
 	
