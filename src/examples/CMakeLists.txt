@@ -15,7 +15,7 @@ add_library(example
             #simrank.cc
             con_component.cc
             widestpath.cc
-            #minspantree.cc
+            minspantree.cc
             ${EXAMPLE_PB_HDR} 
             ${EXAMPLE_PB_SRC})
             

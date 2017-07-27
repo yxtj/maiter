@@ -279,7 +279,7 @@ void Worker::realSendTermCheck(int snapshot,
 
 	VLOG(1) << "termination condition of " << " worker-" << id() << " pass-" << snapshot
 			<< " sent to master... with current (" << current << " , " << ndefault << ")"
-			<< " progress (" << receives << " , " << updates << ")";
+			<< " processed (" << receives << " , " << updates << ")";
 }
 
 void Worker::realSendUpdates(int dstWorkerID, const KVPairData& put){

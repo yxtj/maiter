@@ -10,6 +10,10 @@ DECLARE_double(portion);
 DEFINE_int64(katz_source, 0, "");
 DEFINE_double(katz_beta, 0.1, "");
 
+DECLARE_bool(priority_diff);
+DECLARE_double(weight_alpha);
+DECLARE_bool(priority_degree);
+
 struct KatzIterateKernel: public IterateKernel<int, float, vector<int> > {
 
 	float zero;
@@ -34,14 +38,14 @@ struct KatzIterateKernel: public IterateKernel<int, float, vector<int> > {
 
 	}
 	
-	void read_init(std::string& line, int& k, int& delta, int& value){
+	void read_init(std::string& line, int& k, float& delta, float& value){
 		// format: "<key>\t<delta>:<value>"
 		size_t p=line.find('\t');
 		k = stoi(line.substr(0, p));
 		++p;
 		size_t p2=line.find(':', p);
-		delta = stoi(line.substr(p, p2-p));
-		value = stoi(line.substr(p2+1));
+		delta = stof(line.substr(p, p2-p));
+		value = stof(line.substr(p2+1));
 	}
 
 	void read_change(std::string& line, int& k, ChangeEdgeType& type, vector<int>& change){
@@ -84,7 +88,14 @@ struct KatzIterateKernel: public IterateKernel<int, float, vector<int> > {
 	}
 
 	void priority(float& pri, const float& value, const float& delta, const vector<int>& data){
-		pri = delta;
+		// delta is d_v, value is v_i
+		if(FLAGS_priority_diff){
+			pri = delta;
+		}else{
+			pri = delta < 0 ? value : FLAGS_weight_alpha * value;
+		}
+		if(FLAGS_priority_degree)
+			pri *= data.size();
 	}
 
 	float g_func(const int& k, const float& delta, const float& value, const vector<int>& data, const int& dst)

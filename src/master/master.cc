@@ -149,8 +149,8 @@ void Master::termcheck(){
 		bool bterm = ptc->terminate(partials);
 		pair<double, int64_t> p=ptc->get_curr();
 
-		LOG(INFO) << "Termination check at " << barrier_timer->elapsed() <<
-				" total current ("<< to_string(p.first)<<" , "<<p.second << ")"
+		LOG(INFO) << "Termination check "<< termcheck_epoch_<<" at " << barrier_timer->elapsed()
+				<<" total current ("<< to_string(p.first)<<" , "<<p.second << ")"
 				" total receives " << total_receives << " total updates " << total_updates;
 
 		kernel_terminated_=bterm;

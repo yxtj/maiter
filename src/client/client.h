@@ -19,11 +19,6 @@
 
 #include "dbg/getcallstack.h"
 
-#ifndef SWIG
-DECLARE_int32(shards);
-DECLARE_int32(iterations);
-#endif
-
 struct Link{
 	Link(int inend, float inweight) :
 			end(inend), weight(inweight){

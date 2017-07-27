@@ -8,6 +8,7 @@ using namespace std;
 DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
+DECLARE_bool(priority_diff);
 DECLARE_double(weight_alpha);
 DECLARE_bool(priority_degree);
 
@@ -91,12 +92,14 @@ struct ConCompIterateKernel : public IterateKernel<int, int, vector<int> > {
 	}
 
     void priority(int& pri, const int& value, const int& delta, const vector<int>& data){
-		//pri = value-std::max(value,delta);
-		int dif = (value - delta) * (FLAGS_priority_degree? data.size() : 1);
-		if(dif<=0)	// good news
-			pri = -dif;
-		else
-			pri = static_cast<int>(FLAGS_weight_alpha * dif);
+		// delta is u_i, value is v_i
+		if(FLAGS_priority_diff){
+			pri = delta - value;
+		}else{
+			pri = better(delta, value) ? delta : FLAGS_weight_alpha * delta;
+		}
+		if(FLAGS_priority_degree)
+			pri *= data.size();
     }
 
     int g_func(const int& k,const int& delta, const int& value, const vector<int>& data, const int& dst){

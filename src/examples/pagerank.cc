@@ -7,6 +7,9 @@ using namespace std;
 DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
+
+DECLARE_bool(priority_diff);
+DECLARE_double(weight_alpha);
 DECLARE_bool(priority_degree);
 
 struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
@@ -86,9 +89,12 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 	}
 
 	void priority(float& pri, const float& value, const float& delta, const vector<int>& data){
-		pri = delta;
-		//pri = value;
-
+		// delta is d_v, value is v_i
+		if(FLAGS_priority_diff){
+			pri = delta;
+		}else{
+			pri = delta < 0 ? value : FLAGS_weight_alpha * value;
+		}
 		if(FLAGS_priority_degree)
 			pri *= data.size();
 	}

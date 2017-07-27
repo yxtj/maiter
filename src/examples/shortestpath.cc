@@ -8,6 +8,8 @@ DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
 DECLARE_int64(graph_source);
+
+DECLARE_bool(priority_diff);
 DECLARE_double(weight_alpha);
 DECLARE_bool(priority_degree);
 
@@ -111,27 +113,16 @@ struct ShortestPathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	}
 
 	void priority(float& pri, const float& value, const float& delta, const vector<Link>& data){
-		// methdo 1: value
-		//pri = delta;
-		//return;
-
-		// method 2: weighted differernce
-		//float dif = (delta - value)
-		//if(dif<=0)	// good news
-		//	pri = -dif;
-		//else
-		//	pri = FLAGS_weight_alpha * dif;
-		//return;
-
-		// method 2: weighted value
-		if(better(delta, value))
-			pri = delta;
-		else
-			pri = delta*FLAGS_weight_alpha;
-
-		// put degree
+		// delta is u_i, value is v_i
+		if(FLAGS_priority_diff){
+			pri = delta - value;
+		}else{
+			// TODO: because better is <, pri should be its inverse (-pri)
+			pri = better(delta, value) ? delta : FLAGS_weight_alpha * delta;
+		}
 		if(FLAGS_priority_degree)
 			pri *= data.size();
+
 	}
 
 	float g_func(const int& k, const float& delta, const float& value, const vector<Link>& data, const int& dst){
