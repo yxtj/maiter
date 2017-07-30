@@ -157,7 +157,7 @@ public:
 			}else{
 				//sample random pos, the sample reflect the whole data set more or less
 				std::vector<int> sampled_pos;
-				int trials = 0;
+/*				int trials = 0;
 				for(int i = 0; i < SAMPLE_SIZE; i++){
 					int rand_pos = rand_num();
 					trials++;
@@ -173,20 +173,23 @@ public:
 				if(b_no_change && bfilter) return;
 				if(!bfilter) b_no_change = false;
 
-				/*
-				 //determine priority
-				 for(i=0; i<parent_.size_; i++){
-				 if(parent_.buckets_[i].v1 == defaultv) continue;
-				 V sum = ((IterateKernel<V1>*)parent.info_.iterkernel)->accumulate(&parent_.buckets_[i].v1, parent_.buckets_[i].v2);
-				 parent_.buckets_[i].priority = abs(sum - parent_.buckets_[i].v2);
-				 }
-				 */
-
+*/
+				for(int i = 0; i < parent_.size_; i++){
+					if(parent_.buckets_[i].in_use && pick_pred(i)){
+						sampled_pos.push_back(i);
+					}
+				}
+				int cut_index = parent_.entries_ * parent_.info_.schedule_portion;
+				if(sampled_pos.size() <= cut_index+1){
+					scheduled_pos=move(sampled_pos);
+				}else{
+				
 				//get the cut index, everything larger than the cut will be scheduled
 				sort(sampled_pos.begin(), sampled_pos.end(), compare_priority(parent_));
-				int cut_index = SAMPLE_SIZE * parent_.info_.schedule_portion;
+//				VLOG(0)<<cut_index;
 				V1 threshold = parent_.buckets_[sampled_pos[cut_index]].priority;
 				//V1 threshold = ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[sampled_pos[cut_index]].k, parent_.buckets_[sampled_pos[cut_index]].v1);
+//				sampled_pos.clear();
 
 				VLOG(2) << "cut index " << cut_index << " threshold " << threshold << " pos "
 									<< sampled_pos[cut_index] << " max "
@@ -194,7 +197,13 @@ public:
 
 				//Reserve parent_.size_*P instead of parent_.entries_*P because P is not correct portion
 				//When P is smaller than real portion, reserving parent_.entries_*P slot may lead to an resize()
-				scheduled_pos.reserve(parent_.size_*cut_index/SAMPLE_SIZE);
+				//scheduled_pos.reserve(parent_.size_*cut_index/SAMPLE_SIZE);
+				scheduled_pos.reserve(cut_index+5);
+				for(int i : sampled_pos){
+					if(parent_.buckets_[i].priority >=threshold)
+						scheduled_pos.push_back(i);
+				}
+				/*
 				if(cut_index == 0 || parent_.buckets_[sampled_pos[0]].priority == threshold){
 					//to avoid non eligible records
 					for(int i = 0; i < parent_.size_; i++){
@@ -212,6 +221,7 @@ public:
 							scheduled_pos.push_back(i);
 						}
 					}
+				} */
 				}
 			}
 
