@@ -40,7 +40,7 @@ def get_time_one_file(fn):
             total_t='%.3f' % float(m[1])
             #shard_t=m[2]
             res[idx]=total_t
-        return res if all(isinstance(v, str) for v in res) else None
+        return res if sum(isinstance(v, str) for v in res)>=2 else None
     return None
 
 def get_statistics(folder):
@@ -75,7 +75,7 @@ def main(folder, out_file, append):
             f.write('\n')
         for key, value in sorted(res.items()):
             line1='\t'.join(str(k) for k in key)
-            line2='\t'.join(value)
+            line2='\t'.join(str(v) for v in value)
             line=line1+'\t'+line2
             f.write(line)
             f.write('\n')
