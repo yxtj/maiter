@@ -6,6 +6,7 @@ if [ $# -lt 6 ]; then
 	echo '  <*-fdr> = the full path of the folders'
 	echo '  <delta-prefix> = the folder and name prefix for delta graphs, "-<part-id>" is added for each parts'
 	echo '  [portion]: (=1) the top portion for priority scheduling, 1 means Round-Robin'
+	echo '  [diff]: (=0) whether the priority is difference-based or value-based'
 	echo '  [alpha]: (=1) the weight for the bad changes'
 	echo '  [degree]: (=0) use degree in setting priority'
 	echo '  [snapshot]: (=1) termination checking interval, in seconds'
@@ -39,26 +40,30 @@ PORTION=1
 if [ $# -ge 7 ]; then
 	PORTION=$7
 fi
-ALPHA=1
+DIFF=0
 if [ $# -ge 8 ]; then
-	ALPHA=$8
+	DIFF=$8
+fi
+ALPHA=1
+if [ $# -ge 9 ]; then
+	ALPHA=$9
 fi
 DEGREE=0
-if [ $# -ge 9 ]; then
-	DEGREE=$9
+if [ $# -ge 10 ]; then
+	DEGREE=${10}
 fi
 SNAPSHOT=1
-if [ $# -ge 10 ]; then
-	SNAPSHOT=${10}
+if [ $# -ge 11 ]; then
+	SNAPSHOT=${11}
 fi
 
 VERBOSE_LVL=0
-if [ $# -ge 11 ]; then
-	VERBOSE_LVL=${11}
+if [ $# -ge 12 ]; then
+	VERBOSE_LVL=${12}
 fi
 HOSTFILE=../conf/maiter-cluster
-if [ $# -ge 12 ]; then
-	HOSTFILE=${12}
+if [ $# -ge 13 ]; then
+	HOSTFILE=${13}
 fi
 
 mkdir -p $RESULT_FDR
@@ -67,7 +72,7 @@ mkdir -p $RESULT_FDR
 
 ../maiter --hostfile=$HOSTFILE --runner=$ALGORITHM --workers=$WORKERS --num_nodes=$NODES\
   --graph_dir=$GRAPH_FDR --result_dir=$RESULT_FDR --init_dir=$INIT_FDR --delta_prefix=$DELTA_PRE\
-  --local_aggregate=$LOCAL_AGG --snapshot_interval=$SNAPSHOT --portion=$PORTION --weight_alpha=$ALPHA --priority_degree=$DEGREE\
-  --sleep_time=0.003 --termcheck_threshold=$TERMTHRESH --buftime=$BUFTIME --v=$VERBOSE_LVL
+  --local_aggregate=$LOCAL_AGG --portion=$PORTION --priority_diff=$DIFF --weight_alpha=$ALPHA --priority_degree=$DEGREE\
+  --snapshot_interval=$SNAPSHOT --sleep_time=0.003 --termcheck_threshold=$TERMTHRESH --buftime=$BUFTIME --v=$VERBOSE_LVL
 #  --checkpoint_type=$CP_TYPE --checkpoint_interval=$CP_TIME
 

@@ -3,15 +3,15 @@
 # k-range (close range between k-start and k-end)
 # top-portion, priority-alpha
 
-if [ $# -lt 16 ] || [ $# -gt 17 ] ; then
-	echo "Require 16~17 parameters but $# is given. Try to use \" \" arround ratios"
+if [ $# -lt 17 ] || [ $# -gt 18 ] ; then
+	echo "Require 17~18 parameters but $# is given. Try to use \" \" arround ratios"
 	echo "  1: algorithm, 2: #-parts, "
 	echo "  3: graph-folder, 4: initial-folder, 5: delta-folder, 6: result-folder, 7: log-folder, "
 	echo "  8: snapshot-interval, "
 	echo "  9: delta-ratios, 10: good-ratios, 11: edge-weight-ratios, "
 	echo "  12: k-start, 13: k-end, "
-	echo "  14: top-portions, 15: alphas, 16: priority-degree (1/0), "
-	echo "  17: n-parallel (=1)"
+	echo "  14: top-portions, 15: diff-value (1/0), 16: alphas, 17: priority-degree (1/0), "
+	echo "  18: n-parallel (=1)"
 	exit
 fi
 
@@ -40,12 +40,13 @@ K_END=${13}
 
 # run parameters
 PORTIONS=${14}
-ALPHAS=${15}
-DEGREE=${16}
+DIFF=${15}
+ALPHAS=${16}
+DEGREE=${17}
 
 N=1
-if [ $# -ge 17 ] && [ ! -z ${17// /} ]; then
-	N=${17}
+if [ $# -ge 18 ] && [ ! -z ${18// /} ]; then
+	N=${18}
 fi
 
 for dr in $DELTA_RATIOS; do #for cr in $CRT_RATIOS; do
@@ -76,7 +77,7 @@ for dr in $DELTA_RATIOS; do #for cr in $CRT_RATIOS; do
 			for po in $PORTIONS; do for al in $ALPHAS; do
 				echo "  calculating p=$po a=$al"
 				#echo 'Usage: <algorithm> <#-parts> <graph-fdr> <init-fdr> <delta-prefix> <result-fdr> [portion] [alpha] [snapshot] [verbose] [hostfile]'
-				./go-delta.sh $ALGORITHM $PARTS $GRAPH_FDR $INIT_FDR $delta_pre $temp_result_fdr $po $al $DEGREE $SNAPSHOT 0 2>$LOG_FDR/$log_name_prefix$po-$al &
+				./go-delta.sh $ALGORITHM $PARTS $GRAPH_FDR $INIT_FDR $delta_pre $temp_result_fdr $po $DIFF $al $DEGREE $SNAPSHOT 0 2>$LOG_FDR/$log_name_prefix$po-$al &
 				((i=i%N)); ((i++==0)) && wait
 			done; done
 			wait
