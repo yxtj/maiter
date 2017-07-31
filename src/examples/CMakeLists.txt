@@ -10,6 +10,7 @@ set(EXAMPLE_LIBS ${EXAMPLE_LIBS} util z lzo2 pthread rt)
 add_library(example 
             pagerank.cc
             jacobi.cc
+            markovchain.cc
             #adsorption.cc
             #katz.cc
             #simrank.cc
