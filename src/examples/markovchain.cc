@@ -26,7 +26,7 @@ struct MarkovChainIterateKernel: public IterateKernel<int, float, vector<Link> >
 
 		k = stoi(line.substr(0, pos));
 		++pos;
-
+		float sum = 0.0;
 		data.clear();
 		size_t spacepos;
 		while((spacepos = line.find(' ', pos)) != line.npos){
@@ -37,6 +37,9 @@ struct MarkovChainIterateKernel: public IterateKernel<int, float, vector<Link> >
 			data.push_back(to);
 			pos = spacepos + 1;
 		}
+		// normalize the distribution
+		for(auto& l : data)
+			l.weight /= sum;
 	}
 	void read_init(std::string& line, int& k, float& delta, float& value){
 		// format: "<key>\t<delta>:<value>"
