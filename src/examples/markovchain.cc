@@ -91,7 +91,11 @@ struct MarkovChainIterateKernel: public IterateKernel<int, float, vector<Link> >
 		return true;
 	}
 
-	void priority(float& pri, const float& value, const float& delta, const vector<int>& data){
+	void accumulate(float& a, const float& b){
+		a = a + b;
+	}
+
+	void priority(float& pri, const float& value, const float& delta, const vector<Link>& data){
 		// delta is d_v, value is v_i
 		if(FLAGS_priority_diff){
 			pri = delta;
