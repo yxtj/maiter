@@ -138,11 +138,6 @@ public:
 				};
 			}
 
-			//random number generator
-			std::mt19937 gen(std::chrono::system_clock::now().time_since_epoch().count());
-			std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
-			auto rand_num = [&](){return dist(gen);};
-
 			if(parent_.entries_ <= SAMPLE_SIZE){
 				//if table size is less than the sample set size, schedule them all
 				scheduled_pos.reserve(parent_.entries_);
@@ -157,7 +152,12 @@ public:
 			}else{
 				//sample random pos, the sample reflect the whole data set more or less
 				std::vector<int> sampled_pos;
-/*				int trials = 0;
+/*
+				//random number generator
+				std::mt19937 gen(std::chrono::system_clock::now().time_since_epoch().count());
+				std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
+				auto rand_num = [&](){return dist(gen);};
+				int trials = 0;
 				for(int i = 0; i < SAMPLE_SIZE; i++){
 					int rand_pos = rand_num();
 					trials++;
@@ -183,45 +183,40 @@ public:
 				if(sampled_pos.size() <= cut_index+1){
 					scheduled_pos=move(sampled_pos);
 				}else{
-				
-				//get the cut index, everything larger than the cut will be scheduled
-				sort(sampled_pos.begin(), sampled_pos.end(), compare_priority(parent_));
-//				VLOG(0)<<cut_index;
-				V1 threshold = parent_.buckets_[sampled_pos[cut_index]].priority;
-				//V1 threshold = ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[sampled_pos[cut_index]].k, parent_.buckets_[sampled_pos[cut_index]].v1);
-//				sampled_pos.clear();
+					
+					scheduled_pos = move(sampled_pos);
+					partial_sort(scheduled_pos.begin(), scheduled_pos.begin()+(cut_index+1), scheduled_pos.end(), compare_priority(parent_));
+					scheduled_pos.erase(scheduled_pos.bein()+cnt_index, scheduled_pos.end());
 
-				VLOG(2) << "cut index " << cut_index << " threshold " << threshold << " pos "
-									<< sampled_pos[cut_index] << " max "
-									<< parent_.buckets_[sampled_pos[0]].v1;
+					/*
+					//get the cut index, everything larger than the cut will be scheduled
+					sort(sampled_pos.begin(), sampled_pos.end(), compare_priority(parent_));
+					V1 threshold = parent_.buckets_[sampled_pos[cut_index]].priority;
+					sampled_pos.clear();					
+					VLOG(2) << "cut index " << cut_index << " threshold " << threshold << " pos "
+										<< sampled_pos[cut_index] << " max "
+										<< parent_.buckets_[sampled_pos[0]].v1;
+					//Reserve parent_.size_*P instead of parent_.entries_*P because P is not correct portion
+					//When P is smaller than real portion, reserving parent_.entries_*P slot may lead to an resize()
+					//scheduled_pos.reserve(parent_.size_*cut_index/SAMPLE_SIZE);
+					if(cut_index == 0 || parent_.buckets_[sampled_pos[0]].priority == threshold){
+						//to avoid non eligible records
+						for(int i = 0; i < parent_.size_; i++){
+							if(!parent_.buckets_[i].in_use || !pick_pred(i)) continue;
 
-				//Reserve parent_.size_*P instead of parent_.entries_*P because P is not correct portion
-				//When P is smaller than real portion, reserving parent_.entries_*P slot may lead to an resize()
-				//scheduled_pos.reserve(parent_.size_*cut_index/SAMPLE_SIZE);
-				scheduled_pos.reserve(cut_index+5);
-				for(int i : sampled_pos){
-					if(parent_.buckets_[i].priority >=threshold)
-						scheduled_pos.push_back(i);
-				}
-				/*
-				if(cut_index == 0 || parent_.buckets_[sampled_pos[0]].priority == threshold){
-					//to avoid non eligible records
-					for(int i = 0; i < parent_.size_; i++){
-						if(!parent_.buckets_[i].in_use || !pick_pred(i)) continue;
-
-						if(parent_.buckets_[i].priority >= threshold){// >=
-							scheduled_pos.push_back(i);
+							if(parent_.buckets_[i].priority >= threshold){// >=
+								scheduled_pos.push_back(i);
+							}
 						}
-					}
-				}else{
-					for(int i = 0; i < parent_.size_; i++){
-						if(!parent_.buckets_[i].in_use || !pick_pred(i)) continue;
+					}else{
+						for(int i = 0; i < parent_.size_; i++){
+							if(!parent_.buckets_[i].in_use || !pick_pred(i)) continue;
 
-						if(parent_.buckets_[i].priority > threshold){// >
-							scheduled_pos.push_back(i);
+							if(parent_.buckets_[i].priority > threshold){// >
+								scheduled_pos.push_back(i);
+							}
 						}
-					}
-				} */
+					} */
 				}
 			}
 
