@@ -5,7 +5,7 @@ CPPFLAGS += -std=c++11
 DBGFLAGS = $(CPPFLAGS) -g
 RELFLAGS = $(CPPFLAGS) -O2
 
-EXE = sssp sswp pagerank concomp
+EXE = sssp sswp pagerank concomp markovchain
 
 #export CXX CC CFLAGS CPPFLAGS
 
