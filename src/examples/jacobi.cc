@@ -33,9 +33,11 @@ struct JacobiIterateKernel: public IterateKernel<int, float, vector<Link> > {
 			size_t cut = line.find(',', pos + 1);
 			int node=stoi(line.substr(pos, cut - pos));
 			float weight=stof(line.substr(cut + 1, spacepos - cut - 1));
+			pos = spacepos + 1;
+			if(node == k)
+				continue;
 			Link to(node, weight);
 			data.push_back(to);
-			pos = spacepos + 1;
 		}
 	}
 	void read_init(std::string& line, int& k, float& delta, float& value){
@@ -80,7 +82,7 @@ struct JacobiIterateKernel: public IterateKernel<int, float, vector<Link> > {
 	}
 
 	void init_c(const int& k, float& delta, vector<Link>&){
-        delta = -0.2; // -bi/Aii
+        delta = 0.2; // bi/Aii
 	}
 
 	void init_v(const int& k, float& value, vector<Link>&){
@@ -110,13 +112,13 @@ struct JacobiIterateKernel: public IterateKernel<int, float, vector<Link> > {
 		auto it=find_if(data.begin(), data.end(), [&](const Link& l){
 			return l.end == dst;
 		});
-		return it->weight;
+		return -it->weight*delta;
 	}
 
 	void g_func(const int& k, const float& delta, const float& value, const vector<Link>& data,
 			vector<pair<int, float> >* output){
 		for(vector<Link>::const_iterator it = data.begin(); it != data.end(); it++){
-			output->push_back(make_pair(it->end, it->weight));
+			output->push_back(make_pair(it->end, -it->weight*delta));
 		}
 	}
 

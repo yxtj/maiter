@@ -186,7 +186,7 @@ public:
 					
 					scheduled_pos = move(sampled_pos);
 					partial_sort(scheduled_pos.begin(), scheduled_pos.begin()+(cut_index+1), scheduled_pos.end(), compare_priority(parent_));
-					scheduled_pos.erase(scheduled_pos.begin()+cnt_index, scheduled_pos.end());
+					scheduled_pos.erase(scheduled_pos.begin()+cut_index, scheduled_pos.end());
 
 					/*
 					//get the cut index, everything larger than the cut will be scheduled
