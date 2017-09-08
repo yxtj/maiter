@@ -49,7 +49,7 @@ vector<int> cal_cc(const vector<vector<int> >& g) {
 int main(int argc, char* argv[]){
 	if(argc<=3){
 		cerr<<"Calculate Connected Component."<<endl;
-		cerr<<"Usage: <#parts> <in-folder> <out-folder> [source] [algorithm]\n"
+		cerr<<"Usage: <#parts> <in-folder> <out-folder>\n"
 			<<"  <in-folder>: input file prefix, file name: 'part<id>' is automatically used\n"
 			<<"  <out-folder>: output file prefix, file name 'part-<id>' is automatically used"
 			<<endl;

@@ -138,8 +138,7 @@ int main(int argc, char* argv[]){
 	bool get_cedge=false;
 	if(argc>5){
 		string opt=argv[5];
-		if(opt=="1" || opt=="y" || opt=="t" || opt=="yes" || opt=="true")
-			get_cedge=true;
+		get_cedge=(opt=="1" || opt=="y" || opt=="t" || opt=="yes" || opt=="true");
 	}
 	string method="spfa";
 	if(argc>6){
