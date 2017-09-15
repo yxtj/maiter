@@ -191,16 +191,18 @@ void Init(int argc, char** argv){
 	// mpirun to start ourselves up.
 	if(!getenv("OMPI_UNIVERSE_SIZE")){
 		string cmd = StringPrintf("mpirun "
-				" -hostfile \"%s\""
-				" -bycore"
-				" -nooversubscribe"
-				" -n %d"
-				" %s"
-				" --log_prefix=true ",
-				FLAGS_hostfile.c_str(),
-				FLAGS_workers,
-				JoinString(&argv[0], &argv[argc]).c_str()
-				);
+			" -hostfile \"%s\""
+//			" -bycore"
+//			" -mca btl_tcp_if_include 192.168.0.0/24" // used to select network when multiple networks are configured
+			" -nooversubscribe"
+			" -n %d"
+			" %s"
+//			" --log_prefix=true "
+			,
+			FLAGS_hostfile.c_str(),
+			FLAGS_workers,
+			JoinString(&argv[0], &argv[argc]).c_str()
+			);
 
 		LOG(INFO)<< "Invoking MPI..." << cmd;
 		system(cmd.c_str());
