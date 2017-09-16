@@ -197,7 +197,7 @@ void Init(int argc, char** argv){
 			" -nooversubscribe"
 			" -n %d"
 			" %s"
-//			" --log_prefix=true "
+			" --log_prefix=true "
 			,
 			FLAGS_hostfile.c_str(),
 			FLAGS_workers,

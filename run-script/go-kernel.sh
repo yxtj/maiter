@@ -1,5 +1,5 @@
-if [ $# -lt 3 ] || [ $# -gt 10 ] ; then
-	echo 'Usage: <algorithm> <prefix> <graph-fdr> [delta-prefix] [portion] [diff] [alpha] [degree] [snapshot] [verbose] [hostfile]'
+if [ $# -lt 3 ] || [ $# -gt 12 ] ; then
+	echo 'Usage: <algorithm> <prefix> <graph-fdr> [delta-prefix] [portion] [diff] [alpha] [degree] [snapshot] [buftime] [verbose] [hostfile]'
 	echo '  <algorithm>: the algorithm to run'
 	echo '  <graph-fdf>: should follow the format "xxx-n", where "n" is the number of parts'
 	echo '  graph : <prefix>/input/<graph-fdr>'
@@ -11,6 +11,7 @@ if [ $# -lt 3 ] || [ $# -gt 10 ] ; then
 	echo '  [alpha]: (=1) the weight for the bad changes'
 	echo '  [degree]: (=0) use degree in setting priority'
 	echo '  [snapshot]: (=1) termination checking interval, in seconds'
+	echo '  [buftime]: (=0.03) time for buffering outgoing messages'
 	echo '  [verbose]: (=0) verbose level, the higher the more verbose'
 	echo '  [hostfile]: (=../conf/maiter-cluster) the hostfile for MPI'
 	exit
@@ -45,7 +46,6 @@ fi
 
 NODES=100
 TERMTHRESH=0.000000001
-BUFTIME=0.003
 CP_TYPE=CP_NONE
 CP_TIME=5
 
@@ -69,13 +69,17 @@ SNAPSHOT=1
 if [ $# -ge 9 ] && [ ! -z ${9// /} ]; then
 	SNAPSHOT=$9
 fi
-VERBOSE_LVL=0
+BUFTIME=0.003
 if [ $# -ge 10 ] && [ ! -z ${10// /} ]; then
-	VERBOSE_LVL=${10}
+	BUFTIME=${10}
+fi
+VERBOSE_LVL=0
+if [ $# -ge 11 ] && [ ! -z ${11// /} ]; then
+	VERBOSE_LVL=${11}
 fi
 HOSTFILE=../conf/maiter-cluster
-if [ $# -ge 11 ] && [ ! -z ${11// /} ]; then
-	HOSTFILE=${11}
+if [ $# -ge 12 ] && [ ! -z ${12// /} ]; then
+	HOSTFILE=${12}
 fi
 
 mkdir -p $RESULT
