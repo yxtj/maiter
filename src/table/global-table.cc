@@ -106,6 +106,8 @@ MutableGlobalTableBase::MutableGlobalTableBase(){
 
 	bufmsg=1;
 	buftime=min(FLAGS_buftime, FLAGS_snapshot_interval/4);
+
+	time_serialize = 0.0;
 }
 
 void MutableGlobalTableBase::resetProcessMarker(){
@@ -245,6 +247,7 @@ void MutableGlobalTable::SendUpdates(){
 	lock_guard<recursive_mutex> lg(get_mutex());
 	// prepare
 	sending_=true;
+	Timer tmr;
 	// automatically reset processing to false when this function exits
 	shared_ptr<bool> guard_process(&sending_, [](bool* p){
 		*p=false;
@@ -264,6 +267,7 @@ void MutableGlobalTable::SendUpdates(){
 		helper()->realSendUpdates(owner(i), put);
 		put.clear_kv_data();
 	}
+	time_serialize += tmr.elapsed();
 	// reset
 	pending_send_ = 0;
 }

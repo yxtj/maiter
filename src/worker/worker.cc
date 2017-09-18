@@ -387,6 +387,14 @@ bool StartWorker(const ConfigData& conf){
 	w.Run();
 	w.merge_net_stats();
 	Stats& s = w.get_stats();
+
+	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i) {
+		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+		if(t) {
+			s["serialize_time"] = t->time_serialize;
+		}
+	}
 	LOG(INFO) << "Worker stats: \n" << s.ToString("[W"+to_string(conf.worker_id())+"]", true);
 	return true;
 }

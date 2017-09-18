@@ -111,6 +111,8 @@ public:
 	virtual void swap(GlobalTableBase *b) = 0;
 	virtual void local_swap(GlobalTableBase *b) = 0;
 
+	double time_serialize;
+
 protected:
 	bool allow2Process_ = true;
 	bool processing_ = false;
@@ -123,6 +125,7 @@ protected:
 
 	int64_t bufmsg;	//updated at InitStateTable with (state-table-size * bufmsg_portion)
 	double buftime; //initialized in the constructor with min(FLAGS_buftime, FLAGS_snapshot_interval/4)
+
 };
 
 class GlobalTable: virtual public GlobalTableBase{
