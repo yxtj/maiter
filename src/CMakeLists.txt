@@ -17,7 +17,7 @@ include(CheckFunctionExists)
 #find_package(SDL)
 #find_package(Boost REQUIRED)
 
-check_include_file_cxx("google/protobuf/descriptor.h" HAVE_PROTOBUF)
+#check_include_file_cxx("google/protobuf/descriptor.h" HAVE_PROTOBUF)
 
 check_include_file("/usr/include/lzo/lzo1x.h" HAVE_LZO1X_H)
 check_include_file("/usr/include/libunwind.h"  HAVE_LIBUNWIND_H)
@@ -27,6 +27,7 @@ find_program(HAVE_MPICC "mpic++")
 
 find_library(HAVE_LIBUNWIND unwind)
 find_library(HAVE_PROTOBUF protobuf)
+#find_library(protobuf REQUIRED)
 
 if (NOT HAVE_LZO1X_H)
   message(FATAL_ERROR "Required lzo header file not found.")

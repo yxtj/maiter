@@ -1,2 +1,4 @@
 add_library(kernel 
-            kernel.cc DSMKernel.cc)
+	DSMKernel.h kernel.h
+	maiter-kernel.h
+	DSMKernel.cc kernel.cc)

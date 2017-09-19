@@ -1,4 +1,7 @@
 add_library(master
+	master.h
+	run-descriptor.h
+	worker-handle.h
 		master.cc
 		master2.cc
 		master_checkpoint.cc
