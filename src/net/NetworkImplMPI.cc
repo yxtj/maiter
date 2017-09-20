@@ -12,7 +12,7 @@
 
 using namespace std;
 
-DECLARE_string(ratio);
+DECLARE_string(net_ratio);
 
 namespace dsm {
 
@@ -46,7 +46,7 @@ NetworkImplMPI::NetworkImplMPI(): world(nullptr),id_(-1),size_(0){
 
 bool NetworkImplMPI::parseRatio()
 {
-	string s = FLAGS_ratio;
+	string s = FLAGS_net_ratio;
 	for(size_t i = 0; i < s.size(); ++i) {
 		if(s[i] >= 'A' && s[i] <= 'Z')
 			s[i] += 'a' - 'A';

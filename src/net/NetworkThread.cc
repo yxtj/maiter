@@ -9,6 +9,7 @@
 #include <chrono>
 
 DECLARE_double(sleep_time);
+DECLARE_double(net_delay_time);
 
 using namespace std;
 
@@ -81,6 +82,7 @@ void NetworkThread::Run(){
 			stats["received type." + to_string(hdr.type)] += 1;
 
 			receive_buffer.push_back(make_pair(move(data),TaskBase{hdr.src_dst, hdr.type}));
+			receive_time.push_back(Now());
 			idle=false;
 		}
 		//clear useless send buffer
@@ -124,10 +126,13 @@ bool NetworkThread::checkReceiveQueue(std::string& data, TaskBase& info){
 	if(!receive_buffer.empty()){
 		lock_guard<recursive_mutex> sl(rec_lock);
 		if(receive_buffer.empty()) return false;
+		if(Now() - receive_time.front() < FLAGS_net_delay_time)
+			return false;
 
 		tie(data,info)=receive_buffer.front();
 
 		receive_buffer.pop_front();
+		receive_time.pop_front();
 		return true;
 	}
 	return false;
@@ -153,7 +158,7 @@ bool NetworkThread::TryReadAny(string& data, int *srcRet, int *typeRet){
 
 // Enqueue the given request to pending buffer for transmission.
 inline int NetworkThread::Send(Task *req){
-	VLOG_IF(2,req->type!=4)<<"Sending(t) from "<<id()<<" to "<<req->src_dst<<", type "<<req->type;
+//	VLOG_IF(2,req->type!=4)<<"Sending(t) from "<<id()<<" to "<<req->src_dst<<", type "<<req->type;
 	int size = req->payload.size();
 	stats["sent bytes"] += size;
 	stats["sent type." + to_string(req->type)] += 1;
