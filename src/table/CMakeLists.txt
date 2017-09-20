@@ -1,6 +1,6 @@
 set(HEADERS
 	table.h
-	table_itertor.h
+	table_iterator.h
 	table-coder.h
 	table-create.h
 	table-interfaces.h
@@ -15,7 +15,7 @@ set(HEADERS
 	typed-global-table.hpp
 )
 set(SOURCES
-	ableDescriptor.cc
+	TableDescriptor.cc
 	local-table.cc
 	global-table.cc
 	table-registry.cc
