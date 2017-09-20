@@ -2,8 +2,8 @@ set(HEADERS
 	common.h
 	file.h
 	hash.h
-	mashal.hpp
-	mashalled_map.hpp
+	marshal.hpp
+	marshalled_map.hpp
 #	noncopyable.h
 	stringpiece.h
 	timer.h
