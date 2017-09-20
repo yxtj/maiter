@@ -53,6 +53,7 @@ public:
 	std::vector<const Task*> unconfirmedTask() const;
 private:
 	NetworkImplMPI();
+	bool parseRatio();
 private:
 	MPI::Intracomm world;
 	int id_;
@@ -65,6 +66,8 @@ private:
 
 	std::deque<TaskSendMPI> unconfirmed_send_buffer;
 	mutable std::recursive_mutex us_lock;
+
+	double ratio; //bytes per second
 };
 
 inline int NetworkImplMPI::id() const{

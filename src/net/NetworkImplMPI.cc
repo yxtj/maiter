@@ -12,6 +12,8 @@
 
 using namespace std;
 
+DECLARE_string(ratio);
+
 namespace dsm {
 
 static void CrashOnMPIError(MPI_Comm * c, int * errorCode, ...){
@@ -28,6 +30,9 @@ NetworkImplMPI::NetworkImplMPI(): world(nullptr),id_(-1),size_(0){
 	if(!getenv("OMPI_COMM_WORLD_RANK")){
 		LOG(FATAL)<< "OpenMPI is not running!";
 	}
+	if(!parseRatio()) {
+		LOG(FATAL) << "Cannot parse sending ratio!";
+	}
 	MPI::Init_thread(MPI_THREAD_SINGLE);
 
 	MPI_Errhandler handler;
@@ -37,6 +42,40 @@ NetworkImplMPI::NetworkImplMPI(): world(nullptr),id_(-1),size_(0){
 	world = MPI::COMM_WORLD;
 	id_ = world.Get_rank();
 	size_=world.Get_size();
+}
+
+bool NetworkImplMPI::parseRatio()
+{
+	string s = FLAGS_ratio;
+	for(size_t i = 0; i < s.size(); ++i) {
+		if(s[i] >= 'A' && s[i] <= 'Z')
+			s[i] += 'a' - 'A';
+	}
+	bool flag = true;
+	size_t scale = 1;
+	if(s.size() < 2) {
+		flag = false;
+	} else if(s == "inf") {
+		ratio = numeric_limits<decltype(ratio)>::max();
+	} else if(s.back()=='k' || s.back()=='m' || s.back()=='g') {
+		if(s.back() == 'k')
+			scale = 1000;
+		else if(s.back() == 'm')
+			scale = 1000 * 1000;
+		else
+			scale = 1000 * 1000 * 1000;
+		s = s.substr(0, s.size() - 1);
+	} else {
+		try {
+			ratio = stod(s.substr(0, s.size() - 1));
+		} catch(...) {
+			flag = false;
+		}
+	}
+	if(flag && scale != 1) {
+		ratio *= scale;
+	}
+	return flag;
 }
 
 NetworkImplMPI* self=nullptr;
@@ -86,10 +125,17 @@ std::string NetworkImplMPI::receive(int dst, int type, const int nBytes){
 void NetworkImplMPI::send(const Task* t){
 //	VLOG_IF(2,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
 	lock_guard<recursive_mutex> sl(us_lock);
-	TaskSendMPI tm{t,
+/*	TaskSendMPI tm{t,
 		world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type)};
 //		MPI::Request()};
 	unconfirmed_send_buffer.push_back(tm);
+	*/
+	double ts = t->payload.size() / ratio;
+	Timer tmr;
+	world.Send(t->payload.data(), t->payload.size(), MPI::BYTE, t->src_dst, t->type);
+	double tp = ts - tmr.elapsed();
+	if(tp > 0.0)
+		Sleep(tp);
 }
 //void NetworkImplMPI::send(const int dst, const int type, const std::string& data){
 //	send(new Task(dst,type,data));
@@ -116,6 +162,8 @@ void NetworkImplMPI::broadcast(const Task* t){
 // State checking
 ////
 size_t NetworkImplMPI::collectFinishedSend(){
+	return 0;
+
 	if(unconfirmed_send_buffer.empty())
 		return 0;
 	//XXX: this lock may lower down performance significantly

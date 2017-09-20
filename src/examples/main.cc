@@ -8,6 +8,9 @@ using namespace std;
 DEFINE_string(runner, "", "");
 DEFINE_int32(taskid,0,"unique id for distinguishing different task");
 
+DEFINE_string(ratio, "inf", "maximum sending ratio on one worker (bytes per seconds). "
+	"supports: inf, K (1000), M (10^6), G (10^9)");
+
 DEFINE_int32(shards, 10, "");
 DEFINE_int32(iterations, 10, "");
 DEFINE_int32(block_size, 10, "");
