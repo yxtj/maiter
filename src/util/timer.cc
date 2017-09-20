@@ -8,6 +8,7 @@
 #include <time.h>
 #include <cstdio>
 #include <chrono>
+#include <thread>
 
 namespace dsm{
 
@@ -47,4 +48,9 @@ double get_processor_frequency() {
 }
 */
 
+void Sleep(const double time)
+{
+	this_thread::sleep_for(duration<double>(time));
 }
+
+} // namespace

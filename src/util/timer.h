@@ -12,6 +12,8 @@ double Now();
 
 //double get_processor_frequency();
 
+void Sleep(const double time);
+
 class Timer {
 public:
   Timer() {
