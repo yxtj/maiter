@@ -29,6 +29,8 @@ Worker::Worker(const ConfigData &c){
 
 	config_.CopyFrom(c);
 
+	breakMessageProcess=false;
+
 	peers_.resize(config_.num_workers());
 	peers_[id()].net_id=network_->id();
 	nid2wid.reserve(config_.num_workers()+1);
@@ -88,48 +90,22 @@ void Worker::MsgLoop(){
 	info.dest=network_->id();
 	unsigned cnt_idle_loop=0;
 	static constexpr unsigned SLEEP_CNT=256;
-//	double t1=0,t2=0;
 	while(running_){
 		bool idle=true;
-//		Timer tmr;
 		int cnt=200;
 		while(--cnt>=0 && network_->TryReadAny(data, &info.source, &info.tag)){
-//			DLOG_IF(INFO,true || info.tag!=4 || driver.queSize()%1000==100)<<"get pkg from "<<info.source<<" to "<<network_->id()
-//					<<", type "<<info.tag<<", queue length "<<driver.queSize()<<", current paused="<<pause_pop_msg_;
 			driver.pushData(data,info);
 			idle=false;
 		}
-//		t1=tmr.elapsed();
-//		static int count=0;
-//		static double time=0;
-//		PERIODIC(2, {
-//			DLOG(INFO)<<"receiving time: "<<t1<<"\tprocessing time: "<<t2
-//				<<"\tavg proc. time: "<<(count==0?0:t2/count)<<"\t# of pkt: "<<count
-//				<<"\nStates: process: "<<st_will_process_<<"\tsend: "<<st_will_send_<<"\tcheckpoint: "<<st_checkpointing_
-//				<<"\ndriver queue: "<<driver.queSize()
-//				<<"\tunpicked_pkgs queue: "<<network_->unpicked_pkgs()
-//				<<"\tpending_pkgs queue: "<<network_->pending_pkgs();
-//			t2=0;
-//			count=0;
-//			time=0;
-//		});
-//		DLOG_IF_EVERY_N(INFO,driver.queSize()>1000,10)<<"driver queue length: "<<driver.queSize();
-//		DLOG_IF_EVERY_N(INFO,network_->unpicked_pkgs()>1000,10)<<"unpicked_pkgs queue length: "<<network_->unpicked_pkgs();
-//		DLOG_IF_EVERY_N(INFO,network_->pending_pkgs()>1000,10)<<"pending_pkgs queue length: "<<network_->pending_pkgs();
-//		tmr.Reset();
 		while(!pause_pop_msg_ && !driver.empty()){
-//			int v=driver.back().second.tag;
-
 			driver.popData();
 			idle=false;
 
-//			PERIODIC(2,{
-//				VLOG(1)<<"process time: "<<t.elapsed()<<" for type "<<v;
-//			});
-//			DLOG_IF_EVERY_N(INFO,v==MTYPE_PUT_REQUEST,200)<<"merge data: "<<t.elapsed();
-//			++count;
+			if(breakMessageProcess){
+				breakMessageProcess=false;
+				break;
+			}
 		}
-//		t2=tmr.elapsed();
 		if(idle && cnt_idle_loop++%SLEEP_CNT==0)
 			Sleep();
 	}
