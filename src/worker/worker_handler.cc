@@ -86,7 +86,8 @@ void Worker::HandleAddInNeighbor(const string& d, const RPCInfo& info){
 		string d2=d;
 		RPCInfo i2=info;
 		VLOG(2)<<"delay the processing of an in-neighbor message, wait until local table initialized.";
-		this_thread::sleep_for(chrono::duration<double>(0.2));
+		//this_thread::sleep_for(chrono::duration<double>(0.2));
+		breakMessageProcess=true;
 		driver.pushData(d2, i2);
 		return;
 	}

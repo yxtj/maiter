@@ -199,6 +199,8 @@ private:
 	bool pause_pop_msg_;
 	ReplyHandler rph;
 
+	bool breakMessageProcess;
+
 	// XXX: evolving graph
 	SyncUnit su_neigh;
 };
