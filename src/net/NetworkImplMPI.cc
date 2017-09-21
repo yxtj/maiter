@@ -111,6 +111,7 @@ std::string NetworkImplMPI::receive(const TaskHeader* hdr){
 //	VLOG_IF(2,hdr->type!=4)<<"Receive(m) from "<<hdr->src_dst<<" to "<<id()<<", type "<<hdr->type;
 	string data(hdr->nBytes,'\0');
 	world.Recv(const_cast<char*>(data.data()), hdr->nBytes, MPI::BYTE, hdr->src_dst, hdr->type);
+	VLOG(1)<<"W"<<id()<<" receives with type: "<<hdr->type<<" from "<<hdr->src_dst;
 	return data;
 }
 std::string NetworkImplMPI::receive(int dst, int type, const int nBytes){
@@ -129,20 +130,21 @@ void NetworkImplMPI::send(const Task* t){
 		world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type)};
 //		MPI::Request()};
 	unconfirmed_send_buffer.push_back(tm);
-	*/
+	return;
+*/
 	double ts = t->payload.size() / ratio;
+	VLOG(1)<<"W"<<id()<<" sends with type: "<<t->type<<" to "<<t->src_dst;
 	Timer tmr;
-	world.Send(t->payload.data(), t->payload.size(), MPI::BYTE, t->src_dst, t->type);
+//	world.Send(t->payload.data(), t->payload.size(), MPI::BYTE, t->src_dst, t->type);
+	MPI::Request req = world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type);
+	req.Wait();
+	//while(!req.Test())	Sleep(0.001);
+	delete t;
 	double tp = ts - tmr.elapsed();
 	if(tp > 0.0)
 		Sleep(tp);
+
 }
-//void NetworkImplMPI::send(const int dst, const int type, const std::string& data){
-//	send(new Task(dst,type,data));
-//}
-//void NetworkImplMPI::send(const int dst, const int type, std::string&& data){
-//	send(new Task(dst,type,move(data)));
-//}
 
 void NetworkImplMPI::broadcast(const Task* t){
 	//MPI::IBcast does not support tag
@@ -162,6 +164,7 @@ void NetworkImplMPI::broadcast(const Task* t){
 // State checking
 ////
 size_t NetworkImplMPI::collectFinishedSend(){
+//	unconfirmed_send_buffer.clear();
 	return 0;
 
 	if(unconfirmed_send_buffer.empty())

@@ -20,12 +20,12 @@ static inline void Sleep(){
 }
 
 NetworkThread::NetworkThread() :
-		running(false), done(false), net(nullptr){
+		running(false), done_s(false), done_r(false), net(nullptr){
 	net = NetworkImplMPI::GetInstance();
 
 	running = true;
-	t_ = thread(&NetworkThread::Run, this);
-	t_.detach();
+	thd_s = thread(&NetworkThread::_run_send, this);
+	thd_r = thread(&NetworkThread::_run_recv, this);
 }
 
 int NetworkThread::id() const{
@@ -54,9 +54,6 @@ int64_t NetworkThread::pending_bytes() const{
 	return t;
 }
 
-//size_t NetworkThread::unpicked_pkgs() const{
-//	return receive_buffer.size();
-//}
 int64_t NetworkThread::unpicked_bytes() const{
 	int64_t t=0;
 	lock_guard<recursive_mutex> rl(rec_lock);
@@ -65,7 +62,7 @@ int64_t NetworkThread::unpicked_bytes() const{
 	}
 	return t;
 }
-
+/*
 void NetworkThread::Run(){
 	TaskHeader hdr;
 	unsigned cnt_idle_loop=0;
@@ -88,7 +85,7 @@ void NetworkThread::Run(){
 		//clear useless send buffer
 		net->collectFinishedSend();
 		//send
-		/* bunch send: */
+		// bunch send:
 		if(!pause_ && !pending_sends_->empty()){
 			//two-buffers-swapping implementation for better performance
 			vector<Task*>* pv=pending_sends_;
@@ -106,6 +103,53 @@ void NetworkThread::Run(){
 		}
 	}
 	done=true;
+}*/
+void NetworkThread::_run_send(){
+	unsigned cnt_idle_loop=0;
+	static constexpr unsigned SLEEP_CNT=32;
+	done_r=false;
+	while(running){
+		//clear useless send buffer
+		net->collectFinishedSend();
+		//send (bunch)
+		if(!pause_ && !pending_sends_->empty()){
+			//two-buffers-swapping implementation for better performance
+			vector<Task*>* pv=pending_sends_;
+			{
+				lock_guard<recursive_mutex> sl(ps_lock);
+				pending_sends_=&ps_buffer_[ps_idx_++%2];
+			}
+			auto end_it=pv->end();
+			for(auto it = pv->begin(); it != end_it; ++it)
+				net->send(*it);
+			pv->clear();
+		}else if(++cnt_idle_loop%SLEEP_CNT==0)
+			Sleep();
+	}
+	done_r=true;
+}
+void NetworkThread::_run_recv(){
+	TaskHeader hdr;
+	unsigned cnt_idle_loop=0;
+	static constexpr unsigned SLEEP_CNT=32;
+	done_s=false;
+	while(running){
+		//receive
+		LOG_EVERY_N(INFO, 1000)<<"W"<<id()<<" R";
+		if(!pause_ && net->probe(&hdr)){
+			string data = net->receive(&hdr);
+			VLOG_IF(2,hdr.type!=4)<<"Receive(t) from "<<hdr.src_dst<<" to "<<id()<<", type "<<hdr.type;
+			lock_guard<recursive_mutex> sl(rec_lock);
+			stats["received bytes"] += hdr.nBytes;
+			stats["received type." + to_string(hdr.type)] += 1;
+
+			receive_buffer.push_back(make_pair(move(data),TaskBase{hdr.src_dst, hdr.type}));
+			receive_time.push_back(Now());
+			VLOG(1)<<"W"<<id()<<" enqueue with type: "<<hdr.type<<" from "<<hdr.src_dst;
+		}else if(++cnt_idle_loop%SLEEP_CNT==0)
+			Sleep();
+	}
+	done_s=true;
 }
 
 bool NetworkThread::checkReceiveQueue(std::string& data, TaskBase& info){
@@ -148,9 +192,10 @@ void NetworkThread::ReadAny(string& data, int *srcRet, int *typeRet){
 bool NetworkThread::TryReadAny(string& data, int *srcRet, int *typeRet){
 	TaskBase info;
 	if(checkReceiveQueue(data,info)){
-		VLOG_IF(2,info.type!=4)<<"Receive(f) from "<<info.src_dst<<" to "<<id()<<", type "<<info.type;
+//		VLOG_IF(2,info.type!=4)<<"Receive(f) from "<<info.src_dst<<" to "<<id()<<", type "<<info.type;
 		if(srcRet) *srcRet = info.src_dst;
 		if(typeRet) *typeRet = info.type;
+		VLOG(1)<<"W"<<id()<<" fetches with type: "<<info.type<<" from "<<info.src_dst;
 		return true;
 	}
 	return false;
@@ -158,13 +203,13 @@ bool NetworkThread::TryReadAny(string& data, int *srcRet, int *typeRet){
 
 // Enqueue the given request to pending buffer for transmission.
 inline int NetworkThread::Send(Task *req){
+	//return DSend(req);
+
 //	VLOG_IF(2,req->type!=4)<<"Sending(t) from "<<id()<<" to "<<req->src_dst<<", type "<<req->type;
 	int size = req->payload.size();
 	stats["sent bytes"] += size;
 	stats["sent type." + to_string(req->type)] += 1;
-//	Timer t;
 	lock_guard<recursive_mutex> sl(ps_lock);
-//	DLOG_IF(INFO,t.elapsed()>0.005)<<"Sending(l) from "<<id()<<" to "<<req->src_dst<<", type "<<req->type<<", lock time="<<t.elapsed();
 	pending_sends_->push_back(req);
 	return size;
 }
@@ -210,9 +255,11 @@ void NetworkThread::Shutdown(){
 		Flush();	//finish all the sending
 		running = false;
 		//wait for Run() to exit
-		while(!done){
+		while(!done_s || !done_r){
 			Sleep();
 		}
+		thd_s.join();
+		thd_r.join();
 		net=nullptr;
 		NetworkImplMPI::Shutdown();
 	}
