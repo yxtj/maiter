@@ -12,6 +12,8 @@
 
 using namespace std;
 
+DECLARE_string(net_ratio);
+
 namespace dsm {
 
 static void CrashOnMPIError(MPI_Comm * c, int * errorCode, ...){
@@ -28,6 +30,10 @@ NetworkImplMPI::NetworkImplMPI(): world(nullptr),id_(-1),size_(0){
 	if(!getenv("OMPI_COMM_WORLD_RANK")){
 		LOG(FATAL)<< "OpenMPI is not running!";
 	}
+	if(!parseRatio()) {
+		LOG(FATAL) << "Cannot parse sending ratio!";
+	}
+	DVLOG(1)<<"ratio="<<ratio;
 	MPI::Init_thread(MPI_THREAD_SINGLE);
 
 	MPI_Errhandler handler;
@@ -37,6 +43,46 @@ NetworkImplMPI::NetworkImplMPI(): world(nullptr),id_(-1),size_(0){
 	world = MPI::COMM_WORLD;
 	id_ = world.Get_rank();
 	size_=world.Get_size();
+
+	// ratio control variables
+	for(size_t i=0;i<NET_NUM_LAST;++i)
+		net_last.push(ratio);
+	net_sum=NET_NUM_LAST*ratio; // assumed default delay 1ms
+}
+
+bool NetworkImplMPI::parseRatio()
+{
+	string s = FLAGS_net_ratio;
+	for(size_t i = 0; i < s.size(); ++i) {
+		if(s[i] >= 'A' && s[i] <= 'Z')
+			s[i] += 'a' - 'A';
+	}
+	bool flag = true;
+	size_t scale = 1;
+	if(s.size() < 2) {
+		flag = false;
+	} else if(s == "inf") {
+		ratio = numeric_limits<decltype(ratio)>::max();
+	} else{
+		if(s.back()=='k' || s.back()=='m' || s.back()=='g') {
+			if(s.back() == 'k')
+				scale = 1000;
+			else if(s.back() == 'm')
+				scale = 1000 * 1000;
+			else
+				scale = 1000 * 1000 * 1000;
+			s = s.substr(0, s.size() - 1);
+		}
+		try {
+			ratio = stod(s);
+		} catch(...) {
+			flag = false;
+		}
+	}
+	if(flag && scale != 1) {
+		ratio *= scale;
+	}
+	return flag;
 }
 
 NetworkImplMPI* self=nullptr;
@@ -86,10 +132,18 @@ std::string NetworkImplMPI::receive(int dst, int type, const int nBytes){
 void NetworkImplMPI::send(const Task* t){
 //	VLOG_IF(2,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
 	lock_guard<recursive_mutex> sl(us_lock);
+	Timer tmr;
+	double t_limit=t->payload.size()/ratio;
+	double t_estimated_trans=t->payload.size()/(net_sum/net_last.size());
 	TaskSendMPI tm{t,
-		world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type)};
-//		MPI::Request()};
+		world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type),
+		Now()
+	};
 	unconfirmed_send_buffer.push_back(tm);
+	double t_control=t_limit-t_estimated_trans-tmr.elapsed();
+//	LOG_EVERY_N(INFO, 100)<<t_control;
+	if(t_control>0.0)
+		Sleep(t_control);
 }
 //void NetworkImplMPI::send(const int dst, const int type, const std::string& data){
 //	send(new Task(dst,type,data));
@@ -126,7 +180,15 @@ size_t NetworkImplMPI::collectFinishedSend(){
 	while(it!=unconfirmed_send_buffer.end()){
 //		VLOG(3) << "Unconfirmed at " << id()<<": "<<it->tsk->src_dst<<" , "<<it->tsk->type;
 		if(it->req.Test()){
-			VLOG_IF(2,it->tsk->type!=4)<< "Sending(f) from "<<id()<<" to " << it->tsk->src_dst<< " of type " << it->tsk->type;
+//			VLOG_IF(2,it->tsk->type!=4)<< "Sending(f) from "<<id()<<" to " << it->tsk->src_dst<< " of type " << it->tsk->type;
+			size_t size=it->tsk->payload.size();
+			if(size>=NET_MINIMUM_LEN){
+				double v=size/(Now()-it->stime);
+				net_last.push(v);
+				net_sum+=v-net_last.front();
+				net_last.pop();
+//				LOG_EVERY_N(INFO,100)<<"ratio updated to "<<net_sum/net_last.size();
+			}
 			delete it->tsk;
 			it=unconfirmed_send_buffer.erase(it);
 		}else

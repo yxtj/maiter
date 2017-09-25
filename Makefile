@@ -18,7 +18,7 @@ CMAKE_FLAGS =
 
 export CXX CC CFLAGS CPPFLAGS OPROFILE
 
-all: debug 
+all: release 
 
 release: 
 	@mkdir -p bin/release

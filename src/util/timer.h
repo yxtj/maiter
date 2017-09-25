@@ -17,6 +17,8 @@ inline double Now() {
   return tp.tv_sec + 1e-9 * tp.tv_nsec;
 }
 
+void Sleep(const double time);
+
 double get_processor_frequency();
 
 class Timer {

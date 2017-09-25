@@ -192,7 +192,7 @@ void Init(int argc, char** argv){
 	if(!getenv("OMPI_UNIVERSE_SIZE")){
 		string cmd = StringPrintf("mpirun "
 				" -hostfile \"%s\""
-				" -bycore"
+//				" -bynode"
 				" -nooversubscribe"
 				" -n %d"
 				" %s"

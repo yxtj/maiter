@@ -5,7 +5,7 @@ project (MAITER)
 
 include(../cmake/MaiterPP.cmake)
 include(../cmake/FindProtobuf.cmake)
-include(../cmake/PcFromUcontext.cmake)
+#include(../cmake/PcFromUcontext.cmake)
 
 include(CheckIncludeFile)
 include(CheckIncludeFileCXX)
