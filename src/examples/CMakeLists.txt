@@ -17,7 +17,7 @@ add_library(example
             ${EXAMPLE_PB_HDR} 
             ${EXAMPLE_PB_SRC})
             
-add_dependencies(example worker_proto common_proto)
+add_dependencies(example common_proto)
 add_executable(maiter main.cc)
 
 # we need to resolve static initializers, so glob all the symbols together with -whole-archive
