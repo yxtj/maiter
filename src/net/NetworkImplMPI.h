@@ -8,11 +8,12 @@
 #ifndef NET_NETWORKIMPLMPI_H_
 #define NET_NETWORKIMPLMPI_H_
 
-#include <deque>
 #include <string>
 #include <vector>
-#include <mpi.h>
 #include <mutex>
+#include <deque>
+#include <queue>
+#include <mpi.h>
 #include "Task.h"
 
 namespace dsm {
@@ -62,12 +63,18 @@ private:
 	struct TaskSendMPI{
 		const Task* tsk;
 		MPI::Request req;
+		double stime;
 	};
 
 	std::deque<TaskSendMPI> unconfirmed_send_buffer;
 	mutable std::recursive_mutex us_lock;
 
-	double ratio; //bytes per second
+	double ratio;
+
+	std::queue<double> net_last; // transmission bandwidth of last N messages (>=M bytes)
+	static constexpr size_t NET_MINIMUM_LEN=128;
+	static constexpr size_t NET_NUM_LAST=8;
+	double net_sum;
 };
 
 inline int NetworkImplMPI::id() const{

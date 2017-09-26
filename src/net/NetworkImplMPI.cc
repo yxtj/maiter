@@ -33,6 +33,7 @@ NetworkImplMPI::NetworkImplMPI(): world(nullptr),id_(-1),size_(0){
 	if(!parseRatio()) {
 		LOG(FATAL) << "Cannot parse sending ratio!";
 	}
+	DVLOG(1)<<"ratio="<<ratio;
 	MPI::Init_thread(MPI_THREAD_SINGLE);
 
 	MPI_Errhandler handler;
@@ -42,6 +43,11 @@ NetworkImplMPI::NetworkImplMPI(): world(nullptr),id_(-1),size_(0){
 	world = MPI::COMM_WORLD;
 	id_ = world.Get_rank();
 	size_=world.Get_size();
+
+	// ratio control variables
+	for(size_t i=0;i<NET_NUM_LAST;++i)
+		net_last.push(ratio);
+	net_sum=NET_NUM_LAST*ratio; // assumed default delay 1ms
 }
 
 bool NetworkImplMPI::parseRatio()
@@ -57,17 +63,18 @@ bool NetworkImplMPI::parseRatio()
 		flag = false;
 	} else if(s == "inf") {
 		ratio = numeric_limits<decltype(ratio)>::max();
-	} else if(s.back()=='k' || s.back()=='m' || s.back()=='g') {
-		if(s.back() == 'k')
-			scale = 1000;
-		else if(s.back() == 'm')
-			scale = 1000 * 1000;
-		else
-			scale = 1000 * 1000 * 1000;
-		s = s.substr(0, s.size() - 1);
-	} else {
+	} else{
+		if(s.back()=='k' || s.back()=='m' || s.back()=='g') {
+			if(s.back() == 'k')
+				scale = 1000;
+			else if(s.back() == 'm')
+				scale = 1000 * 1000;
+			else
+				scale = 1000 * 1000 * 1000;
+			s = s.substr(0, s.size() - 1);
+		}
 		try {
-			ratio = stod(s.substr(0, s.size() - 1));
+			ratio = stod(s);
 		} catch(...) {
 			flag = false;
 		}
@@ -111,7 +118,6 @@ std::string NetworkImplMPI::receive(const TaskHeader* hdr){
 //	VLOG_IF(2,hdr->type!=4)<<"Receive(m) from "<<hdr->src_dst<<" to "<<id()<<", type "<<hdr->type;
 	string data(hdr->nBytes,'\0');
 	world.Recv(const_cast<char*>(data.data()), hdr->nBytes, MPI::BYTE, hdr->src_dst, hdr->type);
-	VLOG(1)<<"W"<<id()<<" receives with type: "<<hdr->type<<" from "<<hdr->src_dst;
 	return data;
 }
 std::string NetworkImplMPI::receive(int dst, int type, const int nBytes){
@@ -126,25 +132,25 @@ std::string NetworkImplMPI::receive(int dst, int type, const int nBytes){
 void NetworkImplMPI::send(const Task* t){
 //	VLOG_IF(2,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
 	lock_guard<recursive_mutex> sl(us_lock);
-/*	TaskSendMPI tm{t,
-		world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type)};
-//		MPI::Request()};
-	unconfirmed_send_buffer.push_back(tm);
-	return;
-*/
-	double ts = t->payload.size() / ratio;
-	VLOG(1)<<"W"<<id()<<" sends with type: "<<t->type<<" to "<<t->src_dst;
 	Timer tmr;
-//	world.Send(t->payload.data(), t->payload.size(), MPI::BYTE, t->src_dst, t->type);
-	MPI::Request req = world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type);
-	req.Wait();
-	//while(!req.Test())	Sleep(0.001);
-	delete t;
-	double tp = ts - tmr.elapsed();
-	if(tp > 0.0)
-		Sleep(tp);
-
+	double t_limit=t->payload.size()/ratio;
+	double t_estimated_trans=t->payload.size()/(net_sum/net_last.size());
+	TaskSendMPI tm{t,
+		world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type),
+		Now()
+	};
+	unconfirmed_send_buffer.push_back(tm);
+	double t_control=t_limit-t_estimated_trans-tmr.elapsed();
+//	LOG_EVERY_N(INFO, 100)<<t_control;
+	if(t_control>0.0)
+		Sleep(t_control);
 }
+//void NetworkImplMPI::send(const int dst, const int type, const std::string& data){
+//	send(new Task(dst,type,data));
+//}
+//void NetworkImplMPI::send(const int dst, const int type, std::string&& data){
+//	send(new Task(dst,type,move(data)));
+//}
 
 void NetworkImplMPI::broadcast(const Task* t){
 	//MPI::IBcast does not support tag
@@ -164,9 +170,6 @@ void NetworkImplMPI::broadcast(const Task* t){
 // State checking
 ////
 size_t NetworkImplMPI::collectFinishedSend(){
-//	unconfirmed_send_buffer.clear();
-	return 0;
-
 	if(unconfirmed_send_buffer.empty())
 		return 0;
 	//XXX: this lock may lower down performance significantly
@@ -177,7 +180,15 @@ size_t NetworkImplMPI::collectFinishedSend(){
 	while(it!=unconfirmed_send_buffer.end()){
 //		VLOG(3) << "Unconfirmed at " << id()<<": "<<it->tsk->src_dst<<" , "<<it->tsk->type;
 		if(it->req.Test()){
-			VLOG_IF(2,it->tsk->type!=4)<< "Sending(f) from "<<id()<<" to " << it->tsk->src_dst<< " of type " << it->tsk->type;
+//			VLOG_IF(2,it->tsk->type!=4)<< "Sending(f) from "<<id()<<" to " << it->tsk->src_dst<< " of type " << it->tsk->type;
+			size_t size=it->tsk->payload.size();
+			if(size>=NET_MINIMUM_LEN){
+				double v=size/(Now()-it->stime);
+				net_last.push(v);
+				net_sum+=v-net_last.front();
+				net_last.pop();
+//				LOG_EVERY_N(INFO,100)<<"ratio updated to "<<net_sum/net_last.size();
+			}
 			delete it->tsk;
 			it=unconfirmed_send_buffer.erase(it);
 		}else

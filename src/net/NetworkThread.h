@@ -60,10 +60,9 @@ public:
 
 private:
 	bool running;
-	bool done_s, done_r;
+	bool done;
 	NetworkImplMPI* net;
-	mutable std::thread thd_s;
-	mutable std::thread thd_r;
+	mutable std::thread t_;
 
 	//buffer for request to be sent, double buffer design for performance
 	std::vector<Task*> ps_buffer_[2];
@@ -83,8 +82,6 @@ private:
 	bool checkReceiveQueue(std::string& data, TaskBase& info);
 
 	void Run();
-	void _run_send();
-	void _run_recv();
 
 	NetworkThread();
 };
