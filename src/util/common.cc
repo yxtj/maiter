@@ -194,6 +194,7 @@ void Init(int argc, char** argv){
 				" -hostfile \"%s\""
 //				" -bynode"
 				" -nooversubscribe"
+//				" -mca btl_tcp_if_include 192.168.0.0/24"
 				" -n %d"
 				" %s"
 				" --log_prefix=true ",
