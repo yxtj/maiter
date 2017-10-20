@@ -99,7 +99,9 @@ void NetworkImplMPI::start_measure_bandwidth_usage(){
 void NetworkImplMPI::stop_measure_bandwidth_usage(){
 	measuring=false;
 }
-void NetworkImplMPI::update_bandwidth_usage(const size_t size, const double t_b, const double t_e){
+void NetworkImplMPI::update_bandwidth_usage(const size_t size, double t_b, double t_e){
+	t_b-=measure_start_time;
+	t_e-=measure_start_time;
 	int idx_b=static_cast<int>(t_b)/BANDWIDTH_WINDOW;
 	int idx_e=static_cast<int>(t_e)/BANDWIDTH_WINDOW;
 	// expend
@@ -227,13 +229,16 @@ size_t NetworkImplMPI::collectFinishedSend(){
 		if(it->req.Test()){
 //			VLOG_IF(2,it->tsk->type!=4)<< "Sending(f) from "<<id()<<" to " << it->tsk->src_dst<< " of type " << it->tsk->type;
 			size_t size=it->tsk->payload.size();
+			double now=Now();
 			if(size>=NET_MINIMUM_LEN){
-				double v=size/(Now()-it->stime);
+				double v=size/(now-it->stime);
 				net_last.push(v);
 				net_sum+=v-net_last.front();
 				net_last.pop();
 //				LOG_EVERY_N(INFO,100)<<"ratio updated to "<<net_sum/net_last.size();
 			}
+			if(measuring)
+				update_bandwidth_usage(size, it->stime, now);
 			delete it->tsk;
 			it=unconfirmed_send_buffer.erase(it);
 		}else

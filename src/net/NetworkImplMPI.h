@@ -58,7 +58,7 @@ public:
 private:
 	NetworkImplMPI();
 	bool parseRatio();
-	void update_bandwidth_usage(const size_t size, const double t_b, const double t_e);
+	void update_bandwidth_usage(const size_t size, double t_b, double t_e);
 	void dump_bandwidth_usage();
 private:
 	MPI::Intracomm world;
