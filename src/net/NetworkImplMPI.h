@@ -83,7 +83,7 @@ private:
 
 	bool measuring;
 	double measure_start_time;
-	std::vector<double> bandwidth_usage;
+	std::vector<size_t> bandwidth_usage;
 	size_t BANDWIDTH_WINDOW;
 };
 

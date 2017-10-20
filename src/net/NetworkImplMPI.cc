@@ -115,7 +115,7 @@ void NetworkImplMPI::update_bandwidth_usage(const size_t size, double t_b, doubl
 		bandwidth_usage[idx_b]+=size;
 	}else{
 		double t=t_e-t_b;
-		double r=size/t/BANDWIDTH_WINDOW;
+		double r=size/(t/BANDWIDTH_WINDOW);
 		bandwidth_usage[idx_b] += r*((idx_b+1)*BANDWIDTH_WINDOW - t_b);
 		bandwidth_usage[idx_e] += r*(t_e - idx_e*BANDWIDTH_WINDOW);
 		for(int i=idx_b+1; i<idx_e; ++i){
