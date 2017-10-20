@@ -146,6 +146,9 @@ void Worker::runKernel(){
 //		Sleep();
 	_enableProcess();
 
+	if(kreq.kernel()=="MaiterKernel2")
+		network_->start_measure_bandwidth_usage();
+
 	// Run the user kernel
 	helper->Run(d, kreq.method());
 	if(kreq.kernel()=="MaiterKernel1")
@@ -200,6 +203,7 @@ void Worker::finishKernel(){
 	running_kernel_=false;
 	network_->Send(config_.master_id(), MTYPE_KERNEL_DONE, kd);
 
+	network_->stop_measure_bandwidth_usage();
 	VLOG(1) << "Kernel finished: " << kreq;
 }
 
