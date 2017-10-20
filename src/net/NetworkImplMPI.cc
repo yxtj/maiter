@@ -9,10 +9,13 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <mpi.h>
+#include <fstream>
 
 using namespace std;
 
 DECLARE_string(net_ratio);
+DECLARE_string(bandwidth_folder);
+DECLARE_int32(bandwidth_window);
 
 namespace dsm {
 
@@ -48,6 +51,9 @@ NetworkImplMPI::NetworkImplMPI(): world(nullptr),id_(-1),size_(0){
 	for(size_t i=0;i<NET_NUM_LAST;++i)
 		net_last.push(ratio);
 	net_sum=NET_NUM_LAST*ratio; // assumed default delay 1ms
+
+	measuring=false;
+	BANDWIDTH_WINDOW = FLAGS_bandwidth_window;
 }
 
 bool NetworkImplMPI::parseRatio()
@@ -85,6 +91,44 @@ bool NetworkImplMPI::parseRatio()
 	return flag;
 }
 
+void NetworkImplMPI::start_measure_bandwidth_usage(){
+	measuring=!FLAGS_bandwidth_folder.empty();
+	measure_start_time=Now();
+	//bandwidth_usage.clear();
+}
+void NetworkImplMPI::stop_measure_bandwidth_usage(){
+	measuring=false;
+}
+void NetworkImplMPI::update_bandwidth_usage(const size_t size, const double t_b, const double t_e){
+	int idx_b=static_cast<int>(t_b)/BANDWIDTH_WINDOW;
+	int idx_e=static_cast<int>(t_e)/BANDWIDTH_WINDOW;
+	// expend
+	if(bandwidth_usage.size() <= idx_e){
+		if(bandwidth_usage.capacity() <= idx_e)
+			bandwidth_usage.reserve(idx_e*2);
+		bandwidth_usage.resize(idx_e+1, 0.0);
+	}
+	// update bandwidth usage
+	if(idx_b==idx_e){
+		bandwidth_usage[idx_b]+=size;
+	}else{
+		double t=t_e-t_b;
+		double r=size/t/BANDWIDTH_WINDOW;
+		bandwidth_usage[idx_b] += r*((idx_b+1)*BANDWIDTH_WINDOW - t_b);
+		bandwidth_usage[idx_e] += r*(t_e - idx_e*BANDWIDTH_WINDOW);
+		for(int i=idx_b+1; i<idx_e; ++i){
+			bandwidth_usage[i]+=r;
+		}
+	}
+}
+void NetworkImplMPI::dump_bandwidth_usage(){
+	if(id()!=0 && !FLAGS_bandwidth_folder.empty()){
+		ofstream fout(FLAGS_bandwidth_folder+"/band-"+to_string(id()-1));
+		for(auto v : bandwidth_usage)
+			fout<<v<<" ";
+	}
+}
+
 NetworkImplMPI* self=nullptr;
 NetworkImplMPI* NetworkImplMPI::GetInstance(){
 	if(self==nullptr)
@@ -97,6 +141,7 @@ void NetworkImplMPI::Shutdown(){
 		VLOG(1)<<"Shut down MPI at rank "<<MPI::COMM_WORLD.Get_rank();
 		MPI::Finalize();
 	}
+	self->dump_bandwidth_usage();
 	delete self;
 	self=nullptr;
 }

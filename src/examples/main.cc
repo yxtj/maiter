@@ -11,6 +11,8 @@ DEFINE_int32(taskid,0,"unique id for distinguishing different task");
 DEFINE_string(net_ratio, "inf", "maximum sending ratio on one worker (bytes per seconds). "
 	"supports: inf, K (1000), M (10^6), G (10^9)");
 DEFINE_double(net_delay_time, 0.0, "delay time before commiting a received message");
+DEFINE_string(bandwidth_folder, "", "the folder used to record the bandwidth usage");
+DEFINE_int32(bandwidth_window, 1, "the time window used to measure the bandwidth usage");
 
 DEFINE_int32(shards, 10, "");
 DEFINE_int32(iterations, 10, "");

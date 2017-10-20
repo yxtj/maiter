@@ -41,6 +41,9 @@ public:
 		return tag==TaskBase::ANY_TYPE ? MPI::ANY_TAG : tag;
 	}
 
+	void start_measure_bandwidth_usage();
+	void stop_measure_bandwidth_usage();
+
 	int id() const;
 	int size() const;
 
@@ -55,6 +58,8 @@ public:
 private:
 	NetworkImplMPI();
 	bool parseRatio();
+	void update_bandwidth_usage(const size_t size, const double t_b, const double t_e);
+	void dump_bandwidth_usage();
 private:
 	MPI::Intracomm world;
 	int id_;
@@ -75,6 +80,11 @@ private:
 	static constexpr size_t NET_MINIMUM_LEN=128;
 	static constexpr size_t NET_NUM_LAST=8;
 	double net_sum;
+
+	bool measuring;
+	double measure_start_time;
+	std::vector<double> bandwidth_usage;
+	size_t BANDWIDTH_WINDOW;
 };
 
 inline int NetworkImplMPI::id() const{
