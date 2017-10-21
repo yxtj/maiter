@@ -46,6 +46,9 @@ public:
 	void Flush();
 	void Shutdown();
 
+	void start_measure_bandwidth_usage();
+	void stop_measure_bandwidth_usage();
+
 	int id() const;
 	int size() const;
 

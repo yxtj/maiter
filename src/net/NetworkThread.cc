@@ -35,6 +35,13 @@ int NetworkThread::size() const{
 	return net->size();
 }
 
+void NetworkThread::start_measure_bandwidth_usage(){
+	net->start_measure_bandwidth_usage();
+}
+void NetworkThread::stop_measure_bandwidth_usage(){
+	net->stop_measure_bandwidth_usage();
+}
+
 bool NetworkThread::active() const{
 	return net->unconfirmedTaskNum() > 0 ||
 			ps_buffer_[0].size() > 0 || ps_buffer_[1].size() > 0;

@@ -41,6 +41,7 @@ def gather(folder, do_average, trans_bit):
             res[i]*=8
     return res
     
+<<<<<<< HEAD
 def dump_result(output, trans_unit, res):
     f=sys.stdout
     if len(output)!=0:
@@ -85,5 +86,38 @@ if __name__=='__main__':
         exit()
 
     main(folder, output, do_average, trans_unit, trans_bit)
+=======
+def dump_result(output, res):
+    if len(output)==0:
+        for v in res:
+            print(str(v)+' ', end='')
+        print('')
+    else:
+        f=open(output,'w')
+        for v in res:
+            f.write(str(v)+' ')
+        f.close()
+
+def main(folder, output, do_average, trans_bit):
+    res = gather(folder, do_average, trans_bit)
+    dump_result(output, res)
+
+if __name__=='__main__':
+    if len(sys.argv) <= 1:
+        print('Merge the bandwidth usage records.')
+        print('Usage: <bandwidth-folder> [result-name] [do-average] [trans-to-bit]')
+        print('  <bandwidth-folder>: The folder storing the bandwidth usage records. Their names should start with "band-"')
+        print('  [result-name]: (="") The output file. If not give, the output will be put to console. (you may want to use > to redirect)')
+        print('  [do-average]: (=0) Output the averaged bandwidth usage for all workers instead of their sum')
+        print('  [trans-to-bit]: (=0) Translate the Byte data to Bit (*8 to each value)')
+        exit()
+    argc=len(sys.argv)
+    folder=sys.argv[1]
+    output=sys.argv[2] if argc > 2 else ""
+    do_average=sys.argv[3] in ['1', 'y', 'yes', 't', 'true'] if argc > 3 else False
+    trans_bit=sys.argv[4] in ['1', 'y', 'yes', 't', 'true'] if argc > 4 else False
+    
+    main(folder, output, do_average, trans_bit)
+>>>>>>> e22f4d7255f4e5d70ea9354f55952d0775f730e0
 
 
