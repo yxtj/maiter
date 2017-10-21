@@ -17,7 +17,7 @@ def load_one_list(fn):
     d=re.split(r'\s+', d)
     for v in d:
         if len(v)!=0:
-            res.append(int(v))
+            res.append(float(v))
     return res
 
 # return the meraged result
