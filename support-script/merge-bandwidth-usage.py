@@ -31,7 +31,7 @@ def gather(folder, do_average, trans_bit):
         n=max(n,len(x))
     res=[0 for i in range(n)]
     for d in data:
-        for j in range(n):
+        for j in range(len(d)):
             res[j]+=d[j]
     if do_average:
         for i in range(n):
