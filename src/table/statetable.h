@@ -377,6 +377,8 @@ public:
 			buckets_[i].in_use = 0;
 		}
 		entries_ = 0;
+		total_curr_value=0;
+		total_curr_default=0;
 	}
 
 	void reset(){
@@ -729,7 +731,7 @@ void StateTable<K, V1, V2, V3>::accumulateF2(const K& k, const V2& v){
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
 	V2 old = buckets_[b].v2;
 	static_cast<IterateKernel<K, V1, V3>*>(info_.iterkernel)->accumulate(buckets_[b].v2, v);
-	update_local_sum(old, v);
+	update_local_sum(old, buckets_[b].v2);
 
 	++total_updates;
 }

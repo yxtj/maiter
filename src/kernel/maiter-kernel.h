@@ -190,6 +190,7 @@ public:
 	void apply_changes_on_graph(TypedGlobalTable<K, V, V, D>* table,
 			std::vector<std::tuple<K, ChangeEdgeType, D>>& changes)
 	{
+		LOG(WARNING)<<"Note that: the current delta values in incremental case is designed for PageRank.";
 		for(auto& tup : changes){
 			const K& key =  std::get<0>(tup);
 			const ChangeEdgeType type = std::get<1>(tup);
@@ -212,15 +213,54 @@ public:
 			ChangeEdgeType type = std::get<1>(tup);
 			K dst = maiter->iterkernel->get_keys(std::get<2>(tup)).front();
 			V weight;
-			if(type==ChangeEdgeType::REMOVE){
-				weight = default_v;
+			if(maiter->iterkernel->is_selective()){
+				// sssp version:
+				if(type==ChangeEdgeType::REMOVE){
+					weight = default_v;
+				}else{
+					tmr.reset();
+					ClutterRecord<K, V, V, D> c = table->get(key);
+					t1+=tmr.elapsed();
+					tmr.reset();
+					weight = maiter->iterkernel->g_func(c.k, c.v1, c.v2, c.v3, dst);
+					t2+=tmr.elapsed();
+				}
+				tmr.reset();
+				table->accumulateF1(key, dst, weight);
+				t3+=tmr.elapsed();
 			}else{
+				// page rank version:
 				tmr.reset();
 				ClutterRecord<K, V, V, D> c = table->get(key);
+				size_t n = c.v3.size();
+				V delta0;
+				maiter->iterkernel->init_c(c.k, delta0, c.v3);
+				V chg=delta0 / (1>=n ? 1 : n);
 				t1+=tmr.elapsed();
 				tmr.reset();
-				weight = maiter->iterkernel->g_func(c.k, c.v1, c.v2, c.v3, dst);
-				t2+=tmr.elapsed();
+				if(type==ChangeEdgeType::REMOVE){
+					double x=1.0/n - 1.0/(n+1); // x>0
+					if(n==0 || n==1)
+						x=1;
+					x*=delta0;
+					for(auto& neigh : c.v3){
+						table->accumulateF1(maiter->iterkernel->get_key(neigh), x);
+					}
+					table->accumulateF1(dst, -chg);
+				}else{ // ChangeEdgeType::ADD
+					double x=1.0/n - 1.0/(n-1); // x<0
+					if(n==0 || n==1)
+						x=1;
+					x*=delta0;
+					for(auto& neigh : c.v3){
+						if(neigh == dst){
+							table->accumulateF1(dst, chg);
+						}else{
+							table->accumulateF1(maiter->iterkernel->get_key(neigh), x);
+						}
+					}
+				}
+				t3+=tmr.elapsed();
 			}
 //			VLOG(1)<<"  "<<char(type)<<" "<<key<<" "<<dst<<"\t"<<weight<<"\t d="<<table->getF1(key)<<" v="<<table->getF2(key);
 			tmr.reset();

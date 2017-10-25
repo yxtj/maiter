@@ -53,9 +53,9 @@ bool load_graph_unweight(std::vector<std::vector<int>>& res, const std::string& 
 			temp.push_back(node);
 			pos = spacepos + 1;
 		}
-		if(res.size() < k)	// k starts from 0
-			res.resize(k);	// fill the empty holes
-		res.push_back(move(temp));
+		if(res.size() <= k)	// k starts from 0
+			res.resize(k+1);	// fill the empty holes
+		res[k]=move(temp);
 	}
 	return true;
 }
