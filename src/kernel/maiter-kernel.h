@@ -190,6 +190,7 @@ public:
 	void apply_changes_on_graph(TypedGlobalTable<K, V, V, D>* table,
 			std::vector<std::tuple<K, ChangeEdgeType, D>>& changes)
 	{
+		LOG(WARNING)<<"Note that: the current delta values in incremental case is designed for PageRank.";
 		for(auto& tup : changes){
 			const K& key =  std::get<0>(tup);
 			const ChangeEdgeType type = std::get<1>(tup);
@@ -228,7 +229,6 @@ public:
 				table->accumulateF1(key, dst, weight);
 				t3+=tmr.elapsed();
 			}else{
-				LOG(WARNING)<<"The delta values in incremental case is designed for PageRank.";
 				// page rank version:
 				tmr.reset();
 				ClutterRecord<K, V, V, D> c = table->get(key);
