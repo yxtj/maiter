@@ -3,5 +3,5 @@ if [ $# -ne 1 ]; then
 fi
 
 LOCAL_AGG_APPLICATION="Pagerank Adsorption Katz MarkovChain Jacobi"
-
-./contains.sh "$LOCAL_AGG_APPLICATION" $1
+DIR=$(dirname $0)
+$DIR/contains.sh "$LOCAL_AGG_APPLICATION" $1
