@@ -192,7 +192,7 @@ void NetworkThread::Broadcast(int method, const Message& msg){
 //	}
 }
 
-static NetworkThread* self = nullptr;
+NetworkThread* NetworkThread::self = nullptr;
 NetworkThread* NetworkThread::Get(){
 	if(self==nullptr){
 		self=new NetworkThread();
@@ -200,32 +200,31 @@ NetworkThread* NetworkThread::Get(){
 	return self;
 }
 
-void NetworkThread::Shutdown(){
-	if(running){
-		Flush();	//finish all the sending
-		running = false;
-		//wait for Run() to exit
-		while(!done){
-			Sleep();
-		}
-		net=nullptr;
-		NetworkImplMPI::Shutdown();
-	}
-	NetworkThread* v=nullptr;
-	swap(v,self);
-	delete v;
-}
-
-static void ShutdownImpl(){
-	if(self!=nullptr)
-		self->Shutdown();
-}
-
-void NetworkThread::Init(){
+void NetworkThread::Init(int argc, char* argv[])
+{
 	VLOG(1) << "Initializing network...";
-	CHECK(self == nullptr);
+	NetworkImplMPI::Init(argc, argv);
 	self = new NetworkThread();
-	atexit(&ShutdownImpl);
+	atexit(&NetworkThread::Shutdown);
+}
+
+void NetworkThread::Shutdown(){
+	if(self != nullptr) {
+		NetworkThread* p = nullptr;
+		swap(self, p); // use the swap primitive to preform safe deletion
+		if(p->running) {
+			p->Flush();	//finish all the sending
+			p->running = false;
+			//wait for Run() to exit
+			while(!p->done) {
+				Sleep();
+			}
+			p->t_.join();
+			p->net = nullptr;
+			NetworkImplMPI::Shutdown();
+		}
+		delete p;
+	}
 }
 
 } //namespace dsm

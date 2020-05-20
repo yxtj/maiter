@@ -24,32 +24,34 @@ static void CrashOnMPIError(MPI_Comm * c, int * errorCode, ...){
 	LOG(FATAL)<< "MPI function failed: " << buffer;
 }
 
-NetworkImplMPI::NetworkImplMPI(): world(nullptr),id_(-1),size_(0){
-	if(!getenv("OMPI_COMM_WORLD_RANK")){
-		LOG(FATAL)<< "OpenMPI is not running!";
-	}
-	MPI::Init_thread(MPI_THREAD_SINGLE);
+NetworkImplMPI::NetworkImplMPI(int argc, char* argv[]): id_(-1),size_(0){
+	int mt_provide;
+	MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &mt_provide);
+	world = MPI_COMM_WORLD;
 
 	MPI_Errhandler handler;
-	MPI_Errhandler_create(&CrashOnMPIError, &handler);
-	MPI::COMM_WORLD.Set_errhandler(handler);
+	MPI_Comm_create_errhandler(&CrashOnMPIError, &handler);
+	MPI_Comm_set_errhandler(world, handler);
 
-	world = MPI::COMM_WORLD;
-	id_ = world.Get_rank();
-	size_=world.Get_size();
+	MPI_Comm_rank(world, &id_);
+	MPI_Comm_size(world, &size_);
 }
 
-NetworkImplMPI* self=nullptr;
+NetworkImplMPI* NetworkImplMPI::self = nullptr;
+void NetworkImplMPI::Init(int argc, char* argv[])
+{
+	self = new NetworkImplMPI(argc, argv);
+}
+
 NetworkImplMPI* NetworkImplMPI::GetInstance(){
-	if(self==nullptr)
-		self=new NetworkImplMPI();
 	return self;
 }
 
 void NetworkImplMPI::Shutdown(){
-	if(!MPI::Is_finalized()){
-		VLOG(1)<<"Shut down MPI at rank "<<MPI::COMM_WORLD.Get_rank();
-		MPI::Finalize();
+	int flag;
+	MPI_Finalized(&flag);
+	if(!flag){
+		MPI_Finalize();
 	}
 	delete self;
 	self=nullptr;
@@ -60,35 +62,42 @@ void NetworkImplMPI::Shutdown(){
 ////
 
 bool NetworkImplMPI::probe(TaskHeader* hdr){
-	MPI::Status st;
-	if(!world.Iprobe(MPI::ANY_SOURCE, MPI::ANY_TAG, st))
+	MPI_Status st;
+	int flag;
+	MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, world, &flag, &st);
+	if(!flag)
 		return false;
-	hdr->src_dst=st.Get_source();
-	hdr->type=st.Get_tag();
-	hdr->nBytes=st.Get_count(MPI::BYTE);
+	hdr->src_dst = st.MPI_SOURCE;
+	hdr->type = st.MPI_TAG;
+	MPI_Get_count(&st, MPI_BYTE, &hdr->nBytes);
 	return true;
 }
 std::string NetworkImplMPI::receive(const TaskHeader* hdr){
-//	VLOG_IF(2,hdr->type!=4)<<"Receive(m) from "<<hdr->src_dst<<" to "<<id()<<", type "<<hdr->type;
-	string data(hdr->nBytes,'\0');
-	world.Recv(const_cast<char*>(data.data()), hdr->nBytes, MPI::BYTE, hdr->src_dst, hdr->type);
+	string data(hdr->nBytes, '\0');
+//	world.Recv(const_cast<char*>(data.data()), hdr->nBytes, MPI_BYTE, hdr->src_dst, hdr->type);
+	MPI_Status st;
+	MPI_Recv(const_cast<char*>(data.data()), hdr->nBytes, MPI_BYTE, hdr->src_dst, hdr->type, world, &st);
 	return data;
 }
 std::string NetworkImplMPI::receive(int dst, int type, const int nBytes){
-	string data(nBytes,'\0');
+	string data(nBytes, '\0');
 	// address transfer
-	dst=TransformSrc(dst);
-	type=TransformTag(type);
-	world.Recv(const_cast<char*>(data.data()), nBytes, MPI::BYTE, dst, type);
+	dst = TransformSrc(dst);
+	type = TransformTag(type);
+//	world.Recv(const_cast<char*>(data.data()), nBytes, MPI_BYTE, dst, type);
+	MPI_Status st;
+	MPI_Recv(const_cast<char*>(data.data()), nBytes, MPI_BYTE, dst, type, world, &st);
 	return data;
 }
 
 void NetworkImplMPI::send(const Task* t){
 //	VLOG_IF(2,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
 	lock_guard<recursive_mutex> sl(us_lock);
-	TaskSendMPI tm{t,
-		world.Isend(t->payload.data(), t->payload.size(), MPI::BYTE,t->src_dst, t->type)};
-//		MPI::Request()};
+//	TaskSendMPI tm{t,
+//		world.Isend(t->payload.data(), t->payload.size(), MPI_BYTE,t->src_dst, t->type)};
+	TaskSendMPI tm;
+	tm.tsk = t;
+	MPI_Isend(const_cast<char*>(t->payload.data()), t->payload.size(), MPI_BYTE, t->src_dst, t->type, world, &tm.req);
 	unconfirmed_send_buffer.push_back(tm);
 }
 //void NetworkImplMPI::send(const int dst, const int type, const std::string& data){
@@ -99,7 +108,7 @@ void NetworkImplMPI::send(const Task* t){
 //}
 
 void NetworkImplMPI::broadcast(const Task* t){
-	//MPI::IBcast does not support tag
+	//MPI_IBcast does not support tag
 	int myid = id();
 	for(int i = 0; i < size(); ++i){
 		if(i != myid){
@@ -123,13 +132,16 @@ size_t NetworkImplMPI::collectFinishedSend(){
 //	VLOG(3) << "Unconfirmed sends #: " << unconfirmed_send_buffer.size();
 	deque<TaskSendMPI>::iterator it=unconfirmed_send_buffer.begin();
 //	DLOG_IF(INFO,Now()-t>12.)<<id()<<" Unconfirmed sends #: " << unconfirmed_send_buffer.size()<<". Top one: to "<<it->tsk->src_dst<<",type "<<it->tsk->type;
+	MPI_Status st;
 	while(it!=unconfirmed_send_buffer.end()){
 //		VLOG(3) << "Unconfirmed at " << id()<<": "<<it->tsk->src_dst<<" , "<<it->tsk->type;
-		if(it->req.Test()){
-			VLOG_IF(2,it->tsk->type!=4)<< "Sending(f) from "<<id()<<" to " << it->tsk->src_dst<< " of type " << it->tsk->type;
+		int flag;
+		MPI_Test(&it->req, &flag, &st);
+		//if(it->req.Test()){
+		if(flag){
 			delete it->tsk;
-			it=unconfirmed_send_buffer.erase(it);
-		}else
+			it = unconfirmed_send_buffer.erase(it);
+		} else
 			++it;
 	}
 	return unconfirmed_send_buffer.size();

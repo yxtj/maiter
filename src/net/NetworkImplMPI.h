@@ -31,13 +31,14 @@ public:
 	void send(const Task* t);
 	void broadcast(const Task* t);
 
+	static void Init(int argc, char* argv[]);
 	static NetworkImplMPI* GetInstance();
 	static void Shutdown();
 	static int TransformSrc(int s_d){
-		return s_d==TaskBase::ANY_SRC ? MPI::ANY_SOURCE : s_d;
+		return s_d==TaskBase::ANY_SRC ? MPI_ANY_SOURCE : s_d;
 	}
 	static int TransformTag(int tag){
-		return tag==TaskBase::ANY_TYPE ? MPI::ANY_TAG : tag;
+		return tag==TaskBase::ANY_TYPE ? MPI_ANY_TAG : tag;
 	}
 
 	int id() const;
@@ -52,15 +53,16 @@ public:
 	size_t unconfirmedBytes() const;
 	std::vector<const Task*> unconfirmedTask() const;
 private:
-	NetworkImplMPI();
+	NetworkImplMPI(int argc, char* argv[]);
+	static NetworkImplMPI* self;
 private:
-	MPI::Intracomm world;
+	MPI_Comm world;
 	int id_;
 	int size_;
 
 	struct TaskSendMPI{
 		const Task* tsk;
-		MPI::Request req;
+		MPI_Request req;
 	};
 
 	std::deque<TaskSendMPI> unconfirmed_send_buffer;

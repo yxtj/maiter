@@ -1,7 +1,8 @@
+syntax = "proto2";
 package dsm;
 
-import "msg/mtype.proto";
-import "msg/common.proto";
+import "mtype.proto";
+import "common.proto";
 option optimize_for = SPEED;
 
 message EmptyMessage {}

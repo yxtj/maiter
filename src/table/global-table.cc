@@ -33,10 +33,10 @@ bool ProtoTableCoder::ReadEntryFromFile(string *k, string *v1, string *v2, strin
 void ProtoTableCoder::WriteEntryToFile(StringPiece k, StringPiece v1, StringPiece v2,
 		StringPiece v3){
 	Record *a = t_->add_rec_data();
-	a->set_key(k.data, k.len);
-	a->set_value1(v1.data, v1.len);
-	a->set_value2(v2.data, v2.len);
-	a->set_value3(v3.data, v3.len);
+	a->set_key(k.data.c_str(), k.len);
+	a->set_value1(v1.data.c_str(), v1.len);
+	a->set_value2(v2.data.c_str(), v2.len);
+	a->set_value3(v3.data.c_str(), v3.len);
 }
 
 ProtoKVPairCoder::ProtoKVPairCoder(const KVPairData *in) :
@@ -56,8 +56,8 @@ bool ProtoKVPairCoder::ReadEntryFromNet(string *k, string *v){
 
 void ProtoKVPairCoder::WriteEntryToNet(StringPiece k, StringPiece v){
 	Arg *a = t_->add_kv_data();
-	a->set_key(k.data, k.len);
-	a->set_value(v.data, v.len);
+	a->set_key(k.data.c_str(), k.len);
+	a->set_value(v.data.c_str(), v.len);
 }
 
 void GlobalTable::UpdatePartitions(const ShardInfo& info){
@@ -249,9 +249,12 @@ bool MutableGlobalTable::canPnS(){
 }
 
 bool MutableGlobalTable::canTermCheck(){
-	PERIODIC(FLAGS_snapshot_interval, {
+	static double last = 0.0;
+	double now = Now();
+	if(now - last > FLAGS_snapshot_interval){
+		last = now;
 		return true;
-	});
+	}
 	return false;
 }
 

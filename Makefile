@@ -16,19 +16,19 @@ CMAKE_FLAGS =
 	PARALLELISM = 2
 #endif
 
-export CXX CC CFLAGS CPPFLAGS OPROFILE
+export CXX CC CFLAGS CPPFLAGS
 
 all: debug 
 
 release: 
 	@mkdir -p bin/release
-	@cd bin/release && $(CMAKE) $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=Release $(TOP)/src
+	@cd bin/release && $(CMAKE) $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=Release $(TOP)
 	@cd bin/release && $(MAKE) -j${PARALLELISM}
 
 debug: 
 	@mkdir -p bin/debug
-	@cd bin/debug && $(CMAKE) $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=Debug $(TOP)/src
-	@cd bin/debug  && $(MAKE) -j${PARALLELISM}
+	@cd bin/debug && $(CMAKE) $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=Debug $(TOP)
+	@cd bin/debug && $(MAKE) -j${PARALLELISM}
 
 eclipse:
 	#CMAKE_FLAGS = -G"Eclipse CDT4 - Unix Makefiles"

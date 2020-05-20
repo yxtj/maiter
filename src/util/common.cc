@@ -1,10 +1,8 @@
 #include "util/common.h"
-#include "util/file.h"
+//#include "util/file.h"
 #include "util/static-initializers.h"
 
-#include "net/NetworkThread.h"
-
-#include <execinfo.h>
+//#include <execinfo.h>
 
 #include <cmath>
 #include <ios>
@@ -26,9 +24,6 @@ DEFINE_bool(cpu_profile, false, "");
 //DEFINE_bool(dump_stacktrace, true, "");
 DEFINE_bool(localtest, false, "");
 DEFINE_bool(run_tests, false, "");
-
-DEFINE_string(hostfile, "conf/maiter-cluster", "");
-DEFINE_int32(workers, 2, "");
 
 using namespace std;
 
@@ -115,14 +110,6 @@ uint64_t get_memory_rss(){
 	return m * 1024;
 }
 
-void SpinLock::lock() volatile{
-	while(!__sync_bool_compare_and_swap(&d, 0, 1));
-}
-
-void SpinLock::unlock() volatile{
-	d = 0;
-}
-
 //static void FatalSignalHandler(int sig){
 //	fprintf(stderr, "Fatal error; signal %d occurred.\n", sig);
 //	static SpinLock lock;
@@ -151,67 +138,5 @@ void SpinLock::unlock() volatile{
 //	system(cmdbuffer);
 //	_exit(1);
 //}
-
-void Init(int argc, char** argv){
-	FLAGS_logtostderr = true;
-	FLAGS_logbuflevel = -1;
-
-	CHECK_EQ(lzo_init(), 0);
-
-	google::SetUsageMessage(
-			StringPrintf("%s: invoke from mpirun, using --runner to select control function.",
-					argv[0]));
-	google::ParseCommandLineFlags(&argc, &argv, false);
-	google::InitGoogleLogging(argv[0]);
-	google::InstallFailureSignalHandler();
-
-#ifdef CPUPROF
-	if (FLAGS_cpu_profile){
-		mkdir("profile/", 0755);
-		char buf[100];
-		gethostname(buf, 100);
-		ProfilerStart(StringPrintf("profile/cpu.%s.%d", buf, getpid()).c_str());
-	}
-#endif
-
-#ifdef HEAPPROF
-	char buf[100];
-	gethostname(buf, 100);
-	HeapProfilerStart(StringPrintf("profile/heap.%s.%d", buf, getpid()).c_str());
-#endif
-
-	RunInitializers();
-
-	if(FLAGS_run_tests){
-		RunTests();
-		exit(0);
-	}
-
-	// If we are not running in the context of MPI, go ahead and invoke
-	// mpirun to start ourselves up.
-	if(!getenv("OMPI_UNIVERSE_SIZE")){
-		string cmd = StringPrintf("mpirun "
-				" -hostfile \"%s\""
-				" -bycore"
-				" -nooversubscribe"
-				" -n %d"
-				" %s"
-				" --log_prefix=true ",
-				FLAGS_hostfile.c_str(),
-				FLAGS_workers,
-				JoinString(&argv[0], &argv[argc]).c_str()
-				);
-
-		LOG(INFO)<< "Invoking MPI..." << cmd;
-		system(cmd.c_str());
-		exit(0);
-	}
-
-	ios_base::sync_with_stdio(false);
-
-	NetworkThread::Init();
-
-	srandom(time(NULL));
-}
 
 } //namespace dsm

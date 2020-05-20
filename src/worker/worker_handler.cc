@@ -35,8 +35,8 @@ void Worker::RegDSPDefault(callback_t fp){
 
 void Worker::registerHandlers(){
 	RegDSPProcess(MTYPE_SHARD_ASSIGNMENT, &Worker::HandleShardAssignment);
-	RegDSPProcess(MTYPE_CLEAR_TABLE, &Worker::HandleClearRequest);
-	RegDSPProcess(MTYPE_SWAP_TABLE, &Worker::HandleSwapRequest);
+	RegDSPProcess(MTYPE_TABLE_CLEAR, &Worker::HandleClearRequest);
+	RegDSPProcess(MTYPE_TABLE_SWAP, &Worker::HandleSwapRequest);
 	RegDSPProcess(MTYPE_WORKER_FLUSH, &Worker::HandleFlush);
 	RegDSPProcess(MTYPE_WORKER_APPLY, &Worker::HandleApply);
 	RegDSPProcess(MTYPE_ENABLE_TRIGGER, &Worker::HandleEnableTrigger);

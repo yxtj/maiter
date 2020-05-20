@@ -4,10 +4,13 @@
 .cproject
 .project
 .settings/
+.vs/
+.vscode/
 
 #compiled binary files:
 
 bin/
+build/
 *.exe
 *.o
 *.a

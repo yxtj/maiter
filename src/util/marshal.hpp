@@ -26,7 +26,7 @@ struct Marshal: public MarshalBase{
 
 	virtual void unmarshal(const StringPiece& s, T *t){
 		//GOOGLE_GLOG_COMPILE_ASSERT(std::tr1::is_pod<T>::value, Invalid_Value_Type);
-		*t = *reinterpret_cast<const T*>(s.data);
+		*t = *reinterpret_cast<const T*>(s.data.c_str());
 	}
 	virtual ~Marshal(){}
 };

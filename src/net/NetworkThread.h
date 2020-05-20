@@ -3,7 +3,6 @@
 
 #include <thread>
 #include <mutex>
-#include <functional>
 #include <string>
 #include <deque>
 #include <vector>
@@ -44,13 +43,13 @@ public:
 	void Broadcast(int method, const Message& msg);
 
 	void Flush();
-	void Shutdown();
 
 	int id() const;
 	int size() const;
 
 	static NetworkThread *Get();
-	static void Init();
+	static void Init(int argc, char* argv[]);
+	static void Shutdown();
 
 	Stats stats;
 	bool pause_=false;
@@ -82,6 +81,7 @@ private:
 
 	void Run();
 
+	static NetworkThread* self;
 	NetworkThread();
 };
 

@@ -3,7 +3,7 @@
 
 #include "table/table-registry.h"
 #include "util/common.h"
-#include "util/file.h"
+//#include "util/file.h"
 
 #include "worker/worker.h"
 #include "master/master.h"
@@ -16,7 +16,7 @@
 //#include <iostream>
 //#include <fstream>
 
-#include "dbg/getcallstack.h"
+//#include "dbg/getcallstack.h"
 
 #ifndef SWIG
 DECLARE_int32(shards);

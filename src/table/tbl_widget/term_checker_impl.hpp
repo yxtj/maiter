@@ -12,6 +12,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <numeric>
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>

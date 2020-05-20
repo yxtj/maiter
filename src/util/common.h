@@ -36,8 +36,6 @@ using std::unordered_set;
 
 namespace dsm {
 
-void Init(int argc, char** argv);
-
 uint64_t get_memory_rss();
 uint64_t get_memory_total();
 
@@ -65,17 +63,6 @@ private:
 	vector<int> buckets;
 	static const double kMinVal;
 	static const double kLogBase;
-};
-
-class SpinLock{
-public:
-	SpinLock() :
-			d(0){
-	}
-	void lock() volatile;
-	void unlock() volatile;
-	private:
-	volatile int d;
 };
 
 //static double rand_double(){

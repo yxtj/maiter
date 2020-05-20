@@ -26,10 +26,7 @@ public:
 		return size() == 0;
 	}
 
-	void start_checkpoint(const std::string& f);
-	void write_message(const KVPairData& put);
-	void finish_checkpoint();
-	void restore(const std::string& f);
+	//void archive(const std::string& fn);
 
 	void termcheck(const std::string& f, long *updates, double *totalF2);
 

@@ -1,58 +1,33 @@
 #ifndef TIMER_H_
 #define TIMER_H_
 
-#include <time.h>
-#include <stdint.h>
+//#include <time.h>
+//#include <stdint.h>
+#include <chrono>
 
 namespace dsm {
-static uint64_t rdtsc() {
-  uint32_t hi, lo;
-  __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
-  return (((uint64_t)hi)<<32) | ((uint64_t)lo);
-}
 
-inline double Now() {
-  timespec tp;
-  clock_gettime(CLOCK_MONOTONIC, &tp);
-  return tp.tv_sec + 1e-9 * tp.tv_nsec;
-}
-
-double get_processor_frequency();
-
-class Timer {
+class Timer
+{
+	std::chrono::system_clock::time_point _time;
+	static std::chrono::system_clock::time_point _boot_time;
 public:
-  Timer() {
-    Reset();
-  }
+	Timer();
+	void Reset();
 
-  void Reset() {
-    start_time_ = Now();
-//    start_cycle_ = rdtsc();
-  }
+	double elapsed() const {
+		return elapseSd();
+	}
+	long long elapseMS() const;
+	int elapseS() const;
+	double elapseSd() const;
+	double elapseMin() const;
 
-  double elapsed() const {
-    return Now() - start_time_;
-  }
-
-//  uint64_t cycles_elapsed() const {
-//    return rdtsc() - start_cycle_;
-//  }
-//
-//  // Rate at which an event occurs.
-//  double rate(int count) {
-//    return count / (Now() - start_time_);
-//  }
-//
-//  double cycle_rate(int count) {
-//    return double(cycles_elapsed()) / count;
-//  }
-
-private:
-  double start_time_;
-//  uint64_t start_cycle_;
+	static double Now();
+	static double NowSinceBoot();
 };
 
-}
+double Now() { return Timer::Now(); }
 
 #define EVERY_N(interval, operation)\
 { static int COUNT = 0;\
@@ -62,15 +37,14 @@ private:
 }
 
 #define PERIODIC(interval, operation)\
-{ static int64_t last = 0;\
-  static int64_t cycles = (int64_t)(interval * get_processor_frequency());\
-  int64_t now = rdtsc(); \
-  if (now - last > cycles) {\
+{ static double last = 0;\
+  double now = Timer::Now(); \
+  if (now - last > interval) {\
     last = now;\
     operation;\
   }\
 }
 
-
+}
 
 #endif /* TIMER_H_ */
