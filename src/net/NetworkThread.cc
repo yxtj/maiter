@@ -89,9 +89,10 @@ void NetworkThread::Run(){
 		/* bunch send: */
 		if(!pause_ && !pending_sends_->empty()){
 			//two-buffers-swapping implementation for better performance
-			vector<Task*>* pv=pending_sends_;
+			vector<Task*>* pv;
 			{
 				lock_guard<recursive_mutex> sl(ps_lock);
+				pv = pending_sends_;
 				pending_sends_=&ps_buffer_[ps_idx_++%2];
 			}
 			auto end_it=pv->end();

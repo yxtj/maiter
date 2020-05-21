@@ -146,8 +146,9 @@ protected:
 
 class MutableGlobalTable:
 		virtual public GlobalTable,
-		virtual public MutableGlobalTableBase,
-		virtual public Checkpointable{
+		virtual public MutableGlobalTableBase
+//		virtual public Checkpointable
+{
 public:
 	MutableGlobalTable(){
 //		sent_bytes_ = 0;

@@ -3,6 +3,8 @@ cmake_minimum_required (VERSION 3.0)
 
 project (MAITER CXX) 
 
+include(CheckIncludeFile)
+
 set (CMAKE_CXX_STANDARD 14)
 
 # -------- Boost --------
@@ -42,6 +44,13 @@ message(STATUS "Thread lib: ${CMAKE_THREAD_LIBS_INIT}")
 # -------- others --------
 find_package(gflags REQUIRED)
 find_package(glog REQUIRED)
+
+check_include_file("lzo1x.h" HAVE_LZO1X_H)
+find_library(LZO2_LIBS lzo2)
+
+message(STATUS "gflags: ${gflags_FOUND}, ${gflags_INCLUDE_DIRS}, ${gflags_INCLUDES}, ${gflags_LIBARIES}, ${gflags_LIBS}")
+message(STATUS "glog: ${glog_FOUND}, ${glog_INCLUDE_DIRS}, ${glog_INCLUDES}, ${glog_LIBARIES}, ${glog_LIBS}")
+message(STATUS "lzo: ${HAVE_LZO1X_H}, ${LZO2_LIBS}")
 
 # -------- main --------
 set(CXX_DEFAULT "${CMAKE_CXX_FLAGS}")

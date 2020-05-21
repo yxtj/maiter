@@ -21,10 +21,6 @@ DEFINE_bool(cpu_profile, false, "");
 #include <google/malloc_extension.h>
 #endif
 
-//DEFINE_bool(dump_stacktrace, true, "");
-DEFINE_bool(localtest, false, "");
-DEFINE_bool(run_tests, false, "");
-
 using namespace std;
 
 namespace dsm {

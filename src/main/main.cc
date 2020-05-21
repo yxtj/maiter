@@ -19,8 +19,9 @@ DEFINE_bool(dump_results, false, "");
 //DEFINE_int32(bufmsg, 10000, "expected minimum number of message per sending");
 DEFINE_double(bufmsg_portion, 0.01,"portion of buffered sending");
 DEFINE_double(buftime, 3.0, "maximum time interval between 2 sendings");
+DEFINE_int32(snapshot_interval, 10, "termination check interval (second)");
 
-DEFINE_string(graph_dir, "subgraphs", "");
+DEFINE_string(graph_dir, "graph files", "");
 DEFINE_string(result_dir, "result", "");
 DEFINE_int32(max_iterations, 100, "");
 DEFINE_int64(num_nodes, 100, "");
@@ -31,6 +32,9 @@ DEFINE_double(sleep_time, 0.001, "");
 DEFINE_string(hostfile, "conf/maiter-cluster", "");
 DEFINE_int32(workers, 2, "");
 
+//DEFINE_bool(localtest, false, "");
+DEFINE_bool(run_tests, false, "");
+
 
 void Init(int argc, char** argv){
 	FLAGS_logtostderr = true;
@@ -38,9 +42,7 @@ void Init(int argc, char** argv){
 
 	//CHECK_EQ(lzo_init(), 0);
 
-	google::SetUsageMessage(
-		StringPrintf("%s: invoke from mpirun, using --runner to select control function.",
-			argv[0]));
+	google::SetUsageMessage("invoke from mpirun, using --runner to select control function.");
 	google::ParseCommandLineFlags(&argc, &argv, false);
 	google::InitGoogleLogging(argv[0]);
 	google::InstallFailureSignalHandler();
@@ -98,19 +100,19 @@ void Init(int argc, char** argv){
 
 int main(int argc, char** argv){
 	FLAGS_log_prefix = false;
-//  cout<<getcallstack()<<endl;
 
 	Init(argc, argv);
 
-	CHECK(NetworkThread::Get()->size() > 1) << "Number of MPI instances should be more than 1";
+	//CHECK(NetworkThread::Get()->size() > 1) << "Number of MPI instances should be more than 1";
 
 	ConfigData conf;
 	conf.set_num_workers(NetworkThread::Get()->size() - 1);
 	conf.set_worker_id(NetworkThread::Get()->id() - 1);
 
+	for(auto& p : RunnerRegistry::Get()->runners()){
+		LOG(INFO) << p.first << " -> " << p.second;
+	}
 
-//  cout<<NetworkThread::Get()->id()<<":"<<getcallstack()<<endl;
-// return 0;
 //  LOG(INFO) << "Running: " << FLAGS_runner;
 	CHECK_NE(FLAGS_runner, "");
 	RunnerRegistry::KernelRunner k = RunnerRegistry::Get()->runner(FLAGS_runner);

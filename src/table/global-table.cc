@@ -6,8 +6,7 @@
 //static const int kMaxNetworkPending = 1 << 26;
 //static const int kMaxNetworkChunk = 1 << 20;
 
-DEFINE_int32(snapshot_interval, 99999999, "");
-DECLARE_int32(bufmsg);
+DECLARE_int32(snapshot_interval);
 DECLARE_double(buftime);
 
 namespace dsm {
@@ -126,6 +125,7 @@ void MutableGlobalTable::clear(){
 //	helper()->SyncClearRequest(req);
 }
 
+/*
 void MutableGlobalTable::start_checkpoint(const string& pre){
 	for(int i = 0; i < partitions_.size(); ++i){
 		if(is_local_shard(i)){
@@ -164,6 +164,7 @@ void MutableGlobalTable::restore(const string& pre){
 		}
 	}
 }
+*/
 
 //void MutableGlobalTable::HandlePutRequests(){
 //	if(helper()){

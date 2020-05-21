@@ -27,7 +27,7 @@ public:
 	static double NowSinceBoot();
 };
 
-double Now() { return Timer::Now(); }
+inline double Now() { return Timer::Now(); }
 
 #define EVERY_N(interval, operation)\
 { static int COUNT = 0;\

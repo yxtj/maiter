@@ -8,7 +8,7 @@ protobuf_generate_cpp(MESSAGE_PB_SRC MESSAGE_PB_HDR message.proto)
 add_custom_target(message_proto DEPENDS ${MESSAGE_PB_HDR})
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-message(STATUS "${MAITER_SOURCE_DIR}, ${CMAKE_CURRENT_BINARY_DIR}")
+#message(STATUS "${MAITER_SOURCE_DIR}, ${CMAKE_CURRENT_BINARY_DIR}")
 
 add_library(msg
 	${MTYPE_PB_SRC} ${MTYPE_PB_HDR}
@@ -20,3 +20,4 @@ add_dependencies(msg
 	common_proto
 	message_proto
 )
+target_link_libraries(msg ${Protobuf_LIBRARIES})

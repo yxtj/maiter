@@ -1,9 +1,9 @@
-set(EXAMPLE_LIBS 
-	${EXAMPLE_LIBS} 
-	${MPI_LIBS}
-	${BLAS_LIBS}
-  	${PROTOBUF_LIBS})  	  	
-set(EXAMPLE_LIBS ${EXAMPLE_LIBS} util)
+#set(EXAMPLE_LIBS 
+#	${EXAMPLE_LIBS} 
+#	${MPI_LIBS}
+#	${BLAS_LIBS}
+#  	${PROTOBUF_LIBS})  	  	
+#set(EXAMPLE_LIBS ${EXAMPLE_LIBS} util)
 
 #add_custom_target(example_proto DEPENDS ${EXAMPLE_PB_HDR})
 

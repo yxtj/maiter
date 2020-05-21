@@ -14,7 +14,7 @@ class TableHelper;
 // Represents a single shard of a partitioned global table.
 class LocalTable: public Table,
 		virtual public UntypedTable,
-		public Checkpointable,
+		//public Checkpointable,
 		public Serializable,
 		public Transmittable,
 		public Snapshottable{

@@ -15,7 +15,7 @@
 #include <glog/logging.h>
 
 #include <cstdio>
-#include <dirent.h>
+//#include <dirent.h>
 
 #include <string>
 #include <thread>
@@ -180,7 +180,7 @@ void Worker::_CP_start(){
 	//create folder for storing this checkpoint
 	string pre = FLAGS_checkpoint_write_dir
 			+"/"+ genCPNameFolderPart(FLAGS_taskid,epoch_)+"/";
-	File::Mkdirs(pre);
+	//File::Mkdirs(pre);
 
 	//archive current table state:
 	TableRegistry::Map &tbl = TableRegistry::Get()->tables();
@@ -388,6 +388,7 @@ void Worker::restore(int epoch){
 void Worker::removeCheckpoint(const int epoch){
 	string pre = FLAGS_checkpoint_write_dir +
 			"/"+ genCPNameFolderPart(FLAGS_taskid,epoch)+"/";
+	/*
 	DIR* dp = opendir(pre.c_str());
 	if(dp==nullptr)
 		return;
@@ -404,6 +405,7 @@ void Worker::removeCheckpoint(const int epoch){
 	closedir(dp);
 	if(remove(pre.c_str())!=0)
 		LOG(ERROR)<<"cannot delete checkpoint folder "<<pre;
+	*/
 }
 
 

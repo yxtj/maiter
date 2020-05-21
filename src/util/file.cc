@@ -2,53 +2,12 @@
 #include "util/common.h"
 #include "google/protobuf/message.h"
 #include <stdio.h>
-#include <glob.h>
+//#include <glob.h>
 
 namespace dsm {
 
 static const int kFileBufferSize = 4 * 1024 * 1024;
 
-vector<string> File::MatchingFilenames(StringPiece pattern) {
-  glob_t globbuf;
-  globbuf.gl_offs = 0;
-  glob(pattern.AsString().c_str(), 0, NULL, &globbuf);
-  vector<string> out;
-  for (int i = 0; i < globbuf.gl_pathc; ++i) {
-    out.push_back(globbuf.gl_pathv[i]);
-  }
-  globfree(&globbuf);
-  return out;
-}
-
-vector<File::Info> File::MatchingFileinfo(StringPiece glob) {
-  vector<string> names = MatchingFilenames(glob);
-  vector<File::Info> out(names.size());
-  for (int i = 0; i < names.size(); ++i) {
-    out[i].name = names[i];
-    stat(names[i].c_str(), &out[i].stat);
-  }
-
-  return out;
-}
-
-void File::Mkdirs(string path) {
-  if (path[0] != '/') {
-    char cur[PATH_MAX];
-    getcwd(cur, PATH_MAX);
-    path = string(cur) + "/" + path;
-  }
-
-  vector<StringPiece> pbits = StringPiece::split(path, "/");
-  string prefix;
-  for (int i = 0; i < pbits.size(); ++i) {
-    pbits[i].strip();
-    if (pbits[i].size() == 0) { continue; }
-
-    prefix += "/" + pbits[i].AsString();
-    int result = mkdir(prefix.c_str(), 0777);
-    PCHECK(result == 0 || errno == EEXIST) << "Failed to create directory " << path;
-  }
-}
 
 string File::Slurp(const string& f) {
   FILE* fp = fopen(f.c_str(), "r");
@@ -78,10 +37,10 @@ bool File::Exists(const string& f) {
   return false;
 }
 
-void File::Dump(const string& f, StringPiece data) {
+void File::Dump(const string& f, const StringPiece& data) {
   FILE* fp = fopen(f.c_str(), "w+");
   if (!fp) { LOG(FATAL) << "Failed to open output file " << f.c_str(); }
-  fwrite(data.data, 1, data.len, fp);
+  fwrite(data.data.c_str(), 1, data.len, fp);
   fflush(fp);
   fclose(fp);
 }
@@ -164,7 +123,7 @@ void Encoder::write_string(StringPiece v) {
 
 void Encoder::write_bytes(StringPiece s) {
   if (out_) { out_->append(s.data, s.len); }
-  else { out_f_->write(s.data, s.len); }
+  else { out_f_->write(s.data.c_str(), s.len); }
 }
 
 void Encoder::write_bytes(const char* a, int len) {
@@ -265,7 +224,7 @@ RecordFile::~RecordFile() {
   if (!fp) { return; }
 
   if (mode_ != "r") {
-    fp->sync();
+    //fp->sync();
     VLOG(1) << "Renaming: " << path_;
     File::Move(StringPrintf("%s.tmp", path_.c_str()), path_);
   }
@@ -281,7 +240,7 @@ void RecordFile::write(const google::protobuf::Message & m) {
 void RecordFile::writeChunk(StringPiece data) {
   int len = data.size();
   fp->write((char*)&len, sizeof(int));
-  fp->write(data.data, data.size());
+  fp->write(data.data.c_str(), data.size());
 }
 
 bool RecordFile::readChunk(string *s) {
