@@ -37,7 +37,7 @@ struct Marshal<T, typename std::enable_if<std::is_base_of<std::string, T>::value
 		*out = t;
 	}
 	void unmarshal(const StringPiece& s, std::string *t){
-		t->assign(s.data, s.len);
+		t->assign(s.data.c_str(), s.len);
 	}
 };
 
@@ -47,7 +47,7 @@ struct Marshal<T, typename std::enable_if<std::is_base_of<google::protobuf::Mess
 		t.SerializePartialToString(out);
 	}
 	void unmarshal(const StringPiece& s, google::protobuf::Message* t){
-		t->ParseFromArray(s.data, s.len);
+		t->ParseFromArray(s.data.c_str(), s.len);
 	}
 };
 

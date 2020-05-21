@@ -18,6 +18,12 @@ find_package(protobuf REQUIRED)
 include_directories(${Protobuf_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
+if(CMAKE_VERSION VERSION_GREATER 3.8.0)
+	set(PROTOBUF_LIBS "protobuf::libprotobuf")
+else()
+	set(PROTOBUF_LIBS "protobuf")
+endif()
+
 message(STATUS "Protobuf include dir: ${Protobuf_INCLUDE_DIRS}")
 message(STATUS "Protobuf complier: ${Protobuf_PROTOC_EXECUTABLE}")
 
@@ -42,14 +48,20 @@ message(STATUS "Thread lib: ${CMAKE_THREAD_LIBS_INIT}")
 # use ${CMAKE_THREAD_LISBS_INIT} for targets need thread support.
 
 # -------- others --------
-find_package(gflags REQUIRED)
-find_package(glog REQUIRED)
+find_package(Gflags REQUIRED)
+find_package(Glog)
+
+if(${Glog_FOUND})
+	set(GLOG_LIBS "glog::glog")
+else()
+	find_library(GLOG_LIBS glog)
+endif()
 
 check_include_file("lzo1x.h" HAVE_LZO1X_H)
 find_library(LZO2_LIBS lzo2)
 
-message(STATUS "gflags: ${gflags_FOUND}, ${gflags_INCLUDE_DIRS}, ${gflags_INCLUDES}, ${gflags_LIBARIES}, ${gflags_LIBS}")
-message(STATUS "glog: ${glog_FOUND}, ${glog_INCLUDE_DIRS}, ${glog_INCLUDES}, ${glog_LIBARIES}, ${glog_LIBS}")
+message(STATUS "gflags: ${Gflags_FOUND}, ${Gflags_INCLUDE_DIRS}, ${Gflags_INCLUDES}, ${Gflags_LIBARIES}, ${Gflags_LIBS}")
+message(STATUS "glog: ${Glog_FOUND}, ${Glog_INCLUDE_DIRS}, ${Glog_INCLUDES}, ${Glog_LIBARIES}, ${Glog_LIBS}, ${GLOG_LIBS}")
 message(STATUS "lzo: ${HAVE_LZO1X_H}, ${LZO2_LIBS}")
 
 # -------- main --------

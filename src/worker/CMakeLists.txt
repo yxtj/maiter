@@ -3,4 +3,4 @@ add_library(worker
 	worker_handler.cc
 	worker_checkpoint.cc
 )
-add_dependencies(worker msg ${CMAKE_THREAD_LIBS_INIT})
+add_dependencies(worker msg)

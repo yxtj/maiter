@@ -190,7 +190,7 @@ void Worker::_CP_start(){
 		//flush message to other shards
 		t->SendUpdates();
 		//archive local state
-		t->start_checkpoint(pre);
+		//t->start_checkpoint(pre);
 	}
 }
 void Worker::_sendCPFlushSig(){
@@ -215,7 +215,7 @@ void Worker::_CP_stop(){
 	for(TableRegistry::Map::iterator i = tbl.begin(); i != tbl.end(); ++i){
 		MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(i->second);
 		if(t){
-			t->finish_checkpoint();
+			//t->finish_checkpoint();
 		}
 	}
 	_enableProcess();
@@ -251,7 +251,7 @@ void Worker::_finishCP_Sync(){
 			Checkpointable *t = dynamic_cast<Checkpointable*>(tbl.at(d.table()));
 //			DVLOG(1)<<"message: "<<d.kv_data(0).DebugString();
 			++count;
-			t->write_message(d);
+			//t->write_message(d);
 		}
 	}
 	DVLOG(1)<<"archived msg: "<<count;
@@ -298,7 +298,7 @@ void Worker::_processCPSig_SyncSig(const int wid){
 //	ofstream fout("haha/"+to_string(id())+'-'+to_string(wid));
 //	fout<<d.DebugString();
 			++count;
-			t->write_message(d);
+			//t->write_message(d);
 		}
 	}
 	DVLOG(1)<<"archived msg: "<<count;
@@ -358,8 +358,9 @@ void Worker::_HandlePutRequest_AsynCP(const string& d, const RPCInfo& info){
 	tmr_cp_block_.Reset();
 	MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(
 			TableRegistry::Get()->mutable_table(put.table()));
-	if(!_cp_async_sig_rec[put.source()])
-		t->write_message(put);
+	if(!_cp_async_sig_rec[put.source()]){
+		//t->write_message(put);
+	}
 	DVLOG(1)<<"cp write a message from "<<put.source()<<" at worker "<<id();
 	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 }
@@ -378,7 +379,7 @@ void Worker::restore(int epoch){
 	for(TableRegistry::Map::iterator i = t.begin(); i != t.end(); ++i){
 		Checkpointable* t = dynamic_cast<Checkpointable*>(i->second);
 		if(t){
-			t->restore(pre);
+			//t->restore(pre);
 		}
 	}
 	LOG(INFO)<< "Worker "<<id()<<" has restored state from epoch: " << epoch;

@@ -20,4 +20,3 @@ add_dependencies(msg
 	common_proto
 	message_proto
 )
-target_link_libraries(msg ${Protobuf_LIBRARIES})

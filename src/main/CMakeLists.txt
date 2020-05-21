@@ -7,4 +7,5 @@ target_link_libraries(maiter
 	#-Wl,-no-whole-archive
 )
 target_link_libraries(maiter gflags)
-target_link_libraries(maiter glog::glog)
+target_link_libraries(maiter ${GLOG_LIBS})
+target_link_libraries(maiter ${PROTOBUF_LIBS})

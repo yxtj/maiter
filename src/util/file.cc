@@ -122,7 +122,7 @@ void Encoder::write_string(StringPiece v) {
 }
 
 void Encoder::write_bytes(StringPiece s) {
-  if (out_) { out_->append(s.data, s.len); }
+  if (out_) { out_->append(s.data.c_str(), s.len); }
   else { out_f_->write(s.data.c_str(), s.len); }
 }
 

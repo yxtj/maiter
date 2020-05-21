@@ -15,7 +15,7 @@
 #include <utility>
 #include <gflags/gflags.h>
 
-#include "dbg/getcallstack.h"
+//#include "dbg/getcallstack.h"
 
 namespace dsm {
 
@@ -626,7 +626,7 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size){
 //			LOG(INFO)<< "copy: " << old_b[i].k;
 		}
 	}
-	CHECK_EQ(old_entries, entries_)<<getcallstack();
+	//CHECK_EQ(old_entries, entries_)<<getcallstack();
 }
 
 template<class K, class V1, class V2, class V3>
