@@ -134,4 +134,5 @@ int main(int argc, char** argv){
 	k(conf);
 	LOG(INFO)<< "Exiting.";
 	NetworkThread::Shutdown();
+	LOG(INFO) << "Done.";
 }

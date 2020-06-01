@@ -24,7 +24,6 @@ NetworkThread::NetworkThread() :
 
 	running = true;
 	t_ = thread(&NetworkThread::Run, this);
-	t_.detach();
 }
 
 int NetworkThread::id() const{
