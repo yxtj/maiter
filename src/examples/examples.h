@@ -1,4 +1,17 @@
 #include "client/client.h"
+
+void RegisterExamples();
+
+using namespace dsm;
+
+int Adsorption(ConfigData& conf);
+//int ConnectedComponen(ConfigData& conf);
+int Katz(ConfigData& conf);
+int Pagerank(ConfigData& conf);
+int Shortestpath(ConfigData& conf);
+int Simrank(ConfigData& conf);
+
+/*
 #include "examples/examples.pb.h"
 
 using namespace dsm;
@@ -16,3 +29,4 @@ struct Marshal<Bucket> : public MarshalBase {
   static void unmarshal(const StringPiece& s, Bucket* t) { t->ParseFromArray(s.data, s.len); }
 };
 }
+*/

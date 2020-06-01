@@ -61,7 +61,7 @@ struct PagerankIterateKernel: public IterateKernel<int, float, vector<int> > {
 	}
 };
 
-static int Pagerank(ConfigData& conf){
+int Pagerank(ConfigData& conf){
 	Sharders::Mod vS;
 	PagerankIterateKernel vRIK;
 	TermCheckers<int, float>::Diff vTC;
@@ -80,4 +80,4 @@ static int Pagerank(ConfigData& conf){
 	return 0;
 }
 
-REGISTER_RUNNER(Pagerank);
+//REGISTER_RUNNER(Pagerank);

@@ -1,5 +1,6 @@
 #include "client/client.h"
 #include <string>
+#include "examples.h"
 
 using namespace dsm;
 using namespace std;
@@ -76,7 +77,7 @@ struct ShortestpathIterateKernel: public IterateKernel<int, float, vector<Link> 
 	}
 };
 
-static int Shortestpath(ConfigData& conf){
+int Shortestpath(ConfigData& conf){
 	Sharders::Mod vS;
 	ShortestpathIterateKernel vSIK;
 	TermCheckers<int, float>::Diff vTC;
@@ -95,5 +96,5 @@ static int Shortestpath(ConfigData& conf){
 	return 0;
 }
 
-REGISTER_RUNNER(Shortestpath);
+//REGISTER_RUNNER(Shortestpath);
 

@@ -9,11 +9,11 @@ DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
 
-struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
+struct ConnectedComponentIterateKernel : public IterateKernel<int, int, vector<int> > {
     int zero;
 
 
-    PagerankIterateKernel() : zero(0){}
+    ConnectedComponentIterateKernel() : zero(0){}
 
     void read_data(string& line, int& k, vector<int>& data){
 		//line: "k\ta b c "
@@ -64,7 +64,7 @@ struct PagerankIterateKernel : public IterateKernel<int, int, vector<int> > {
 };
 
 
-static int Pagerank(ConfigData& conf) {
+int Pagerank(ConnectedComponen& conf) {
     MaiterKernel<int, int, vector<int> >* kernel = new MaiterKernel<int, int, vector<int> >(
                                         conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
                                         new Sharders::Mod,
@@ -83,5 +83,5 @@ static int Pagerank(ConfigData& conf) {
     return 0;
 }
 
-REGISTER_RUNNER(Pagerank);
+REGISTER_RUNNER(ConnectedComponen);
 

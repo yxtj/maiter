@@ -146,8 +146,8 @@ protected:
 
 class MutableGlobalTable:
 		virtual public GlobalTable,
-		virtual public MutableGlobalTableBase
-//		virtual public Checkpointable
+		virtual public MutableGlobalTableBase,
+		virtual public Checkpointable
 {
 public:
 	MutableGlobalTable(){
@@ -184,13 +184,14 @@ public:
 	void resize(int64_t new_size);
 
 	//override from Checkpointable
-	void start_checkpoint(const string& pre);
-	void write_message(const KVPairData& d);
-	void finish_checkpoint();
-	void restore(const string& pre);
+	//void start_checkpoint(const string& pre);
+	//void write_message(const KVPairData& d);
+	//void finish_checkpoint();
+	void dump(const std::ofstream& fout);
+	void restore(const std::ifstream& fin);
 	//convenient functions for checkpoint
-	void start_checkpoint(const int taskid, const int epoch);
-	void restore(const int taskid, const int epoch);
+	//void start_checkpoint(const int taskid, const int epoch);
+	//void restore(const int taskid, const int epoch);
 
 	void swap(GlobalTableBase *b);
 	void local_swap(GlobalTableBase *b);

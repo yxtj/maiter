@@ -18,15 +18,15 @@
 //#include <dirent.h>
 
 #include <string>
+#include <fstream>
 #include <thread>
 #include <chrono>
 #include <algorithm>
 
 using namespace std;
 
-DEFINE_string(checkpoint_write_dir, "/tmp/maiter", "");
-DEFINE_string(checkpoint_read_dir, "/tmp/maiter", "");
-DEFINE_double(flush_time,0.2,"waiting time for flushing out all network message");
+DECLARE_string(checkpoint_dir);
+DECLARE_double(flush_time);
 
 DECLARE_int32(taskid);
 
@@ -178,13 +178,12 @@ bool Worker::processCPSig(const int wid, const int epoch){
 
 void Worker::_CP_start(){
 	//create folder for storing this checkpoint
-	string pre = FLAGS_checkpoint_write_dir
-			+"/"+ genCPNameFolderPart(FLAGS_taskid,epoch_)+"/";
+	//string pre = FLAGS_checkpoint_dir +"/"+ genCPNameFolderPart(FLAGS_taskid,epoch_)+"/";
 	//File::Mkdirs(pre);
 
 	//archive current table state:
-	TableRegistry::Map &tbl = TableRegistry::Get()->tables();
-	for(TableRegistry::Map::iterator it = tbl.begin(); it != tbl.end(); ++it){
+	TableRegistry::Map &tbls = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator it = tbls.begin(); it != tbls.end(); ++it){
 		VLOG(1) << "Starting checkpoint... on table " << it->first;
 		MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(it->second);
 		//flush message to other shards
@@ -371,15 +370,23 @@ void Worker::_HandlePutRequest_AsynCP(const string& d, const RPCInfo& info){
 void Worker::restore(int epoch){
 	lock_guard<recursive_mutex> sl(state_lock_);
 	LOG(INFO)<< "Worker "<<id()<<" is restoring state from epoch: " << epoch;
-	string pre=FLAGS_checkpoint_read_dir
-			+"/"+ genCPNameFolderPart(FLAGS_taskid,epoch)+"/";
+
 	epoch_ = epoch;
 
-	TableRegistry::Map &t = TableRegistry::Get()->tables();
-	for(TableRegistry::Map::iterator i = t.begin(); i != t.end(); ++i){
-		Checkpointable* t = dynamic_cast<Checkpointable*>(i->second);
+	TableRegistry::Map &tbls = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator i = tbls.begin(); i != tbls.end(); ++i){
+		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(i->second);
 		if(t){
-			//t->restore(pre);
+			string fn;
+			for(int s = 0; s < t->num_shards(); ++s){
+				if(t->is_local_shard(s)){
+					fn = FLAGS_checkpoint_dir + "/" + genCPName(FLAGS_taskid, epoch, s);
+					break;
+				}
+			}
+			ifstream fin(fn);
+			CHECK(fin) << "Cannot open checkpoint file: " << fn;
+			t->restore(fin);
 		}
 	}
 	LOG(INFO)<< "Worker "<<id()<<" has restored state from epoch: " << epoch;
@@ -387,9 +394,9 @@ void Worker::restore(int epoch){
 
 
 void Worker::removeCheckpoint(const int epoch){
-	string pre = FLAGS_checkpoint_write_dir +
-			"/"+ genCPNameFolderPart(FLAGS_taskid,epoch)+"/";
 	/*
+	string pre = FLAGS_checkpoint_dir +
+		"/" + genCPNameFolderPart(FLAGS_taskid, epoch) + "/";
 	DIR* dp = opendir(pre.c_str());
 	if(dp==nullptr)
 		return;

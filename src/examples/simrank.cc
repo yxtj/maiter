@@ -9,7 +9,7 @@ DECLARE_string(result_dir);
 DECLARE_int64(num_nodes);
 DECLARE_double(portion);
 
-struct Simrankiterate: public IterateKernel<string, double, vector<vector<int> > > {
+struct SimrankIterate: public IterateKernel<string, double, vector<vector<int> > > {
 	double zero;
 	int count;
 	Simrankiterate() :
@@ -204,12 +204,12 @@ struct Simrankiterate: public IterateKernel<string, double, vector<vector<int> >
 	}
 };
 
-static int Simrank(ConfigData& conf){
+int Simrank(ConfigData& conf){
 	MaiterKernel<string, double, vector<vector<int> > >* kernel = new MaiterKernel<string, double,
 			vector<vector<int> > >(
 			conf, FLAGS_num_nodes, FLAGS_portion, FLAGS_result_dir,
 			new Sharders::Mod_str,
-			new Simrankiterate,
+			new SimrankIterate,
 			//new SUM);
 			new TermCheckers<string, double>::Sum);
 
@@ -224,5 +224,4 @@ static int Simrank(ConfigData& conf){
 	return 0;
 }
 
-REGISTER_RUNNER(Simrank);
 

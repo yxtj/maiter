@@ -1,6 +1,7 @@
 #include "client/client.h"
 #include "net/NetworkThread.h"
-#include "glog/logging.h"
+#include "examples/examples.h"
+#include <glog/logging.h>
 #include <iostream>
 
 using namespace dsm;
@@ -21,13 +22,21 @@ DEFINE_double(bufmsg_portion, 0.01,"portion of buffered sending");
 DEFINE_double(buftime, 3.0, "maximum time interval between 2 sendings");
 DEFINE_int32(snapshot_interval, 10, "termination check interval (second)");
 
-DEFINE_string(graph_dir, "graph files", "");
-DEFINE_string(result_dir, "result", "");
+DEFINE_string(graph_dir, "graph", "graph files");
+DEFINE_string(result_dir, "result", "result files");
 DEFINE_int32(max_iterations, 100, "");
 DEFINE_int64(num_nodes, 100, "");
 DEFINE_double(portion, 1, "");
 DEFINE_double(termcheck_threshold, 1000000000, "");
 DEFINE_double(sleep_time, 0.001, "");
+
+DEFINE_string(checkpoint_dir, "", "");
+DEFINE_double(checkpoint_time, 10, "interval of making checkpoints");
+DEFINE_bool(checkpoint_dump, false, "whether to make checkpoints");
+DEFINE_bool(checkpoint_restore, false, "whether to load a checkpoint");
+DEFINE_int32(checkpoint_epoch, -1, "the epoch to load");
+
+DEFINE_double(flush_time, 0.2, "waiting time for flushing out all network message");
 
 DEFINE_string(hostfile, "conf/maiter-cluster", "");
 DEFINE_int32(workers, 2, "");
@@ -69,6 +78,8 @@ void Init(int argc, char** argv){
 		exit(0);
 	}
 
+	RegisterExamples();
+
 	ios_base::sync_with_stdio(false);
 
 	NetworkThread::Init(argc, argv);
@@ -109,9 +120,11 @@ int main(int argc, char** argv){
 	conf.set_num_workers(NetworkThread::Get()->size() - 1);
 	conf.set_worker_id(NetworkThread::Get()->id() - 1);
 
+#ifndef NDEBUG
 	for(auto& p : RunnerRegistry::Get()->runners()){
 		LOG(INFO) << p.first << " -> " << p.second;
 	}
+#endif
 
 //  LOG(INFO) << "Running: " << FLAGS_runner;
 	CHECK_NE(FLAGS_runner, "");
@@ -120,4 +133,5 @@ int main(int argc, char** argv){
 	CHECK(k != NULL) << "Could not find kernel runner " << FLAGS_runner;
 	k(conf);
 	LOG(INFO)<< "Exiting.";
+	NetworkThread::Shutdown();
 }

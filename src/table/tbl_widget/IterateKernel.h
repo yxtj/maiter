@@ -18,8 +18,6 @@ namespace dsm{
 // So when converting to IterateKernel, static_cast<> should be used instead of dynamic_cast<>
 struct IterateKernelBase {};
 
-#ifndef SWIG
-
 template <class K, class V, class D>
 struct IterateKernel : public IterateKernelBase {
   virtual void read_data(std::string& line, K& k, D& data) = 0;
@@ -32,8 +30,6 @@ struct IterateKernel : public IterateKernelBase {
   virtual void g_func(const K& k,const V& delta,const V& value, const D& data, std::vector<std::pair<K, V> >* output) = 0;
   virtual ~IterateKernel(){}
 };
-
-#endif		//#ifdef SWIG / #else
 
 } //namespace dsm
 

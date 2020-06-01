@@ -8,12 +8,17 @@
 #include "table/typed-global-table.hpp"
 #include "table/tbl_widget/IterateKernel.h"
 
+#include <gflags/gflags.h>
+
 #include <fstream>
 #include <string>
 #include <map>
 #include <thread>
 
 DECLARE_string(graph_dir);
+DECLARE_string(checkpoint_dir);
+DECLARE_int32(checkpoint_epoch);
+DECLARE_bool(checkpoint_restore);
 
 namespace dsm {
 
@@ -161,7 +166,7 @@ public:
 		//cout<<"Unable to open file: " << patition_file<<endl;
 		std::ifstream inFile(patition_file);
 		if(!inFile){
-			LOG(FATAL) << "Unable to open file" << patition_file;
+			LOG(FATAL) << "Unable to open file " << patition_file;
 //			cerr << system("ifconfig -a | grep 192.168.*") << endl;
 			exit(1); // terminate with error
 		}
@@ -193,6 +198,52 @@ public:
 	void run(){
 		VLOG(0) << "initializing table ";
 		init_table(maiter->table);
+	}
+};
+
+// restore phase
+template<class K, class V, class D>
+class MaiterKernel4 : public DSMKernel{
+private:
+	MaiterKernel<K, V, D>* maiter;
+public:
+	void set_maiter(MaiterKernel<K, V, D>* inmaiter){
+		maiter = inmaiter;
+	}
+
+	void read_file(TypedGlobalTable<K, V, V, D>* table){
+		std::string patition_file = StringPrintf("%s/part%d", FLAGS_checkpoint_dir.c_str(), current_shard());
+		std::ifstream inFile(patition_file);
+		if(!inFile){
+			LOG(FATAL) << "Unable to open file" << patition_file;
+			exit(1); // terminate with error
+		}
+
+		std::string line;
+		//read a line of the input file
+		while(getline(inFile, line)){
+			K key;
+			V delta;
+			D data;
+			V value;
+			maiter->iterkernel->read_data(line, key, data); //invoke api, get the value of key field and data field
+			maiter->iterkernel->init_v(key, value, data); //invoke api, get the initial v field value
+			maiter->iterkernel->init_c(key, delta, data); //invoke api, get the initial delta v field value
+//			DVLOG(3)<<"key: "<<key<<" delta: "<<delta<<" value: "<<value<<"   "<<data.size();
+			table->put(std::move(key), std::move(delta), std::move(value), std::move(data)); //initialize a row of the state table (a node)
+		}
+	}
+
+	void restore_table(TypedGlobalTable<K, V, V, D>* a){
+		read_file(a);
+	}
+
+	void run(){
+		VLOG(0) << "loading archived table ";
+		if(FLAGS_checkpoint_restore){
+			CHECK(FLAGS_checkpoint_epoch > 0) << "the given epoch to restore is not valid";
+			restore_table(maiter->table);
+		}
 	}
 };
 
@@ -340,6 +391,11 @@ public:
 		KernelRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", this);
 		MethodRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", "run",
 				&MaiterKernel1<K, V, D>::run, this);
+
+		// restore if necessary
+		KernelRegistrationHelper<MaiterKernel4<K, V, D>, K, V, D>("MaiterKernel4", this);
+		MethodRegistrationHelper<MaiterKernel4<K, V, D>, K, V, D>("MaiterKernel4", "run",
+			&MaiterKernel4<K, V, D>::run, this);
 
 		//iterative update job
 		if(iterkernel != nullptr && termchecker != nullptr){

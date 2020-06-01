@@ -195,6 +195,7 @@ private:
 
 	MsgDriver driver;
 	bool pause_pop_msg_;
+	bool allow_send_;
 	ReplyHandler rph;
 };
 

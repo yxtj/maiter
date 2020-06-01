@@ -9,10 +9,9 @@
 #include <functional>
 #include <chrono>
 
-#include "dbg/getcallstack.h"
+//#include "dbg/getcallstack.h"
 
 DECLARE_double(sleep_time);
-DEFINE_double(sleep_hack, 0.0, "");
 
 namespace dsm {
 
@@ -39,6 +38,7 @@ Worker::Worker(const ConfigData &c){
 	st_will_termcheck_=false;
 
 	pause_pop_msg_=false;
+	allow_send_ = true;
 
 	th_ker_=nullptr;
 	th_cp_=nullptr;

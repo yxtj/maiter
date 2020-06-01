@@ -40,14 +40,17 @@ struct TableHelper{
 	virtual void realSwap(const int tid1, const int tid2) = 0;
 	virtual void realClear(const int tid) = 0;
 
-	std::string genCPNameFolderPart(int taskid){
-		return "task-" + std::to_string(taskid);
-	}
-	std::string genCPNameFolderPart(int taskid, int epoch){
-		return "task-" + std::to_string(taskid) + "/epoch_" + std::to_string(epoch);
-	}
-	std::string genCPNameFilePart(int table, int shard){
-		return "T" + std::to_string(table) + "-S" + std::to_string(shard);
+	//std::string genCPNameFolderPart(int taskid){
+	//	return "task-" + std::to_string(taskid);
+	//}
+	//std::string genCPNameFolderPart(int taskid, int epoch){
+	//	return "task-" + std::to_string(taskid) + "/epoch_" + std::to_string(epoch);
+	//}
+	//std::string genCPNameFilePart(int table, int shard){
+	//	return "T" + std::to_string(table) + "-S" + std::to_string(shard);
+	//}
+	std::string genCPName(int taskid, int epoch, int shard){
+		return "t_" + std::to_string(taskid) + "-e_" + std::to_string(epoch) + "-p-" + std::to_string(shard);
 	}
 
 	virtual ~TableHelper(){}

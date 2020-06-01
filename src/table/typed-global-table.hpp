@@ -328,7 +328,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF2(const K &k, const V2 &v){
 		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << helper_id();
 	}else{
 		VLOG(2) << "update F2 shard " << shard << " local? " << " : " << is_local_shard(shard)
-							<< " : " << helper_id();
+				<< " : " << helper_id();
 	}
 }
 
@@ -347,7 +347,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF3(const K &k, const V3 &v){
 		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << helper_id();
 	}else{
 		VLOG(2) << "update F3 shard " << shard << " local? " << " : " << is_local_shard(shard)
-							<< " : " << helper_id();
+				<< " : " << helper_id();
 	}
 }
 
@@ -386,7 +386,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF2(const K &k, const V2 &v){ // 
 		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << helper_id();
 	}else{
 		VLOG(2) << "accumulate F2 shard " << shard << " local? " << " : "
-							<< is_local_shard(shard);
+				<< is_local_shard(shard);
 	}
 }
 
@@ -405,7 +405,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF3(const K &k, const V3 &v){
 		//VLOG(3) << " shard " << shard << " local? " << " : " << is_local_shard(shard) << " : " << helper_id();
 	}else{
 		VLOG(2) << "accumulate F3 shard " << shard << " local? " << " : "
-							<< is_local_shard(shard) << " : " << helper_id();
+				<< is_local_shard(shard) << " : " << helper_id();
 	}
 }
 

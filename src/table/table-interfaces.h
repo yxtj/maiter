@@ -10,6 +10,7 @@
 
 #include "table.h"
 #include "table-coder.h"
+#include <fstream>
 
 namespace dsm{
 
@@ -17,10 +18,11 @@ namespace dsm{
 // Checkpoint and restoration.
 class Checkpointable{
 public:
-	virtual void start_checkpoint(const std::string& f) = 0;
-	virtual void write_message(const KVPairData& put) = 0;
-	virtual void finish_checkpoint() = 0;
-	virtual void restore(const std::string& f) = 0;
+	//virtual void start_checkpoint(const std::string& f) = 0;
+	//virtual void write_message(const KVPairData& put) = 0;
+	virtual void dump(const std::ofstream& fout) = 0;
+	//virtual void finish_checkpoint() = 0;
+	virtual void restore(const std::ifstream& fin) = 0;
 	virtual ~Checkpointable(){}
 };
 

@@ -153,18 +153,28 @@ void MutableGlobalTable::finish_checkpoint(){
 		}
 	}
 }
+*/
 
-void MutableGlobalTable::restore(const string& pre){
+void MutableGlobalTable::dump(const std::ofstream& fout){
 	for(int i = 0; i < partitions_.size(); ++i){
-		LocalTable *t = partitions_[i];
+		LocalTable* t = partitions_[i];
 		if(is_local_shard(i)){
-			t->restore(pre + helper()->genCPNameFilePart(id(),i));
-		}else{
-			t->clear();
+			//t->restore(prefix + helper()->genCPNameFilePart(id(), i));
 		}
 	}
 }
-*/
+
+void MutableGlobalTable::restore(const std::ifstream& fin){
+	for(int i = 0; i < partitions_.size(); ++i){
+		LocalTable *t = partitions_[i];
+		if(is_local_shard(i)){
+			
+			//t->restore(prefix + helper()->genCPNameFilePart(id(),i));
+		}else{
+			//t->clear();
+		}
+	}
+}
 
 //void MutableGlobalTable::HandlePutRequests(){
 //	if(helper()){

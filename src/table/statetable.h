@@ -439,6 +439,9 @@ public:
 		return new EntirePassIterator(*this);
 	}
 
+	void dump(const std::ofstream& fout);
+	void restore(const std::ifstream& fin);
+
 	void serializeToFile(TableCoder *out);
 	void serializeToNet(KVPairCoder *out);
 	void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
@@ -512,6 +515,31 @@ StateTable<K, V1, V2, V3>::StateTable(int size) :
 
 	VLOG(1) << "new statetable size " << size;
 	resize(size);
+}
+
+template<class K, class V1, class V2, class V3>
+inline void StateTable<K, V1, V2, V3>::dump(const std::ofstream& fout)
+{
+	Iterator* i = (Iterator*)entirepass_iterator(nullptr);
+	while(!i->done()){
+
+		k.clear();
+		v1.clear();
+		v2.clear();
+		v3.clear();
+		DVLOG(2) << i->pos << ": k=" << i->key() << " v1=" << i->value1() << " v2=" << i->value2();
+		((Marshal<K>*)info_.key_marshal)->marshal(i->key(), &k);
+		//		DVLOG(1)<<"k="<<i->key()<<" - "<<k;
+		((Marshal<V1>*)info_.value1_marshal)->marshal(i->value1(), &v1);
+		//		DVLOG(1)<<"v1="<<i->value1()<<" - "<<v1;
+		((Marshal<V2>*)info_.value2_marshal)->marshal(i->value2(), &v2);
+		//		DVLOG(1)<<"v2="<<i->value2()<<" - "<<v3;
+		//		((Marshal<V3>*)info_.value3_marshal)->marshal(i->value3(), &v3);
+		//		DVLOG(1)<<"v3="<<i->value3()<<" - "<<v3;
+		out->WriteEntryToFile(k, v1, v2, v3);
+		i->Next();
+	}
+	delete i;
 }
 
 template<class K, class V1, class V2, class V3>
