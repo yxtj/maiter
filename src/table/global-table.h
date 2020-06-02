@@ -74,10 +74,6 @@ public:
 	virtual void SendUpdates() = 0;
 	virtual void TermCheck() = 0;
 
-	bool allowProcess(){ return allow2Process_; }
-	void enableProcess(){ allow2Process_=true; }
-	void disableProcess(){ allow2Process_=false; }
-
 	virtual int pending_write_bytes() = 0;
 
 	virtual void resize(int64_t new_size) = 0;
@@ -127,7 +123,7 @@ protected:
 
 	std::recursive_mutex m_;
 	std::mutex m_trig_;
-	std::recursive_mutex& mutex(){
+	std::recursive_mutex& get_mutex(){
 		return m_;
 	}
 	std::mutex& trigger_mutex(){
@@ -152,6 +148,9 @@ class MutableGlobalTable:
 public:
 	MutableGlobalTable(){
 //		sent_bytes_ = 0;
+		allow_process = true;
+		allow_send = true;
+		allow_termcheck = true;
 		pending_process_ = 0;
 		pending_send_ = 0;
 		snapshot_index = 0;
@@ -187,8 +186,10 @@ public:
 	//void start_checkpoint(const string& pre);
 	//void write_message(const KVPairData& d);
 	//void finish_checkpoint();
-	void dump(const std::ofstream& fout);
-	void restore(const std::ifstream& fin);
+
+	void dump(std::ofstream& fout);
+	void dump(std::ofstream& fout, bool dump_local, bool dump_remote);
+	void restore(std::ifstream& fin);
 	//convenient functions for checkpoint
 	//void start_checkpoint(const int taskid, const int epoch);
 	//void restore(const int taskid, const int epoch);
@@ -197,6 +198,10 @@ public:
 	void local_swap(GlobalTableBase *b);
 
 //	int64_t sent_bytes_;
+
+	bool allow_process;
+	bool allow_send;
+	bool allow_termcheck;
 
 protected:
 	Timer tmr_process, tmr_send;

@@ -155,20 +155,32 @@ void MutableGlobalTable::finish_checkpoint(){
 }
 */
 
-void MutableGlobalTable::dump(const std::ofstream& fout){
+void MutableGlobalTable::dump(std::ofstream& fout)
+{
+	dump(fout, true, true);
+}
+
+void MutableGlobalTable::dump(std::ofstream& fout, bool local, bool remote){
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable* t = partitions_[i];
 		if(is_local_shard(i)){
-			//t->restore(prefix + helper()->genCPNameFilePart(id(), i));
+			// TODO
+			if(local){
+				
+			}
+		} else{
+			if(remote){
+
+			}
 		}
 	}
 }
 
-void MutableGlobalTable::restore(const std::ifstream& fin){
+void MutableGlobalTable::restore(std::ifstream& fin){
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
 		if(is_local_shard(i)){
-			
+			// TODO
 			//t->restore(prefix + helper()->genCPNameFilePart(id(),i));
 		}else{
 			//t->clear();
@@ -188,8 +200,9 @@ void MutableGlobalTable::resetProcessMarker(){
 }
 
 bool MutableGlobalTable::canProcess(){
-	return pending_process_ > bufmsg
-			|| (pending_process_ !=0 && tmr_process.elapsed() > FLAGS_buftime);
+	return allow_process && (
+		pending_process_ > bufmsg
+		|| (pending_process_ != 0 && tmr_process.elapsed() > FLAGS_buftime));
 }
 
 void MutableGlobalTable::BufProcessUpdates(){
@@ -206,8 +219,9 @@ void MutableGlobalTable::resetSendMarker(){
 }
 
 bool MutableGlobalTable::canSend(){
-	return pending_send_ > bufmsg
-			|| (pending_send_ != 0 && tmr_send.elapsed() > FLAGS_buftime);
+	return allow_send && (
+		pending_send_ > bufmsg
+		|| (pending_send_ != 0 && tmr_send.elapsed() > FLAGS_buftime));
 }
 
 void MutableGlobalTable::BufSendUpdates(){
@@ -261,6 +275,8 @@ bool MutableGlobalTable::canPnS(){
 
 bool MutableGlobalTable::canTermCheck(){
 	static double last = 0.0;
+	if(!allow_termcheck)
+		return false;
 	double now = Now();
 	if(now - last > FLAGS_snapshot_interval){
 		last = now;

@@ -112,7 +112,7 @@ public:
 
 	void MergeUpdates(const dsm::KVPairData& req){
 //		Timer t;
-		std::lock_guard<std::recursive_mutex> sl(mutex());
+		std::lock_guard<std::recursive_mutex> sl(get_mutex());
 
 //		VLOG(3) << "applying updates, from " << req.source();
 
@@ -137,10 +137,10 @@ public:
 	}
 
 	void ProcessUpdates(){
-		if(!allowProcess())
+		if(!allow_process)
 			return;
-		std::lock_guard<std::recursive_mutex> sl(mutex());
-		if(!allowProcess())
+		std::lock_guard<std::recursive_mutex> sl(get_mutex());
+		if(!allow_process)
 			return;
 //		Timer t;
 		//handle multiple shards
@@ -190,7 +190,7 @@ public:
 	}
 
 	void ProcessUpdatesSingle(const int shard, const K& k){
-		std::lock_guard<std::recursive_mutex> sl(mutex());
+		std::lock_guard<std::recursive_mutex> sl(get_mutex());
 		DCHECK(shard==get_shard(k))<<"given shard for a key do not match local record";
 		StateTable<K,V1,V2,V3>* pt=dynamic_cast<StateTable<K,V1,V2,V3>*>(partitions_[shard]);
 		ClutterRecord<K,V1,V2,V3> c=pt->get(k);
@@ -271,7 +271,7 @@ void TypedGlobalTable<K, V1, V2, V3>::put(const K &k, const V1 &v1, const V2 &v2
 	int shard = this->get_shard(k);
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 //	DVLOG(3)<<"key: "<<k<<" delta: "<<v1<<" value: "<<v2<<"   "<<v3.size()<<" shard="<<shard<<" cl W"<<helper_id();
 	if(is_local_shard(shard)){
@@ -287,7 +287,7 @@ void TypedGlobalTable<K, V1, V2, V3>::put(K &&k, V1 &&v1, V2 &&v2, V3 &&v3){
 	int shard = this->get_shard(k);
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 //	DVLOG(3)<<"key: "<<k<<" delta: "<<v1<<" value: "<<v2<<"   "<<v3.size()<<" shard="<<shard<<" rf W"<<helper_id();
 	if(is_local_shard(shard)){
@@ -303,7 +303,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF1(const K &k, const V1 &v){
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<mutex> sl(trigger_mutex());
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 
 	if(is_local_shard(shard)){
@@ -319,7 +319,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF2(const K &k, const V2 &v){
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<mutex> sl(trigger_mutex());
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 
 	if(is_local_shard(shard)){
@@ -338,7 +338,7 @@ void TypedGlobalTable<K, V1, V2, V3>::updateF3(const K &k, const V3 &v){
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<mutex> sl(trigger_mutex());
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 
 	if(is_local_shard(shard)){
@@ -357,7 +357,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF1(const K &k, const V1 &v){ //3
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<mutex> sl(trigger_mutex());
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 
 	if(is_local_shard(shard)){
@@ -377,7 +377,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF2(const K &k, const V2 &v){ // 
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<mutex> sl(trigger_mutex());
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 
 	if(is_local_shard(shard)){
@@ -396,7 +396,7 @@ void TypedGlobalTable<K, V1, V2, V3>::accumulateF3(const K &k, const V3 &v){
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
 	std::lock_guard<mutex> sl(trigger_mutex());
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 
 	if(is_local_shard(shard)){
@@ -416,7 +416,7 @@ ClutterRecord<K, V1, V2, V3> TypedGlobalTable<K, V1, V2, V3>::get(const K &k){
 
 	CHECK_EQ(is_local_shard(shard), true)<< "key " << k << " is not located in local table";
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 	return localT(shard)->get(k);
 }
@@ -429,7 +429,7 @@ V1 TypedGlobalTable<K, V1, V2, V3>::getF1(const K &k){
 	CHECK_EQ(is_local_shard(shard), true)<< "key " << k << " is not located in local table";
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 	return localT(shard)->getF1(k);
 }
@@ -442,7 +442,7 @@ V2 TypedGlobalTable<K, V1, V2, V3>::getF2(const K &k){
 	CHECK_EQ(is_local_shard(shard), true)<< "key " << k << " is not located in local table";
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 	return localT(shard)->getF2(k);
 }
@@ -455,7 +455,7 @@ V3 TypedGlobalTable<K, V1, V2, V3>::getF3(const K &k){
 	CHECK_EQ(is_local_shard(shard), true)<< "key " << k << " is not located in local table";
 
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
-	std::lock_guard<std::recursive_mutex> sl(mutex());
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 	return localT(shard)->getF3(k);
 }
@@ -466,7 +466,7 @@ bool TypedGlobalTable<K, V1, V2, V3>::contains(const K &k){
 
 	if(is_local_shard(shard)){
 #ifdef GLOBAL_TABLE_USE_SCOPEDLOCK
-		std::lock_guard<std::recursive_mutex> sl(mutex());
+		std::lock_guard<std::recursive_mutex> sl(get_mutex());
 #endif
 		return localT(shard)->contains(k);
 	}else{

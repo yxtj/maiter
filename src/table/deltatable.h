@@ -125,6 +125,9 @@ public:
 		return nullptr;
 	}
 
+	void dump(std::ofstream& fout);
+	void restore(std::ifstream& fin);
+
 	void serializeToFile(TableCoder *out);
 	void serializeToNet(KVPairCoder *out);
 	void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
@@ -190,6 +193,43 @@ DeltaTable<K, V1, D>::DeltaTable(int size):buckets_(0), entries_(0), size_(0)
 {
 	clear();
 	resize(size);
+}
+
+template<class K, class V1, class D>
+inline void DeltaTable<K, V1, D>::dump(std::ofstream& fout)
+{
+	Iterator* i = (Iterator*)get_iterator(nullptr, false);
+	fout << "delta:" << shard() << " size:" << size() << "\n";
+	while(!i->done()){
+		DVLOG(2) << i->pos << ": k=" << i->key() << " v1=" << i->value1();
+		fout << i->key() << ',' << i->value1() << '\n';
+		i->Next();
+	}
+	delete i;
+}
+
+template<class K, class V1, class D>
+inline void DeltaTable<K, V1, D>::restore(std::ifstream& fin)
+{
+	std::string line;
+	std::getline(fin, line);
+	size_t p = line.find(' ', 6);
+	CHECK_EQ(std::string("delta:")+to_string(shard()), line.substr(0, p))
+		<< " header of delta table is not correct: " << line;
+	clear();
+	StringMarshal<K> km;
+	StringMarshal<V1> vm;
+	K k;
+	V1 v1;
+	int n = stoi(line.substr(p + 5));
+	while(n > 0){
+		std::getline(fin, line);
+		p = line.find(',');
+		km.unmarshal(line.substr(0, p), &k);
+		vm.unmarshal(line.substr(p + 1), &v1);
+		put(k, v1);
+		n--;
+	}
 }
 
 template<class K, class V1, class D>

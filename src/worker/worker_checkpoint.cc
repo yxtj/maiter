@@ -67,6 +67,12 @@ void Worker::initialCP(CheckpointType cpType){
 		RegDSPProcess(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);
 		RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
 		break;
+	case CP_VS:
+		VLOG(1) << "register vistural snapshot cp handler";
+		RegDSPProcess(MTYPE_CHECKPOINT_START, &Worker::HandleStartCheckpoint);
+		RegDSPProcess(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);
+		RegDSPProcess(MTYPE_CHECKPOINT_SIG, &Worker::HandleCheckpointSig);
+		break;
 	default:
 		LOG(FATAL)<<"given checkpoint type is not implemented.";
 	}
@@ -106,6 +112,9 @@ bool Worker::startCheckpoint(const int epoch){
 //		delete th_cp_; th_cp_=nullptr;
 //		th_cp_=new thread(&Worker::_startCP_Async,this);break;
 		_startCP_Async();break;
+	case CP_VS:
+		_startCP_VS();
+		break;
 	default:
 		LOG(ERROR)<<"given checkpoint type is not implemented.";
 	}
@@ -218,6 +227,24 @@ void Worker::_CP_stop(){
 		}
 	}
 	_enableProcess();
+}
+
+std::string Worker::_CP_local_file_name(int epoch)
+{	
+	string fn;
+	TableRegistry::Map &tbls = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator i = tbls.begin(); i != tbls.end(); ++i){
+		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(i->second);
+		if(t){
+			for(int s = 0; s < t->num_shards(); ++s){
+				if(t->is_local_shard(s)){
+					fn = FLAGS_checkpoint_dir + "/" + genCPName(FLAGS_taskid, epoch, s);
+					break;
+				}
+			}
+		}
+	}
+	return fn;
 }
 
 /*
@@ -362,6 +389,43 @@ void Worker::_HandlePutRequest_AsynCP(const string& d, const RPCInfo& info){
 	}
 	DVLOG(1)<<"cp write a message from "<<put.source()<<" at worker "<<id();
 	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
+}
+
+/*
+ * virtual snapshot:
+ */
+
+void Worker::_startCP_VS()
+{
+	_disableSend();
+	_sendCPFlushSig();
+}
+
+void Worker::_finishCP_VS()
+{
+	_cp_async_sig_rec.assign(config_.num_workers(), false);
+	_enableSend();
+}
+
+void Worker::_processCPSig_VS(const int wid)
+{
+	_cp_async_sig_rec[wid] = true;
+	//rph.input(MTYPE_CHECKPOINT_SIG, wid);
+	if(all_of(_cp_async_sig_rec.begin(), _cp_async_sig_rec.end(), [](bool v){
+		return v;
+		}))
+	{
+		VLOG(1) << "Worker " << config_.worker_id() << " make checkpoint of epoch: " << epoch_;
+		string fn = _CP_local_file_name(epoch_);
+		ofstream fout;
+		//archive current table state:
+		TableRegistry::Map& tbls = TableRegistry::Get()->tables();
+		for(TableRegistry::Map::iterator it = tbls.begin(); it != tbls.end(); ++it){
+			MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(it->second);
+			//archive local state
+			t->dump(fout);
+		}
+	}
 }
 
 /*

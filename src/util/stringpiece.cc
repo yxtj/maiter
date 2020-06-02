@@ -13,6 +13,9 @@ namespace dsm {
 StringPiece::StringPiece(const string& s) : data(s) {
 	len = static_cast<int>(data.size());
 }
+StringPiece::StringPiece(string&& s) : data(move(s)) {
+	len = static_cast<int>(data.size());
+}
 StringPiece::StringPiece(const string& s, int len) : data(s.data(), len) {
 	this->len = static_cast<int>(data.size());
 }

@@ -65,6 +65,72 @@ T unmarshal(Marshal<T>* m, const StringPiece& s){
 	return out;
 }
 
+// String Marshal
+
+template<class T, class Enable = void>
+struct StringMarshal : public MarshalBase {
+	void marshal(const T& t, std::string* out){
+		*out = std::to_string(t);
+	}
+	void unmarshal(const StringPiece& s, T* t){
+		unmarshal(s.data, t);
+	}
+	void unmarshal(const std::string& s, T* t){
+		// ERROR
+	}
+};
+
+template<>
+struct StringMarshal<int, void> : public MarshalBase {
+	void marshal(const int& t, std::string* out){
+		*out = std::to_string(t);
+	}
+	void unmarshal(const StringPiece& s, int* t){
+		unmarshal(s.data, t);
+	}
+	void unmarshal(const std::string& s, int* t){
+		*t = std::stoi(s);
+	}
+};
+template<class T>
+struct StringMarshal<T, typename std::enable_if<std::is_unsigned<T>::value >::type> : public MarshalBase{
+	void marshal(const T& t, std::string* out){
+		*out = std::to_string(t);
+	}
+	void unmarshal(const StringPiece& s, T* t){
+		unmarshal(s.data, t);
+	}
+	void unmarshal(const std::string& s, T* t){
+		*t = std::stoull(s);
+	}
+};
+
+template<>
+struct StringMarshal<float, void> : public MarshalBase{
+	void marshal(const float& t, std::string* out){
+		*out = std::to_string(t);
+	}
+	void unmarshal(const StringPiece& s, float* t){
+		unmarshal(s.data, t);
+	}
+	void unmarshal(const std::string& s, float* t){
+		*t = std::stof(s);
+	}
+};
+template<>
+struct StringMarshal<double, void> : public MarshalBase{
+	void marshal(const double& t, std::string* out){
+		*out = std::to_string(t);
+	}
+	void unmarshal(const StringPiece& s, double* t){
+		unmarshal(s.data, t);
+	}
+	void unmarshal(const std::string& s, double* t){
+		*t = std::stof(s);
+	}
+};
+
+
 } //namespace dsm
 
 #endif /* UTIL_MARSHAL_HPP_ */

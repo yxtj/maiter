@@ -38,7 +38,6 @@ Worker::Worker(const ConfigData &c){
 	st_will_termcheck_=false;
 
 	pause_pop_msg_=false;
-	allow_send_ = true;
 
 	th_ker_=nullptr;
 	th_cp_=nullptr;
@@ -146,6 +145,7 @@ void Worker::KernelProcess(){
 }
 
 void Worker::runKernel(){
+	LOG(INFO) << "Worker " << config_.worker_id() << " starts kernel: " << kreq;
 	KernelInfo *helper = KernelRegistry::Get()->kernel(kreq.kernel());
 	DSMKernel* d = helper->create();
 	d->initialize_internal(this, kreq.table(), kreq.shard());
@@ -212,7 +212,7 @@ void Worker::finishKernel(){
 	running_kernel_=false;
 	network_->Send(config_.master_id(), MTYPE_KERNEL_DONE, kd);
 
-	VLOG(1) << "Kernel finished: " << kreq;
+	VLOG(1) << "Worker " << config_.worker_id() << " finishes Kernel: " << kreq;
 }
 
 int64_t Worker::pending_kernel_bytes() const{
@@ -347,7 +347,7 @@ void Worker::_enableProcess(){
 	for(TableRegistry::Map::iterator it = tbl.begin(); it != tbl.end(); ++it){
 		MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(it->second);
 		if(t){
-			t->enableProcess();
+			t->allow_process = true;
 		}
 	}
 }
@@ -356,7 +356,26 @@ void Worker::_disableProcess(){
 	for(TableRegistry::Map::iterator it = tbl.begin(); it != tbl.end(); ++it){
 		MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(it->second);
 		if(t){
-			t->disableProcess();
+			t->allow_process = false;
+		}
+	}
+}
+
+void Worker::_enableSend(){
+	TableRegistry::Map& tbl = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator it = tbl.begin(); it != tbl.end(); ++it){
+		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(it->second);
+		if(t){
+			t->allow_send = true;
+		}
+	}
+}
+void Worker::_disableSend(){
+	TableRegistry::Map& tbl = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator it = tbl.begin(); it != tbl.end(); ++it){
+		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(it->second);
+		if(t){
+			t->allow_send = false;
 		}
 	}
 }

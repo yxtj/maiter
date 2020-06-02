@@ -124,6 +124,7 @@ private:
 	void _sendCPFlushSig();
 	void _CP_report();
 	void _CP_stop();
+	std::string _CP_local_file_name(int epoch);
 
 	void _startCP_Sync();
 	void _finishCP_Sync();
@@ -135,6 +136,10 @@ private:
 	void _finishCP_Async();
 	void _processCPSig_Async(const int wid);
 	void _HandlePutRequest_AsynCP(const std::string& d, const RPCInfo& info);
+	void _startCP_VS();
+	void _finishCP_VS();
+	void _processCPSig_VS(const int wid);
+
 	//assume there is only one table. General form: xx[# of table][# of worker]
 	std::vector<bool> _cp_async_sig_rec;
 
@@ -149,6 +154,8 @@ private:
 	void clearUnprocessedPut();
 	void _enableProcess();
 	void _disableProcess();
+	void _enableSend();
+	void _disableSend();
 
 	mutable std::recursive_mutex state_lock_;
 
@@ -195,11 +202,8 @@ private:
 
 	MsgDriver driver;
 	bool pause_pop_msg_;
-	bool allow_send_;
 	ReplyHandler rph;
 };
-
-
 
 
 }

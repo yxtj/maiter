@@ -17,6 +17,7 @@ enum CheckpointType {
   CP_SYNC = 1;
   CP_SYNC_SIG = 2;
   CP_ASYNC = 3;
+  CP_VS = 4;
 };
 
 message CheckpointInfo {

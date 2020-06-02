@@ -316,6 +316,7 @@ public:
 	void updateF1(const K& k, const V1& v);
 	void updateF2(const K& k, const V2& v);
 	void updateF3(const K& k, const V3& v);
+	void updateF12(const K& k, const V1& v1, const  V2& v2);
 	void accumulateF1(const K& k, const V1& v);
 	void accumulateF2(const K& k, const V2& v);
 	void accumulateF3(const K& k, const V3& v);
@@ -439,8 +440,8 @@ public:
 		return new EntirePassIterator(*this);
 	}
 
-	void dump(const std::ofstream& fout);
-	void restore(const std::ifstream& fin);
+	void dump(std::ofstream& fout);
+	void restore(std::ifstream& fin);
 
 	void serializeToFile(TableCoder *out);
 	void serializeToNet(KVPairCoder *out);
@@ -518,28 +519,43 @@ StateTable<K, V1, V2, V3>::StateTable(int size) :
 }
 
 template<class K, class V1, class V2, class V3>
-inline void StateTable<K, V1, V2, V3>::dump(const std::ofstream& fout)
+inline void StateTable<K, V1, V2, V3>::dump(std::ofstream& fout)
 {
 	Iterator* i = (Iterator*)entirepass_iterator(nullptr);
+	fout << "state:" << shard() << " size:" << size() << "\n";
 	while(!i->done()){
-
-		k.clear();
-		v1.clear();
-		v2.clear();
-		v3.clear();
 		DVLOG(2) << i->pos << ": k=" << i->key() << " v1=" << i->value1() << " v2=" << i->value2();
-		((Marshal<K>*)info_.key_marshal)->marshal(i->key(), &k);
-		//		DVLOG(1)<<"k="<<i->key()<<" - "<<k;
-		((Marshal<V1>*)info_.value1_marshal)->marshal(i->value1(), &v1);
-		//		DVLOG(1)<<"v1="<<i->value1()<<" - "<<v1;
-		((Marshal<V2>*)info_.value2_marshal)->marshal(i->value2(), &v2);
-		//		DVLOG(1)<<"v2="<<i->value2()<<" - "<<v3;
-		//		((Marshal<V3>*)info_.value3_marshal)->marshal(i->value3(), &v3);
-		//		DVLOG(1)<<"v3="<<i->value3()<<" - "<<v3;
-		out->WriteEntryToFile(k, v1, v2, v3);
+		fout << i->key() << ',' << i->value1() << ',' << i->value2() << '\n';
 		i->Next();
 	}
 	delete i;
+}
+
+template<class K, class V1, class V2, class V3>
+inline void StateTable<K, V1, V2, V3>::restore(std::ifstream& fin)
+{
+	std::string line;
+	std::getline(fin, line);
+	size_t p = line.find(' ', 6);
+	CHECK_EQ(std::string("state:") + to_string(shard()), line.substr(0, p))
+		<< " header of delta table is not correct: " << line;
+	StringMarshal<K> km;
+	StringMarshal<V1> v1m;
+	StringMarshal<V2> v2m;
+	K k;
+	V1 v1;
+	V2 v2;
+	int n = stoi(line.substr(p + 5));
+	while(n > 0){
+		std::getline(fin, line);
+		size_t p1 = line.find(',');
+		size_t p2 = line.find(',', p1 + 1);
+		km.unmarshal(line.substr(0, p1), &k);
+		v1m.unmarshal(line.substr(p1 + 1, p2 - p1), &v1);
+		v2m.unmarshal(line.substr(p2 + 1), &v2);
+		updateF12(k, v1, v2);
+		n--;
+	}
 }
 
 template<class K, class V1, class V2, class V3>
@@ -622,8 +638,9 @@ void StateTable<K, V1, V2, V3>::deserializeFromNet(KVPairCoder *in, DecodeIterat
 //it can also be used to generate snapshot, but currently in order to measure the performance we skip this step, 
 //but focus on termination check
 template<class K, class V1, class V2, class V3>
-void StateTable<K, V1, V2, V3>::serializeToSnapshot(const string& f, long* updates,
-		double* totalF2){
+void StateTable<K, V1, V2, V3>::serializeToSnapshot(
+	const string& f, long* updates, double* totalF2)
+{
 	total_curr = 0;
 	EntirePassIterator* entireIter = new EntirePassIterator(*this);
 	total_curr = static_cast<double>(((TermChecker<K, V2>*)info_.termchecker)->estimate_prog(
@@ -729,6 +746,18 @@ void StateTable<K, V1, V2, V3>::updateF3(const K& k, const V3& v){
 	CHECK_NE(b, -1)<< "No entry for requested key <" << *((int*)&k) << ">";
 
 	buckets_[b].v3 = v;
+}
+
+template<class K, class V1, class V2, class V3>
+inline void StateTable<K, V1, V2, V3>::updateF12(const K& k, const V1& v1, const V2& v2)
+{
+	int b = bucket_for_key(k);
+
+	CHECK_NE(b, -1) << "No entry for requested key <" << *((int*)&k) << ">";
+
+	buckets_[b].v1 = v1;
+	buckets_[b].v2 = v2;
+	buckets_[b].priority = 0;	//didn't use priority function, assume the smallest priority is 0
 }
 
 template<class K, class V1, class V2, class V3>

@@ -15,6 +15,7 @@ public:
     StringPiece() = default;
     StringPiece(const StringPiece& s) = default;
     StringPiece(const string& s);
+    StringPiece(string&& s);
     StringPiece(const string& s, int len);
     StringPiece(const char* c);
     StringPiece(const char* c, int len);

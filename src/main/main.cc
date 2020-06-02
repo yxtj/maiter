@@ -39,7 +39,7 @@ DEFINE_int32(checkpoint_epoch, -1, "the epoch to load");
 DEFINE_double(flush_time, 0.2, "waiting time for flushing out all network message");
 
 DEFINE_string(hostfile, "conf/maiter-cluster", "");
-DEFINE_int32(workers, 2, "");
+//DEFINE_int32(workers, 2, "");
 
 //DEFINE_bool(localtest, false, "");
 DEFINE_bool(run_tests, false, "");

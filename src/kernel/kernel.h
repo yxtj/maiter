@@ -19,6 +19,7 @@ DECLARE_string(graph_dir);
 DECLARE_string(checkpoint_dir);
 DECLARE_int32(checkpoint_epoch);
 DECLARE_bool(checkpoint_restore);
+DECLARE_double(sleep_time);
 
 namespace dsm {
 
@@ -162,12 +163,11 @@ public:
 	}
 
 	void read_file(TypedGlobalTable<K, V, V, D>* table){
-		std::string patition_file = StringPrintf("%s/part%d", FLAGS_graph_dir.c_str(), current_shard());
+		std::string patition_file = FLAGS_graph_dir + "/part" + std::to_string(current_shard());
 		//cout<<"Unable to open file: " << patition_file<<endl;
 		std::ifstream inFile(patition_file);
 		if(!inFile){
 			LOG(FATAL) << "Unable to open file " << patition_file;
-//			cerr << system("ifconfig -a | grep 192.168.*") << endl;
 			exit(1); // terminate with error
 		}
 
@@ -212,7 +212,7 @@ public:
 	}
 
 	void read_file(TypedGlobalTable<K, V, V, D>* table){
-		std::string patition_file = StringPrintf("%s/part%d", FLAGS_checkpoint_dir.c_str(), current_shard());
+		std::string patition_file = FLAGS_checkpoint_dir + "/part" + std::to_string(current_shard());
 		std::ifstream inFile(patition_file);
 		if(!inFile){
 			LOG(FATAL) << "Unable to open file" << patition_file;
@@ -266,6 +266,19 @@ public:
 		}
 		bool single=tgt->num_shards()==1;
 		bool finish=false;
+		while(!finish){
+			finish = true;
+			for(Table* p : localTs)
+				if(p->alive())
+					finish = false;
+			if(finish)
+				break;
+			tgt->BufProcessUpdates();
+			tgt->BufSendUpdates();
+			tgt->BufTermCheck();
+			std::this_thread::sleep_for(std::chrono::duration<double>(FLAGS_sleep_time));
+		}
+		/*
 		tgt->helper()->signalToProcess();	//start the loop with initial data
 		while(!finish){
 			finish=true;
@@ -288,8 +301,8 @@ public:
 			}
 			if(tgt->canTermCheck())
 				tgt->helper()->signalToTermCheck();
-			std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
-		}
+			std::this_thread::sleep_for(std::chrono::duration<double>(FLAGS_sleep_time));
+		}*/
 //		DLOG(INFO)<<"pending writes: "<<tgt->pending_send_;
 	}
 
@@ -311,7 +324,7 @@ public:
 	void dump(TypedGlobalTable<K, V, V, D>* a){
 		double totalF1 = 0;	//the sum of delta_v, it should be smaller enough when iteration converges
 		double totalF2 = 0;	//the sum of v, it should be larger enough when iteration converges
-		std::string file = StringPrintf("%s/part-%d", maiter->output.c_str(), current_shard()); //the output path
+		std::string file = maiter->output + "/part-" + std::to_string(current_shard()); //the output path
 		std::ofstream File(file);	//the output file containing the local state table infomation
 
 		//get the iterator of the local state table
