@@ -199,7 +199,7 @@ void Worker::_CP_start(){
 	//archive current table state:
 	TableRegistry::Map &tbls = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator it = tbls.begin(); it != tbls.end(); ++it){
-		VLOG(1) << "Starting checkpoint... on table " << it->first;
+		VLOG(1) << "Starting checkpoint on W" << id();
 		MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(it->second);
 		//flush message to other shards
 		t->SendUpdates();
@@ -228,6 +228,7 @@ void Worker::_CP_report(){
 void Worker::_CP_stop(){
 	TableRegistry::Map &tbl = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator i = tbl.begin(); i != tbl.end(); ++i){
+		VLOG(1) << "Finishing checkpoint on W" << id();
 		MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(i->second);
 		if(t){
 			t->finish_checkpoint();

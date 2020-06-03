@@ -25,7 +25,7 @@ DEFINE_int32(snapshot_interval, 10, "termination check interval (second)");
 DEFINE_string(graph_dir, "graph", "graph files");
 DEFINE_string(result_dir, "result", "result files");
 DEFINE_int32(max_iterations, 100, "");
-DEFINE_int64(num_nodes, 100, "");
+DEFINE_int64(num_nodes, 100, "hint for number of nodes");
 DEFINE_double(portion, 1, "");
 DEFINE_double(termcheck_threshold, 1000000000, "");
 DEFINE_double(sleep_time, 0.001, "");
