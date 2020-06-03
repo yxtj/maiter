@@ -537,7 +537,7 @@ inline void StateTable<K, V1, V2, V3>::restore(std::ifstream& fin)
 	std::string line;
 	std::getline(fin, line);
 	size_t p = line.find(',', 6);
-	CHECK_EQ(std::string("state:") + to_string(shard()), line.substr(0, p))
+	CHECK_EQ(std::string("state:") + std::to_string(shard()), line.substr(0, p))
 		<< " header of delta table is not correct: " << line;
 	StringMarshal<K> km;
 	StringMarshal<V1> v1m;

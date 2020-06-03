@@ -214,7 +214,7 @@ inline void DeltaTable<K, V1, D>::restore(std::ifstream& fin)
 	std::string line;
 	std::getline(fin, line);
 	size_t p = line.find(',', 6);
-	CHECK_EQ(std::string("delta:")+to_string(shard()), line.substr(0, p))
+	CHECK_EQ(std::string("delta:")+std::to_string(shard()), line.substr(0, p))
 		<< " header of delta table is not correct: " << line;
 	clear();
 	StringMarshal<K> km;
