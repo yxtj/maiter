@@ -199,7 +199,7 @@ template<class K, class V1, class D>
 inline void DeltaTable<K, V1, D>::dump(std::ofstream& fout)
 {
 	Iterator* i = (Iterator*)get_iterator(nullptr, false);
-	fout << "delta:" << shard() << " size:" << size() << "\n";
+	fout << "delta:" << shard() << ",size:" << size() << "\n";
 	while(!i->done()){
 		DVLOG(2) << i->pos << ": k=" << i->key() << " v1=" << i->value1();
 		fout << i->key() << ',' << i->value1() << '\n';
@@ -213,7 +213,7 @@ inline void DeltaTable<K, V1, D>::restore(std::ifstream& fin)
 {
 	std::string line;
 	std::getline(fin, line);
-	size_t p = line.find(' ', 6);
+	size_t p = line.find(',', 6);
 	CHECK_EQ(std::string("delta:")+to_string(shard()), line.substr(0, p))
 		<< " header of delta table is not correct: " << line;
 	clear();

@@ -522,7 +522,7 @@ template<class K, class V1, class V2, class V3>
 inline void StateTable<K, V1, V2, V3>::dump(std::ofstream& fout)
 {
 	Iterator* i = (Iterator*)entirepass_iterator(nullptr);
-	fout << "state:" << shard() << " size:" << size() << "\n";
+	fout << "state:" << shard() << ",size:" << size() << "\n";
 	while(!i->done()){
 		DVLOG(2) << i->pos << ": k=" << i->key() << " v1=" << i->value1() << " v2=" << i->value2();
 		fout << i->key() << ',' << i->value1() << ',' << i->value2() << '\n';
@@ -536,7 +536,7 @@ inline void StateTable<K, V1, V2, V3>::restore(std::ifstream& fin)
 {
 	std::string line;
 	std::getline(fin, line);
-	size_t p = line.find(' ', 6);
+	size_t p = line.find(',', 6);
 	CHECK_EQ(std::string("state:") + to_string(shard()), line.substr(0, p))
 		<< " header of delta table is not correct: " << line;
 	StringMarshal<K> km;
