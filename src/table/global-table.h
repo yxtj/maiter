@@ -183,9 +183,10 @@ public:
 	void resize(int64_t new_size);
 
 	//override from Checkpointable
-	//void start_checkpoint(const string& pre);
-	//void write_message(const KVPairData& d);
-	//void finish_checkpoint();
+	void start_checkpoint(const string& pre);
+	void write_message(const KVPairData& d);
+	void finish_checkpoint();
+	void load_checkpoint(const std::string& f);
 
 	void dump(std::ofstream& fout);
 	void restore(std::ifstream& fin);

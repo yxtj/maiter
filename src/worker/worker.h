@@ -121,9 +121,10 @@ private:
 	void restore(int epoch);
 
 	void _CP_start();
-	void _sendCPFlushSig();
+	void _sendCPFlushSig(bool self = false);
 	void _CP_report();
 	void _CP_stop();
+	void _CP_dump_gtables();
 	std::string _CP_local_file_name(int epoch);
 
 	void _startCP_Sync();

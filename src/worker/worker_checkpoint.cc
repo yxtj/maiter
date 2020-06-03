@@ -49,7 +49,8 @@ void Worker::initialCP(CheckpointType cpType){
 	case CP_SYNC:
 		VLOG(1)<<"register sync cp handler";
 		RegDSPProcess(MTYPE_CHECKPOINT_START, &Worker::HandleStartCheckpoint);
-		RegDSPImmediate(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);
+		//RegDSPImmediate(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);
+		RegDSPProcess(MTYPE_CHECKPOINT_FINISH, &Worker::HandleFinishCheckpoint);
 		driver.unregisterImmediateHandler(MTYPE_CHECKPOINT_SIG);
 		driver.unregisterProcessHandler(MTYPE_CHECKPOINT_SIG);
 		break;
@@ -173,10 +174,6 @@ bool Worker::finishCheckpoint(const int epoch){
 }
 
 bool Worker::processCPSig(const int wid, const int epoch){
-	if(epoch!=epoch_){
-		LOG(INFO)<<"Skipping unmatched checkpoint flush signal: "<<epoch<<", curr="<<epoch_;
-		return false;
-	}
 	tmr_cp_block_.Reset();
 	switch(kreq.cp_type()){
 	case CP_SYNC:
@@ -196,7 +193,7 @@ bool Worker::processCPSig(const int wid, const int epoch){
 
 void Worker::_CP_start(){
 	//create folder for storing this checkpoint
-	//string pre = FLAGS_checkpoint_dir +"/"+ genCPNameFolderPart(FLAGS_taskid,epoch_)+"/";
+	string pre = _CP_local_file_name(epoch_);
 	//File::Mkdirs(pre);
 
 	//archive current table state:
@@ -207,15 +204,15 @@ void Worker::_CP_start(){
 		//flush message to other shards
 		t->SendUpdates();
 		//archive local state
-		//t->start_checkpoint(pre);
+		t->start_checkpoint(pre);
 	}
 }
-void Worker::_sendCPFlushSig(){
+void Worker::_sendCPFlushSig(bool self){
 	CheckpointSyncSig req;
 	req.set_wid(id());
 	req.set_epoch(epoch_);
 	for(size_t i=0;i<peers_.size();++i){
-		if(i==id())
+		if(!self && i==id())
 			continue;
 		DVLOG(1)<<"send checkpoint flush signal from "<<id()<<" to "<<i;
 		network_->Send(peers_[i].net_id,MTYPE_CHECKPOINT_SIG,req);
@@ -233,10 +230,27 @@ void Worker::_CP_stop(){
 	for(TableRegistry::Map::iterator i = tbl.begin(); i != tbl.end(); ++i){
 		MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(i->second);
 		if(t){
-			//t->finish_checkpoint();
+			t->finish_checkpoint();
 		}
 	}
 	_enableProcess();
+}
+
+void Worker::_CP_dump_gtables()
+{
+	VLOG(1) << "W" << config_.worker_id() << " dump checkpoint of epoch: " << epoch_;
+	string fn = _CP_local_file_name(epoch_);
+	Timer tmr;
+	ofstream fout(fn);
+	CHECK(fout.good()) << "failed in opening checkpoint file: " << fn;
+	//archive current table state:
+	TableRegistry::Map& tbls = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator it = tbls.begin(); it != tbls.end(); ++it){
+		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(it->second);
+		//archive local state
+		t->dump(fout);
+	}
+	stats_["archive_time"] += tmr.elapsed();
 }
 
 std::string Worker::_CP_local_file_name(int epoch)
@@ -263,37 +277,45 @@ std::string Worker::_CP_local_file_name(int epoch)
 
 void Worker::_startCP_Sync(){
 //	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
+	_disableProcess();
+	_disableSend();
 }
 void Worker::_finishCP_Sync(){
-	pause_pop_msg_=true;
-	_disableProcess();
+	//pause_pop_msg_=true;
 
 	//archive current table state:
-	_CP_start();
+	//_CP_start();
 
 	//archive message in the waiting queue
 	while(network_->active())
 		this_thread::sleep_for(chrono::duration<double>(FLAGS_flush_time));
 	this_thread::sleep_for(chrono::duration<double>(FLAGS_flush_time));
 
-	const deque<pair<string, RPCInfo> >& que = driver.getQue();
-	DVLOG(1)<<"queue length: "<<que.size();
+	//const deque<pair<string, RPCInfo> >& que = driver.getQue();
+	//DVLOG(1)<<"queue length: "<<que.size();
+
+	_CP_dump_gtables();
+	/*
 	int count=0;
-	TableRegistry::Map &tbl = TableRegistry::Get()->tables();
+	TableRegistry::Map& tbls = TableRegistry::Get()->tables();
 	for(std::size_t i = 0; i < que.size(); ++i){
 		if(que[i].second.tag == MTYPE_PUT_REQUEST){
 			KVPairData d;
 			d.ParseFromString(que[i].first);
-			Checkpointable *t = dynamic_cast<Checkpointable*>(tbl.at(d.table()));
-//			DVLOG(1)<<"message: "<<d.kv_data(0).DebugString();
+			Checkpointable *t = dynamic_cast<Checkpointable*>(tbls.at(d.table()));
+			//DVLOG(1)<<"message: "<<d.kv_data(0).DebugString();
 			++count;
-			//t->write_message(d);
+			t->write_message(d);
 		}
 	}
 	DVLOG(1)<<"archived msg: "<<count;
-	_CP_stop();
+	*/
+	//_CP_stop();
+
+	//resume
+	_enableSend();
 	_enableProcess();
-	pause_pop_msg_=false;
+	//pause_pop_msg_=false;
 	_CP_report();
 	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 }
@@ -331,10 +353,10 @@ void Worker::_processCPSig_SyncSig(const int wid){
 			KVPairData d;
 			d.ParseFromString(que[i].first);
 			Checkpointable *t = dynamic_cast<Checkpointable*>(tbl.at(d.table()));
-//	ofstream fout("haha/"+to_string(id())+'-'+to_string(wid));
-//	fout<<d.DebugString();
+			//	ofstream fout("haha/"+to_string(id())+'-'+to_string(wid));
+			//	fout<<d.DebugString();
 			++count;
-			//t->write_message(d);
+			t->write_message(d);
 		}
 	}
 	DVLOG(1)<<"archived msg: "<<count;
@@ -409,13 +431,13 @@ void Worker::_startCP_VS()
 {
 	_cp_async_sig_rec[config_.worker_id()] = true;
 	_disableSend();
-	_sendCPFlushSig();
+	_sendCPFlushSig(true);
 }
 
 void Worker::_finishCP_VS()
 {
 	_cp_async_sig_rec.assign(config_.num_workers(), false);
-	_cp_async_sig_rec[config_.worker_id()] = true;
+	//_cp_async_sig_rec[config_.worker_id()] = true;
 	_enableSend();
 }
 
@@ -458,9 +480,13 @@ void Worker::restore(int epoch){
 	for(TableRegistry::Map::iterator i = tbls.begin(); i != tbls.end(); ++i){
 		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(i->second);
 		if(t){
-			ifstream fin(fn);
-			CHECK(fin) << "Cannot open checkpoint file: " << fn;
-			t->restore(fin);
+			if(kreq.cp_type() == CP_SYNC || kreq.cp_type() == CP_VS){
+				ifstream fin(fn);
+				CHECK(fin) << "Cannot open checkpoint file: " << fn;
+				t->restore(fin);
+			} else{
+				t->load_checkpoint(fn);
+			}
 		}
 	}
 	LOG(INFO)<< "Worker "<<id()<<" has restored state from epoch: " << epoch;

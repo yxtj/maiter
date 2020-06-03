@@ -26,7 +26,10 @@ public:
 		return size() == 0;
 	}
 
-	//void archive(const std::string& fn);
+	void start_checkpoint(const std::string& f);
+	void write_message(const KVPairData& put);
+	void finish_checkpoint();
+	void load_checkpoint(const std::string& f);
 
 	void termcheck(const std::string& f, long *updates, double *totalF2);
 

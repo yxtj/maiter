@@ -201,51 +201,6 @@ public:
 	}
 };
 
-// restore phase
-template<class K, class V, class D>
-class MaiterKernel4 : public DSMKernel{
-private:
-	MaiterKernel<K, V, D>* maiter;
-public:
-	void set_maiter(MaiterKernel<K, V, D>* inmaiter){
-		maiter = inmaiter;
-	}
-
-	void read_file(TypedGlobalTable<K, V, V, D>* table){
-		std::string patition_file = table->helper()->genCPName(FLAGS_taskid, FLAGS_checkpoint_restore_from, current_shard());
-		std::ifstream inFile(FLAGS_checkpoint_dir + "/" + patition_file);
-		if(!inFile){
-			LOG(FATAL) << "Unable to open file" << patition_file;
-			exit(1); // terminate with error
-		}
-
-		std::string line;
-		//read a line of the input file
-		while(getline(inFile, line)){
-			K key;
-			V delta;
-			D data;
-			V value;
-			maiter->iterkernel->read_data(line, key, data); //invoke api, get the value of key field and data field
-			maiter->iterkernel->init_v(key, value, data); //invoke api, get the initial v field value
-			maiter->iterkernel->init_c(key, delta, data); //invoke api, get the initial delta v field value
-//			DVLOG(3)<<"key: "<<key<<" delta: "<<delta<<" value: "<<value<<"   "<<data.size();
-			table->put(std::move(key), std::move(delta), std::move(value), std::move(data)); //initialize a row of the state table (a node)
-		}
-	}
-
-	void restore_table(TypedGlobalTable<K, V, V, D>* a){
-		read_file(a);
-	}
-
-	void run(){
-		VLOG(0) << "loading archived table ";
-		if(FLAGS_checkpoint_restore_from >= 0){
-			restore_table(maiter->table);
-		}
-	}
-};
-
 template<class K, class V, class D>
 class MaiterKernel2: public DSMKernel{ //the second phase: iterative processing of the local state table
 private:
@@ -378,11 +333,6 @@ public:
 		KernelRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", this);
 		MethodRegistrationHelper<MaiterKernel1<K, V, D>, K, V, D>("MaiterKernel1", "run",
 				&MaiterKernel1<K, V, D>::run, this);
-
-		// restore if necessary
-		KernelRegistrationHelper<MaiterKernel4<K, V, D>, K, V, D>("MaiterKernel4", this);
-		MethodRegistrationHelper<MaiterKernel4<K, V, D>, K, V, D>("MaiterKernel4", "run",
-			&MaiterKernel4<K, V, D>::run, this);
 
 		//iterative update job
 		if(iterkernel != nullptr && termchecker != nullptr){
