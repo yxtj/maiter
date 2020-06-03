@@ -75,40 +75,14 @@ struct Stats{
 		return p_[key];
 	}
 
-	std::string ToString(const std::string& prefix, bool sort=false){
-		std::string out;
-		if(sort==true){
-			std::map<std::string, double> p_;
-			for(const auto& t : this->p_)
-				p_[t.first]=t.second;
-			for(auto i = p_.begin(); i != p_.end(); ++i){
-				out += StringPrintf("%s -- %s : %.2f\n", prefix.c_str(), i->first.c_str(), i->second);
-			}
-		}else{
-			for(auto i = p_.begin(); i != p_.end(); ++i){
-				out += StringPrintf("%s -- %s : %.2f\n", prefix.c_str(), i->first.c_str(), i->second);
-			}
-		}
-		return out;
-	}
+	std::string ToString(const std::string& prefix, bool sort = false);
 
-	void Merge(Stats &other){
-		for(auto i = other.p_.begin(); i != other.p_.end(); ++i){
-			p_[i->first] += i->second;
-		}
-	}
+	void Merge(Stats& other);
 private:
 	unordered_map<string, double> p_;
 };
 
-static vector<int> range(int from, int to, int step = 1){
-	vector<int> out;
-	out.reserve((to-from+step-1)/step);
-	for(int i = from; i < to; i+=step){
-		out.push_back(i);
-	}
-	return out;
-}
+vector<int> range(int from, int to, int step = 1);
 
 inline vector<int> range(int to){
 	return range(0, to);

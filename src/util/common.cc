@@ -80,6 +80,40 @@ string Histogram::summary(){
 	return out;
 }
 
+// struct Stats:
+
+std::string Stats::ToString(const std::string& prefix, bool sort){
+	std::string out;
+	if(sort == true){
+		std::map<std::string, double> p_;
+		for(const auto& t : this->p_)
+			p_[t.first] = t.second;
+		for(auto i = p_.begin(); i != p_.end(); ++i){
+			out += StringPrintf("%s -- %s : %.4f\n", prefix.c_str(), i->first.c_str(), i->second);
+		}
+	} else{
+		for(auto i = p_.begin(); i != p_.end(); ++i){
+			out += StringPrintf("%s -- %s : %.4f\n", prefix.c_str(), i->first.c_str(), i->second);
+		}
+	}
+	return out;
+}
+
+void Stats::Merge(Stats& other){
+	for(auto i = other.p_.begin(); i != other.p_.end(); ++i){
+		p_[i->first] += i->second;
+	}
+}
+
+vector<int> range(int from, int to, int step){
+	vector<int> out;
+	out.reserve((to - from + step - 1) / step);
+	for(int i = from; i < to; i += step){
+		out.push_back(i);
+	}
+	return out;
+}
+
 uint64_t get_memory_total(){
 	uint64_t m = -1;
 	FILE* procinfo = fopen(StringPrintf("/proc/meminfo", getpid()).c_str(), "r");
