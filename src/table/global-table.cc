@@ -2,6 +2,7 @@
 #include "statetable.h"
 #include "util/timer.h"
 #include <gflags/gflags.h>
+#include <mutex>
 
 //static const int kMaxNetworkPending = 1 << 26;
 //static const int kMaxNetworkChunk = 1 << 20;
@@ -157,33 +158,26 @@ void MutableGlobalTable::finish_checkpoint(){
 
 void MutableGlobalTable::dump(std::ofstream& fout)
 {
-	dump(fout, true, true);
-}
-
-void MutableGlobalTable::dump(std::ofstream& fout, bool local, bool remote){
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable* t = partitions_[i];
 		if(is_local_shard(i)){
-			// TODO
-			if(local){
-				
-			}
+			t->dump(fout);
 		} else{
-			if(remote){
-
-			}
+			t->dump(fout);
 		}
 	}
 }
 
-void MutableGlobalTable::restore(std::ifstream& fin){
+void MutableGlobalTable::restore(std::ifstream& fin)
+{
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
 		if(is_local_shard(i)){
-			// TODO
-			//t->restore(prefix + helper()->genCPNameFilePart(id(),i));
+			t->restore(fin);
 		}else{
-			//t->clear();
+			t->restore(fin);
 		}
 	}
 }
@@ -200,7 +194,7 @@ void MutableGlobalTable::resetProcessMarker(){
 }
 
 bool MutableGlobalTable::canProcess(){
-	return allow_process && (
+	return alive() && allow_process && (
 		pending_process_ > bufmsg
 		|| (pending_process_ != 0 && tmr_process.elapsed() > FLAGS_buftime));
 }
@@ -219,7 +213,7 @@ void MutableGlobalTable::resetSendMarker(){
 }
 
 bool MutableGlobalTable::canSend(){
-	return allow_send && (
+	return alive() && allow_send && (
 		pending_send_ > bufmsg
 		|| (pending_send_ != 0 && tmr_send.elapsed() > FLAGS_buftime));
 }

@@ -15,10 +15,10 @@
 #include <map>
 #include <thread>
 
+DECLARE_int32(taskid);
 DECLARE_string(graph_dir);
 DECLARE_string(checkpoint_dir);
-DECLARE_int32(checkpoint_epoch);
-DECLARE_bool(checkpoint_restore);
+DECLARE_int32(checkpoint_restore_from);
 DECLARE_double(sleep_time);
 
 namespace dsm {
@@ -212,8 +212,8 @@ public:
 	}
 
 	void read_file(TypedGlobalTable<K, V, V, D>* table){
-		std::string patition_file = FLAGS_checkpoint_dir + "/part" + std::to_string(current_shard());
-		std::ifstream inFile(patition_file);
+		std::string patition_file = table->helper()->genCPName(FLAGS_taskid, FLAGS_checkpoint_restore_from, current_shard());
+		std::ifstream inFile(FLAGS_checkpoint_dir + "/" + patition_file);
 		if(!inFile){
 			LOG(FATAL) << "Unable to open file" << patition_file;
 			exit(1); // terminate with error
@@ -240,8 +240,7 @@ public:
 
 	void run(){
 		VLOG(0) << "loading archived table ";
-		if(FLAGS_checkpoint_restore){
-			CHECK(FLAGS_checkpoint_epoch > 0) << "the given epoch to restore is not valid";
+		if(FLAGS_checkpoint_restore_from >= 0){
 			restore_table(maiter->table);
 		}
 	}
@@ -267,7 +266,7 @@ public:
 		bool single=tgt->num_shards()==1;
 		bool finish=false;
 		while(!finish){
-			finish = true;
+			finish = !tgt->alive();
 			for(Table* p : localTs)
 				if(p->alive())
 					finish = false;
@@ -278,31 +277,6 @@ public:
 			tgt->BufTermCheck();
 			std::this_thread::sleep_for(std::chrono::duration<double>(FLAGS_sleep_time));
 		}
-		/*
-		tgt->helper()->signalToProcess();	//start the loop with initial data
-		while(!finish){
-			finish=true;
-			for(Table* p : localTs)
-				if(p->alive())
-					finish=false;
-			if(finish)	break;
-
-			if(single){
-				tgt->helper()->signalToProcess();
-			}else{
-				if(tgt->canProcess()){
-					tgt->helper()->signalToProcess();
-					tgt->resetProcessMarker();
-				}
-				if(tgt->canSend()){
-					tgt->helper()->signalToSend();
-					tgt->resetSendMarker();
-				}
-			}
-			if(tgt->canTermCheck())
-				tgt->helper()->signalToTermCheck();
-			std::this_thread::sleep_for(std::chrono::duration<double>(FLAGS_sleep_time));
-		}*/
 //		DLOG(INFO)<<"pending writes: "<<tgt->pending_send_;
 	}
 

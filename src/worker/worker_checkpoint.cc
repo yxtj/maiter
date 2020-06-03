@@ -77,6 +77,7 @@ void Worker::initialCP(CheckpointType cpType){
 		LOG(FATAL)<<"given checkpoint type is not implemented.";
 	}
 
+	_cp_async_sig_rec.assign(config_.num_workers(), false);
 	pause_pop_msg_=false;
 }
 
@@ -132,17 +133,23 @@ bool Worker::finishCheckpoint(const int epoch){
 
 	switch(kreq.cp_type()){
 	case CP_SYNC:
-		_finishCP_Sync();break;
+		_finishCP_Sync();
+		break;
 	case CP_SYNC_SIG:
 		if(th_cp_)	th_cp_->join();
 		delete th_cp_; th_cp_=nullptr;
-		th_cp_=new thread(&Worker::_finishCP_SyncSig,this);break;
+		th_cp_=new thread(&Worker::_finishCP_SyncSig,this);
+		break;
 //		_finishCP_SyncSig();break;
 	case CP_ASYNC:
 		if(th_cp_)	th_cp_->join();
 		delete th_cp_; th_cp_=nullptr;
-		th_cp_=new thread(&Worker::_finishCP_Async,this);break;
+		th_cp_=new thread(&Worker::_finishCP_Async,this);
+		break;
 //		_finishCP_Async();break;
+	case CP_VS:
+		_finishCP_VS();
+		break;
 	default:
 		LOG(ERROR)<<"given checkpoint type is not implemented.";
 	}
@@ -178,6 +185,8 @@ bool Worker::processCPSig(const int wid, const int epoch){
 		_processCPSig_SyncSig(wid);break;
 	case CP_ASYNC:
 		_processCPSig_Async(wid);break;
+	case CP_VS:
+		_processCPSig_VS(wid); break;
 	default:
 		LOG(ERROR)<<"given checkpoint type is not implemented.";
 	}
@@ -216,6 +225,7 @@ void Worker::_CP_report(){
 	CheckpointLocalDone rep;
 	rep.set_wid(id());
 	rep.set_epoch(epoch_);
+	DVLOG(1) << "report checkpoint local finsih from " << id();
 	network_->Send(config_.master_id(),MTYPE_CHECKPOINT_LOCAL_DONE,rep);
 }
 void Worker::_CP_stop(){
@@ -397,6 +407,7 @@ void Worker::_HandlePutRequest_AsynCP(const string& d, const RPCInfo& info){
 
 void Worker::_startCP_VS()
 {
+	_cp_async_sig_rec[config_.worker_id()] = true;
 	_disableSend();
 	_sendCPFlushSig();
 }
@@ -404,20 +415,22 @@ void Worker::_startCP_VS()
 void Worker::_finishCP_VS()
 {
 	_cp_async_sig_rec.assign(config_.num_workers(), false);
+	_cp_async_sig_rec[config_.worker_id()] = true;
 	_enableSend();
 }
 
 void Worker::_processCPSig_VS(const int wid)
 {
+	DVLOG(1) << "W" << config_.worker_id() << " receive SIG from " << wid;
 	_cp_async_sig_rec[wid] = true;
 	//rph.input(MTYPE_CHECKPOINT_SIG, wid);
-	if(all_of(_cp_async_sig_rec.begin(), _cp_async_sig_rec.end(), [](bool v){
-		return v;
-		}))
-	{
-		VLOG(1) << "Worker " << config_.worker_id() << " make checkpoint of epoch: " << epoch_;
+	if(all_of(_cp_async_sig_rec.begin(), _cp_async_sig_rec.end(), [](bool v){return v;})){
+		_disableProcess();
+		VLOG(1) << "W" << config_.worker_id() << " dump checkpoint of epoch: " << epoch_;
 		string fn = _CP_local_file_name(epoch_);
-		ofstream fout;
+		Timer tmr;
+		ofstream fout(fn);
+		CHECK(fout.good()) << "failed in opening checkpoint file: " << fn;
 		//archive current table state:
 		TableRegistry::Map& tbls = TableRegistry::Get()->tables();
 		for(TableRegistry::Map::iterator it = tbls.begin(); it != tbls.end(); ++it){
@@ -425,6 +438,9 @@ void Worker::_processCPSig_VS(const int wid)
 			//archive local state
 			t->dump(fout);
 		}
+		stats_["archive_time"] += tmr.elapsed();
+		_CP_report();
+		_enableProcess();
 	}
 }
 
@@ -433,21 +449,15 @@ void Worker::_processCPSig_VS(const int wid)
  */
 void Worker::restore(int epoch){
 	lock_guard<recursive_mutex> sl(state_lock_);
-	LOG(INFO)<< "Worker "<<id()<<" is restoring state from epoch: " << epoch;
+	LOG(INFO)<< "W"<<id()<<" is restoring state from epoch: " << epoch;
 
 	epoch_ = epoch;
+	string fn = _CP_local_file_name(epoch);
 
 	TableRegistry::Map &tbls = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator i = tbls.begin(); i != tbls.end(); ++i){
 		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(i->second);
 		if(t){
-			string fn;
-			for(int s = 0; s < t->num_shards(); ++s){
-				if(t->is_local_shard(s)){
-					fn = FLAGS_checkpoint_dir + "/" + genCPName(FLAGS_taskid, epoch, s);
-					break;
-				}
-			}
 			ifstream fin(fn);
 			CHECK(fin) << "Cannot open checkpoint file: " << fn;
 			t->restore(fin);

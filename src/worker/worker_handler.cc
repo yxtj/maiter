@@ -219,6 +219,7 @@ void Worker::HandleTermNotification(const string& d, const RPCInfo& rpc){
 	req.ParseFromString(d);
 	GlobalTableBase *ta = TableRegistry::Get()->table(0);	//we have only 1 table, index 0
 	DLOG(INFO)<<"worker "<<id()<<" get a termination notification.";
+	ta->terminate();
 	for(int i = 0; i < ta->num_shards(); ++i){
 		if(ta->is_local_shard(i)){
 			ta->get_partition(i)->terminate();

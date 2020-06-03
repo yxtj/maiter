@@ -188,7 +188,6 @@ public:
 	//void finish_checkpoint();
 
 	void dump(std::ofstream& fout);
-	void dump(std::ofstream& fout, bool dump_local, bool dump_remote);
 	void restore(std::ifstream& fin);
 	//convenient functions for checkpoint
 	//void start_checkpoint(const int taskid, const int epoch);

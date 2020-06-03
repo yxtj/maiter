@@ -10,9 +10,9 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
-DEFINE_string(checkpoint_type,"CP_NONE","Type of checkpoint mechanism");
-DEFINE_double(checkpoint_interval,0.0,"Interval of taking checkpoint(in second)");
-DEFINE_int32(restore_from,-1,"The epoch to restore from (-1 for do not restore).");
+DECLARE_string(checkpoint_type);
+DECLARE_double(checkpoint_interval);
+DECLARE_int32(checkpoint_restore_from);
 
 namespace dsm{
 
@@ -44,9 +44,9 @@ void RunDescriptor::Init(const std::string& kernel,
 
 	this->termcheck=termcheck;
 
-	if(restore && FLAGS_restore_from>=0){
+	if(restore && FLAGS_checkpoint_restore_from>=0){
 		this->restore=true;
-		this->restore_from_epoch=FLAGS_restore_from;
+		this->restore_from_epoch=FLAGS_checkpoint_restore_from;
 	}else{
 		this->restore=false;
 	}

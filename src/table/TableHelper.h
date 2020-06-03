@@ -50,7 +50,7 @@ struct TableHelper{
 	//	return "T" + std::to_string(table) + "-S" + std::to_string(shard);
 	//}
 	std::string genCPName(int taskid, int epoch, int shard){
-		return "t_" + std::to_string(taskid) + "-e_" + std::to_string(epoch) + "-p-" + std::to_string(shard);
+		return "cp-t_" + std::to_string(taskid) + "-e_" + std::to_string(epoch) + "-p_" + std::to_string(shard);
 	}
 
 	virtual ~TableHelper(){}

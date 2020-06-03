@@ -20,10 +20,8 @@
 #include <thread>
 #include <chrono>
 
-DECLARE_string(checkpoint_write_dir);
-DECLARE_string(checkpoint_read_dir);
+DECLARE_string(checkpoint_dir);
 DECLARE_int32(taskid);
-DEFINE_bool(restore, false, "If true, enable restore.");
 
 namespace dsm{
 
@@ -35,7 +33,7 @@ void Master::start_checkpoint(){
 
 	checkpointing_ = true;
 
-	//File::Mkdirs(FLAGS_checkpoint_write_dir+"/" + genCPNameFolderPart(FLAGS_taskid, checkpoint_epoch_));
+	//File::Mkdirs(FLAGS_checkpoint_dir+"/" + genCPNameFolderPart(FLAGS_taskid, checkpoint_epoch_));
 
 	for(int i = 0; i < workers_.size(); ++i){
 		start_worker_checkpoint(i, current_run_);
@@ -72,9 +70,9 @@ void Master::finish_checkpoint(){
 	Args *params = current_run_.params.ToMessage();
 	Args *cp_vars = cp_vars_.ToMessage();
 
-	//ofstream fout(FLAGS_checkpoint_write_dir + "/" + genCPNameFolderPart(FLAGS_taskid, checkpoint_epoch_) + "/checkpoint.finished", "wb");
+	//ofstream fout(FLAGS_checkpoint_dir + "/" + genCPNameFolderPart(FLAGS_taskid, checkpoint_epoch_) + "/checkpoint.finished", "wb");
 
-	//RecordFile rf(FLAGS_checkpoint_write_dir+"/" +genCPNameFolderPart(FLAGS_taskid, checkpoint_epoch_)+"/checkpoint.finished", "w");
+	//RecordFile rf(FLAGS_checkpoint_dir+"/" +genCPNameFolderPart(FLAGS_taskid, checkpoint_epoch_)+"/checkpoint.finished", "w");
 
 	CheckpointInfo cinfo;
 	cinfo.set_checkpoint_epoch(checkpoint_epoch_);
@@ -116,16 +114,19 @@ void Master::checkpoint(){
 //		finish_checkpoint();
 		CheckpointRequest req;
 		req.set_epoch(checkpoint_epoch_);
-//		for(int i = 0; i < workers_.size(); ++i){
-//			CHECK_EQ(workers_[i]->checkpointing, true);
-//		}
+		if(current_run_.checkpoint_type == CP_VS){
+			su_cp_local.wait();
+			su_cp_local.reset();
+		}
 		network_->Broadcast(MTYPE_CHECKPOINT_FINISH,req);
 		su_cp_finish.wait();
 		su_cp_finish.reset();
 
-		//report for a certain cp state (meaningful for ASYNC)
-		su_cp_local.wait();
-		su_cp_local.reset();
+		if(current_run_.checkpoint_type != CP_VS){
+			//report for a certain cp state (meaningful for ASYNC)
+			su_cp_local.wait();
+			su_cp_local.reset();
+		}
 		finish_checkpoint();
 		LOG(INFO)<< "Checkpoint "<<checkpoint_epoch_<<" finished in " << cp_timer.elapsed();
 		checkpoint_epoch_++;
@@ -148,7 +149,7 @@ bool Master::restore(const int epoch){
 	Timer t;
 	string path;
 
-	//vector<string> matches = File::MatchingFilenames(FLAGS_checkpoint_read_dir
+	//vector<string> matches = File::MatchingFilenames(FLAGS_checkpoint_dir
 	//		+genCPNameFolderPart(FLAGS_taskid)+"/*/checkpoint.finished");
 	/*
 	if(epoch<0){
@@ -158,7 +159,7 @@ bool Master::restore(const int epoch){
 		}
 		path=matches.back();
 	}else{
-		path=FLAGS_checkpoint_read_dir+genCPNameFolderPart(FLAGS_taskid,epoch);
+		path=FLAGS_checkpoint_dir+genCPNameFolderPart(FLAGS_taskid,epoch);
 		//given checkpoint is not valid (not finished/not exist)
 		if(path>matches.back()){
 			return false;

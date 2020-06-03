@@ -163,6 +163,7 @@ void Worker::runKernel(){
 //	if(id()==0)	//hack for strange synchronization problem
 //		Sleep();
 	_enableProcess();
+	_enableSend();
 
 	// Run the user kernel
 	helper->Run(d, kreq.method());

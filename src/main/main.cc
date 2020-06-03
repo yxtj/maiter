@@ -30,11 +30,10 @@ DEFINE_double(portion, 1, "");
 DEFINE_double(termcheck_threshold, 1000000000, "");
 DEFINE_double(sleep_time, 0.001, "");
 
-DEFINE_string(checkpoint_dir, "", "");
-DEFINE_double(checkpoint_time, 10, "interval of making checkpoints");
-DEFINE_bool(checkpoint_dump, false, "whether to make checkpoints");
-DEFINE_bool(checkpoint_restore, false, "whether to load a checkpoint");
-DEFINE_int32(checkpoint_epoch, -1, "the epoch to load");
+DEFINE_string(checkpoint_dir, "", "The directory of writing/loading checkpoints");
+DEFINE_string(checkpoint_type, "CP_NONE", "Type of checkpoint mechanism");
+DEFINE_double(checkpoint_interval, 0.0, "Interval of taking checkpoint (in second)");
+DEFINE_int32(checkpoint_restore_from, -1, "The epoch to restore from (-1 for do not restore).");
 
 DEFINE_double(flush_time, 0.2, "waiting time for flushing out all network message");
 
