@@ -91,7 +91,7 @@ std::string NetworkImplMPI::receive(int dst, int type, const int nBytes){
 }
 
 void NetworkImplMPI::send(const Task* t){
-//	VLOG_IF(2,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
+//	VLOG_IF(3,t->type!=4)<<"Sending(m) from "<<id()<<" to "<<t->src_dst<<", type "<<t->type;
 	lock_guard<recursive_mutex> sl(us_lock);
 //	TaskSendMPI tm{t,
 //		world.Isend(t->payload.data(), t->payload.size(), MPI_BYTE,t->src_dst, t->type)};
