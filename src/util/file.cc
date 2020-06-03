@@ -45,8 +45,15 @@ void File::Dump(const string& f, const StringPiece& data) {
   fclose(fp);
 }
 
-void File::Move(const string& src, const string&dst) {
+void File::Move(const string& src, const string& dst) {
+    //LOG(INFO) << src << " - " << dst;
+    //PCHECK(rename("a.txt", "b.txt") == 0);
   PCHECK(rename(src.c_str(), dst.c_str()) == 0);
+}
+
+void LocalFile::sync() {
+    fflush(fp);
+    fclose(fp);
 }
 
 bool LocalFile::read_line(string *out) {
@@ -224,9 +231,10 @@ RecordFile::~RecordFile() {
   if (!fp) { return; }
 
   if (mode_ != "r") {
-    //fp->sync();
+    fp->sync();
     VLOG(1) << "Renaming: " << path_;
-    File::Move(StringPrintf("%s.tmp", path_.c_str()), path_);
+    File::Move(path_+".tmp", path_);
+    //File::Move(StringPrintf("%s.tmp", path_.c_str()), path_);
   }
   delete fp;
 }

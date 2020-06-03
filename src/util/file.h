@@ -32,7 +32,7 @@ public:
   virtual void seek(int64_t pos) = 0;
   virtual uint64_t tell() = 0;
   virtual const char* name() { return ""; }
-  //virtual void sync() = 0;
+  virtual void sync() = 0;
 
   int write_string(const std::string& buffer) {
     return write(buffer.data(), buffer.size());
@@ -70,7 +70,7 @@ public:
     }
   }
 
-  //void sync() { fsync(fileno(fp)); }
+  void sync();// { fsync(fileno(fp)); }
 
   bool read_line(std::string *out);
   int read(char *buffer, int len);
@@ -199,7 +199,7 @@ public:
 
   const char* name() { return f_->name(); }
   bool eof() { return f_->eof() && block.pos == block.len; }
-  //void sync() { f_->sync(); }
+  void sync() { f_->sync(); }
 
 private:
   void init(LocalFile* f, const std::string& mode) {
@@ -250,7 +250,7 @@ public:
   const char* name() { return fp->name(); }
 
   bool eof() { return fp->eof(); }
-  //void sync() { fp->sync(); }
+  void sync() { fp->sync(); }
 
   void seek(uint64_t pos);
 
