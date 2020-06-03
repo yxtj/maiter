@@ -237,6 +237,7 @@ void MutableGlobalTable::BufSendUpdates(){
 
 void MutableGlobalTable::SendUpdates(){
 	KVPairData put;
+	Timer tmr;
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
 
@@ -265,7 +266,7 @@ void MutableGlobalTable::SendUpdates(){
 //			t->clear();
 		}
 	}
-
+	stats["send_time"] += tmr.elapsed();
 	pending_send_ = 0;
 }
 
@@ -295,6 +296,7 @@ void MutableGlobalTable::BufTermCheck(){
 }
 
 void MutableGlobalTable::TermCheck(){
+	Timer tmr;
 	double total_current = 0;
 	long total_updates = 0;
 	for(int i = 0; i < partitions_.size(); ++i){
@@ -302,8 +304,8 @@ void MutableGlobalTable::TermCheck(){
 			LocalTable *t = partitions_[i];
 			double partF2;
 			long partUpdates;
-			t->termcheck(StringPrintf("snapshot/iter%d-part%d", snapshot_index, i),
-					&partUpdates, &partF2);
+			string f = "snapshot/iter" + to_string(snapshot_index) + "-part" + to_string(i);
+			t->termcheck(f, &partUpdates, &partF2);
 			total_current += partF2;
 			total_updates += partUpdates;
 		}
@@ -311,7 +313,7 @@ void MutableGlobalTable::TermCheck(){
 	if(helper()){
 		helper()->realSendTermCheck(snapshot_index, total_updates, total_current);
 	}
-
+	stats["termcheck_time"] += tmr.elapsed();
 	snapshot_index++;
 }
 

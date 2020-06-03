@@ -238,8 +238,13 @@ bool Worker::has_incoming_data() const{
 	return !driver.empty();
 }
 
-void Worker::merge_net_stats(){
+void Worker::merge_stats(){
 	stats_.Merge(network_->stats);
+	TableRegistry::Map& tbls = TableRegistry::Get()->tables();
+	for(TableRegistry::Map::iterator it = tbls.begin(); it != tbls.end(); ++it){
+		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(it->second);
+		stats_.Merge(t->stats);
+	}
 }
 
 void Worker::realSwap(const int tid1, const int tid2){
@@ -386,7 +391,7 @@ bool StartWorker(const ConfigData& conf){
 
 	Worker w(conf);
 	w.Run();
-	w.merge_net_stats();
+	w.merge_stats();
 	Stats& s = w.get_stats();
 	LOG(INFO) << "Worker stats: \n" << s.ToString("[W"+to_string(conf.worker_id())+"]", true);
 	return true;

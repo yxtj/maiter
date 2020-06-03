@@ -188,7 +188,7 @@ void Master::handleTermcheckDone(const std::string& d, const RPCInfo& info){
 	TermcheckDelta resp;
 	resp.ParseFromString(d);
 	int worker_id=resp.wid();
-	VLOG(1) << "receive from " << resp.wid() << " with " << resp.delta();
+	VLOG(1) << "receive term check from " << resp.wid() << " with " << resp.delta();
 	workers_[worker_id]->current = resp.delta();
 	workers_[worker_id]->updates = resp.updates();
 

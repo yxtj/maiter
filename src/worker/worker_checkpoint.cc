@@ -380,8 +380,7 @@ void Worker::_finishCP_Async(){
 	_sendCPFlushSig();
 	_CP_start();
 	RegDSPProcess(MTYPE_PUT_REQUEST,&Worker::_HandlePutRequest_AsynCP);
-	fill(_cp_async_sig_rec.begin(),_cp_async_sig_rec.end(),false);
-	_cp_async_sig_rec.resize(config_.num_workers(),false);
+	_cp_async_sig_rec.assign(config_.num_workers(), false);
 
 	_enableProcess();
 	pause_pop_msg_=false;
@@ -400,7 +399,7 @@ void Worker::_finishCP_Async(){
 	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();
 	_CP_report();
 	_CP_stop();
-	_cp_async_sig_rec.clear();
+	_cp_async_sig_rec.assign(config_.num_workers(), false);
 }
 void Worker::_processCPSig_Async(const int wid){
 	_cp_async_sig_rec[wid]=true;
@@ -418,7 +417,7 @@ void Worker::_HandlePutRequest_AsynCP(const string& d, const RPCInfo& info){
 	MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(
 			TableRegistry::Get()->mutable_table(put.table()));
 	if(!_cp_async_sig_rec[put.source()]){
-		//t->write_message(put);
+		t->write_message(put);
 	}
 	DVLOG(1)<<"cp write a message from "<<put.source()<<" at worker "<<id();
 	stats_["cp_time_blocked"]+=tmr_cp_block_.elapsed();

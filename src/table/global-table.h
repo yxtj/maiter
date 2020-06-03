@@ -5,6 +5,7 @@
 #include "table.h"
 #include "table-interfaces.h"
 #include "util/timer.h"
+#include "util/common.h"
 #include <mutex>
 #include <unordered_map>
 
@@ -202,6 +203,7 @@ public:
 	bool allow_process;
 	bool allow_send;
 	bool allow_termcheck;
+	Stats stats;
 
 protected:
 	Timer tmr_process, tmr_send;

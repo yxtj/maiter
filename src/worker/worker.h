@@ -91,7 +91,7 @@ public:
 
 	bool has_incoming_data() const;
 
-	void merge_net_stats();
+	void merge_stats();
 	Stats& get_stats(){
 		return stats_;
 	}

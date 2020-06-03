@@ -111,8 +111,8 @@ public:
 	}
 
 	void MergeUpdates(const dsm::KVPairData& req){
-//		Timer t;
 		std::lock_guard<std::recursive_mutex> sl(get_mutex());
+		Timer tmr;
 
 //		VLOG(3) << "applying updates, from " << req.source();
 
@@ -131,9 +131,7 @@ public:
 //			ProcessUpdatesSingle(shard,it.key());
 		}
 		pending_process_+=req.kv_data_size();
-
-//		ProcessUpdates();
-//		BufTermCheck();
+		stats["merge_time"] += tmr.elapsed();
 	}
 
 	void ProcessUpdates(){
@@ -142,7 +140,7 @@ public:
 		std::lock_guard<std::recursive_mutex> sl(get_mutex());
 		if(!allow_process)
 			return;
-//		Timer t;
+		Timer tmr;
 		//handle multiple shards
 		for(int i=0;i<partitions_.size();++i){
 			if(!is_local_shard(i))
@@ -163,9 +161,11 @@ public:
 			}
 			delete it2;
 		}
+		stats["process_time"] += tmr.elapsed();
 //		DVLOG(1)<<"process data: "<<t.elapsed();
 //		BufTermCheck();
 	}
+
 	//Process with user provided functions
 	void ProcessUpdatesSingle(const K& k, V1& v1, V2& v2, V3& v3){
 		IterateKernel<K, V1, V3>* kernel=
