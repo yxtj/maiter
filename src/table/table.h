@@ -55,6 +55,7 @@ struct TableBase{
 	virtual const TableDescriptor& info() const = 0;
 	virtual TableDescriptor& mutable_info() = 0;
 	virtual int id() const = 0;
+	virtual int shard() const = 0;
 	virtual int num_shards() const = 0;
 	virtual ~TableBase(){}
 };
@@ -88,6 +89,9 @@ public:
 	}
 	int id() const{
 		return info().table_id;
+	}
+	int shard() const{
+		return info().shard;
 	}
 	int num_shards() const{
 		return info().num_shards;

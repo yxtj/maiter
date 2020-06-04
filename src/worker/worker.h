@@ -180,6 +180,7 @@ private:
 //	CheckpointMap checkpoint_tables_;
 	Timer tmr_cp_block_;
 	std::thread* th_cp_;	//for name reusing (std::thread can not be assigned)
+	std::mutex m_cp_control_;	// used for asynchronous CP method
 
 	ConfigData config_;
 

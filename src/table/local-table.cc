@@ -69,19 +69,21 @@ void LocalTable::start_checkpoint(const string& f){
 	VLOG(1) << "Start checkpoint " << f;
 //	Timer t;
 
-	LocalTableCoder c(f, "w");
+	LocalTableCoder c(f, "wb");
 	serializeToFile(&c);
 
-	delta_file_ = new LocalTableCoder(f + ".delta", "w");
+	delta_file_ = new LocalTableCoder(f + ".delta", "wb");
 	VLOG(1) << "End.";
 //  LOG(INFO) << "Flushed " << file << " to disk in: " << t.elapsed();
 }
 
 void LocalTable::write_message(const KVPairData& put){
-//	DVLOG(1)<<"writing msg: "<<put.source()<<" to "<<id()<<", epoch="<<put.epoch()<<" size="<<put.kv_data_size();
+	if(!delta_file_)
+		LOG(FATAL) << "W" << shard() << " delta file has closed";
+	//DVLOG(1)<<"writing msg: "<<put.source()<<" to "<<shard()<<", epoch="<<put.epoch()<<" size="<<put.kv_data_size();
 	for(int i = 0; i < put.kv_data_size(); ++i){
-//		string k=put.kv_data(i).key(), v=put.kv_data(i).value();
-//		DVLOG(1)<<"writing msg: "<<*(const int*)(k.data())<<" - "<<*(const float*)(v.data());
+		//string k=put.kv_data(i).key(), v=put.kv_data(i).value();
+		//DVLOG(1)<<"W"<<shard()<<" writing msg: "<<*(const int*)(k.data())<<" - "<<*(const float*)(v.data());
 		delta_file_->WriteEntryToFile(put.kv_data(i).key(), put.kv_data(i).value(), "", "");
 	}
 }
@@ -97,20 +99,20 @@ void LocalTable::finish_checkpoint(){
 
 void LocalTable::load_checkpoint(const string& f){
 	if(!File::Exists(f)){
-		VLOG(1) << "Skipping restore of non-existent shard " << f;
+		LOG(FATAL) << "Skipping restore of non-existent shard " << f;
 		return;
 	}
 
 	//TableData p;
 
-	LocalTableCoder rf(f, "r");
+	LocalTableCoder rf(f, "rb");
 	string k, v1, v2, v3;
 	while(rf.ReadEntryFromFile(&k, &v1, &v2, &v3)){
 		update_str(k, v1, v2, v3);
 	}
 
 	// Replay delta log.
-	LocalTableCoder df(f + ".delta", "r");
+	LocalTableCoder df(f + ".delta", "rb");
 	while(df.ReadEntryFromFile(&k, &v1, &v2, &v3)){
 		update_str(k, v1, v2, v3);
 	}

@@ -8,6 +8,7 @@
 #include <thread>
 #include <functional>
 #include <chrono>
+#include <iomanip>
 
 //#include "dbg/getcallstack.h"
 
@@ -84,7 +85,7 @@ void Worker::MsgLoop(){
 	RPCInfo info;
 	info.dest=network_->id();
 	unsigned cnt_idle_loop=0;
-	static constexpr unsigned SLEEP_CNT=256;
+	static constexpr unsigned SLEEP_CNT=32;
 //	double t1=0,t2=0;
 	while(running_){
 		bool idle=true;
@@ -239,7 +240,9 @@ bool Worker::has_incoming_data() const{
 }
 
 void Worker::merge_stats(){
+	// network
 	stats_.Merge(network_->stats);
+	// table
 	TableRegistry::Map& tbls = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator it = tbls.begin(); it != tbls.end(); ++it){
 		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(it->second);
@@ -264,9 +267,8 @@ void Worker::realSendTermCheck(int snapshot, long updates, double current){
 	req.set_updates(updates);
 	network_->Send(config_.master_id(), MTYPE_TERMCHECK_LOCAL, req);
 
-	VLOG(1) << "termination condition of subpass " << snapshot << " worker " << id()
-						<< " sent to master... with total current "
-						<< StringPrintf("%.05f", current);
+	VLOG(1) << "send termination subpass " << snapshot << " of W" << id()
+		<< " with total current " << std::fixed << std::setprecision(5) << current << ", update " << updates;
 }
 
 void Worker::realSendUpdates(int dstWorkerID, const KVPairData& put){
@@ -325,7 +327,6 @@ void Worker::signalToPnS(){
 void Worker::HandlePutRequestReal(const KVPairData& put){
 //	DVLOG(2) << "Read put request of size: " << put.kv_data_size() << " for ("
 //				<< put.table()<<","<<put.shard()<<")";
-
 	MutableGlobalTableBase *t = TableRegistry::Get()->mutable_table(put.table());
 	t->MergeUpdates(put);
 

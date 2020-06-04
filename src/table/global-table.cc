@@ -154,6 +154,18 @@ void MutableGlobalTable::finish_checkpoint(){
 	}
 }
 
+void MutableGlobalTable::load_checkpoint(const string& pre){
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
+	for(int i = 0; i < partitions_.size(); ++i){
+		LocalTable* t = partitions_[i];
+		if(is_local_shard(i)){
+			t->load_checkpoint(pre);
+		} else{
+			t->clear();
+		}
+	}
+}
+
 void MutableGlobalTable::dump(std::ofstream& fout)
 {
 	std::lock_guard<std::recursive_mutex> sl(get_mutex());
@@ -163,17 +175,6 @@ void MutableGlobalTable::dump(std::ofstream& fout)
 			t->dump(fout);
 		} else{
 			t->dump(fout);
-		}
-	}
-}
-
-void MutableGlobalTable::load_checkpoint(const string& pre){
-	for(int i = 0; i < partitions_.size(); ++i){
-		LocalTable* t = partitions_[i];
-		if(is_local_shard(i)){
-			t->load_checkpoint(pre);
-		} else{
-			t->clear();
 		}
 	}
 }

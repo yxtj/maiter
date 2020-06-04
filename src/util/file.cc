@@ -233,7 +233,7 @@ RecordFile::~RecordFile() {
 
   if (mode_ != "r") {
     fp->sync();
-    VLOG(1) << "Renaming: " << path_;
+    VLOG(2) << "Renaming: " << path_;
     File::Move(path_+".tmp", path_);
     //File::Move(StringPrintf("%s.tmp", path_.c_str()), path_);
   }
