@@ -164,11 +164,15 @@ public:
 
 	void read_file(TypedGlobalTable<K, V, V, D>* table){
 		std::string patition_file = FLAGS_graph_dir + "/part" + std::to_string(current_shard());
-		//cout<<"Unable to open file: " << patition_file<<endl;
 		std::ifstream inFile(patition_file);
 		if(!inFile){
-			LOG(FATAL) << "Unable to open file " << patition_file;
-			exit(1); // terminate with error
+			inFile.close();
+			patition_file = FLAGS_graph_dir + "/part-" + std::to_string(current_shard());
+			inFile.open(patition_file);
+			if(!inFile){
+				LOG(FATAL) << "Unable to open file " << patition_file;
+				exit(1); // terminate with error
+			}
 		}
 
 		std::string line;
