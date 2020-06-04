@@ -114,7 +114,7 @@ Master::~Master(){
 
 void Master::MsgLoop(){
 	DLOG(INFO)<<"Message loop of master started";
-	cin.get();
+	//cin.get();
 	string data;
 	RPCInfo info;
 	info.dest=network_->id();
