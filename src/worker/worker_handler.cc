@@ -191,7 +191,7 @@ void Worker::HandleFlush(const string& d, const RPCInfo& rpc){
 	}
 
 	network_->Flush();
-	stats_["flush_time"] += net.elapsed();
+	stats_["time_flush"] += net.elapsed();
 	sendReply(rpc);
 }
 

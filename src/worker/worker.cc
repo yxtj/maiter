@@ -133,7 +133,7 @@ void Worker::MsgLoop(){
 }
 
 void Worker::KernelProcess(){
-	stats_["idle_time"]+=tmr_.elapsed();
+	stats_["time_idle"]+=tmr_.elapsed();
 
 	runKernel();
 	finishKernel();

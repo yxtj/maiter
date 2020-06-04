@@ -131,7 +131,7 @@ public:
 //			ProcessUpdatesSingle(shard,it.key());
 		}
 		pending_process_+=req.kv_data_size();
-		stats["merge_time"] += tmr.elapsed();
+		stats["time_merge"] += tmr.elapsed();
 	}
 
 	void ProcessUpdates(){
@@ -161,7 +161,7 @@ public:
 			}
 			delete it2;
 		}
-		stats["process_time"] += tmr.elapsed();
+		stats["time_process"] += tmr.elapsed();
 //		DVLOG(1)<<"process data: "<<t.elapsed();
 //		BufTermCheck();
 	}

@@ -236,6 +236,7 @@ void MutableGlobalTable::BufSendUpdates(){
 }
 
 void MutableGlobalTable::SendUpdates(){
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 	KVPairData put;
 	Timer tmr;
 	for(int i = 0; i < partitions_.size(); ++i){
@@ -266,7 +267,7 @@ void MutableGlobalTable::SendUpdates(){
 //			t->clear();
 		}
 	}
-	stats["send_time"] += tmr.elapsed();
+	stats["time_send"] += tmr.elapsed();
 	pending_send_ = 0;
 }
 
@@ -313,7 +314,7 @@ void MutableGlobalTable::TermCheck(){
 	if(helper()){
 		helper()->realSendTermCheck(snapshot_index, total_updates, total_current);
 	}
-	stats["termcheck_time"] += tmr.elapsed();
+	stats["time_termcheck"] += tmr.elapsed();
 	snapshot_index++;
 }
 

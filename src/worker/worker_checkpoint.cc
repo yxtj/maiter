@@ -251,7 +251,7 @@ void Worker::_CP_dump_gtables()
 		//archive local state
 		t->dump(fout);
 	}
-	stats_["archive_time"] += tmr.elapsed();
+	stats_["time_archive"] += tmr.elapsed();
 }
 
 std::string Worker::_CP_local_file_name(int epoch)
@@ -460,7 +460,7 @@ void Worker::_processCPSig_VS(const int wid)
 			//archive local state
 			t->dump(fout);
 		}
-		stats_["archive_time"] += tmr.elapsed();
+		stats_["time_archive"] += tmr.elapsed();
 		_CP_report();
 		_enableProcess();
 	}
