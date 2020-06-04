@@ -74,7 +74,7 @@ struct TermCheckers{
 			curr = std::accumulate(local_reports.begin(),local_reports.end(),0.0);
 			VLOG(0) << "terminate check : last progress " << last << " current progress " << curr
 					<< " difference " << abs(curr-last);
-			if(abs(curr) >= FLAGS_termcheck_threshold){
+			if(std::abs(curr) >= FLAGS_termcheck_threshold){
 				return true;
 			}else{
 				last = curr;
