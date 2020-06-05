@@ -33,6 +33,7 @@ Worker::Worker(const ConfigData &c){
 
 	running_ = true;
 	running_kernel_=false;
+	allow_processing_ = true;
 
 	st_will_process_=false;
 	st_will_send_=false;
@@ -267,8 +268,8 @@ void Worker::realSendTermCheck(int snapshot, long updates, double current){
 	req.set_updates(updates);
 	network_->Send(config_.master_id(), MTYPE_TERMCHECK_LOCAL, req);
 
-	VLOG(1) << "send termination subpass " << snapshot << " of W" << id()
-		<< " with total current " << std::fixed << std::setprecision(5) << current << ", update " << updates;
+	VLOG(1) << "W" << id() <<" send termination subpass " << snapshot
+		<< " with value " << std::fixed << std::setprecision(5) << current << ", update " << updates;
 }
 
 void Worker::realSendUpdates(int dstWorkerID, const KVPairData& put){
@@ -334,6 +335,17 @@ void Worker::HandlePutRequestReal(const KVPairData& put){
 		VLOG(1) << "Clearing taint on: " << MP(put.table(), put.shard());
 		t->get_partition_info(put.shard())->tainted = false;
 	}
+
+	// balance message processing and local processing
+	
+	EVERY_N(10, {
+	int nmsg = driver.queSize() + network_->unpicked_pkgs();
+	if(allow_processing_ && nmsg > 2 * config_.num_workers()){
+		_disableProcess();
+	} else if(!allow_processing_ && nmsg < config_.num_workers()){
+		_enableProcess();
+	}
+	})
 }
 
 void Worker::sendReply(const RPCInfo& rpc, const bool res){
@@ -350,6 +362,9 @@ void Worker::clearUnprocessedPut(){
 }
 
 void Worker::_enableProcess(){
+	if(allow_processing_)
+		return;
+	allow_processing_ = true;
 	TableRegistry::Map &tbl = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator it = tbl.begin(); it != tbl.end(); ++it){
 		MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(it->second);
@@ -359,6 +374,9 @@ void Worker::_enableProcess(){
 	}
 }
 void Worker::_disableProcess(){
+	if(!allow_processing_)
+		return;
+	allow_processing_ = false;
 	TableRegistry::Map &tbl = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator it = tbl.begin(); it != tbl.end(); ++it){
 		MutableGlobalTable *t = dynamic_cast<MutableGlobalTable*>(it->second);

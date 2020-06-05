@@ -168,6 +168,7 @@ private:
 	bool running_kernel_;	//whether this kernel is running
 	KernelRequest kreq;	//the kernel running row
 	std::thread* th_ker_;
+	bool allow_processing_;
 
 	//the following state variables are used to control too frequent signal
 	bool st_will_process_;	//set at signalToProcess(), reset at HandleProcessUpdates() & HandlePnS()
