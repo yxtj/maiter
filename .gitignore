@@ -23,8 +23,9 @@ build/
 
 #test files:
 
-test/
-conf/
+/test/
+/conf/
+/data/
 
 /Makefile
 Makefile
