@@ -131,6 +131,7 @@ public:
 //			ProcessUpdatesSingle(shard,it.key());
 		}
 		pending_process_+=req.kv_data_size();
+		stats["count_mrege"] += 1;
 		stats["time_merge"] += tmr.elapsed();
 	}
 
@@ -161,6 +162,7 @@ public:
 			}
 			delete it2;
 		}
+		stats["count_process"] += 1;
 		stats["time_process"] += tmr.elapsed();
 //		DVLOG(1)<<"process data: "<<t.elapsed();
 //		BufTermCheck();

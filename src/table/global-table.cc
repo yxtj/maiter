@@ -268,6 +268,7 @@ void MutableGlobalTable::SendUpdates(){
 //			t->clear();
 		}
 	}
+	stats["count_send"] += 1;
 	stats["time_send"] += tmr.elapsed();
 	pending_send_ = 0;
 }
