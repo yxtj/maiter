@@ -54,7 +54,6 @@ void File::Move(const string& src, const string& dst) {
 
 void LocalFile::sync() {
     fflush(fp);
-    fclose(fp);
 }
 
 bool LocalFile::read_line(string *out) {
@@ -177,6 +176,16 @@ int LZOFile::read(char* data, int len) {
   return len;
 }
 
+void LZOFile::init(LocalFile* f, const std::string& mode) {
+    f_ = f;
+    pos_ = 0;
+    if(mode == "r" || mode == "rb") {
+        read_block();
+    } else {
+        block.len = block.pos = 0;
+    }
+}
+
 void LZOFile::write_block() {
   if (block.len == 0)
     return;
@@ -217,7 +226,7 @@ RecordFile::RecordFile(const string& path, const string& mode, int compression) 
   path_ = path;
   mode_ = mode;
 
-  if (mode == "r") {
+  if (mode == "r" || mode == "rb") {
     fp = new LocalFile(path_, mode);
   } else {
     fp = new LocalFile(path_ + ".tmp", mode);

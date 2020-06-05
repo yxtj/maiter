@@ -202,15 +202,7 @@ public:
   void sync() { f_->sync(); }
 
 private:
-  void init(LocalFile* f, const std::string& mode) {
-    f_ = f;
-    pos_ = 0;
-    if (mode == "r") {
-      read_block();
-    } else {
-      block.len = block.pos = 0;
-    }
-  }
+  void init(LocalFile* f, const std::string& mode);
 
   LocalFile *f_;
   long pos_;
