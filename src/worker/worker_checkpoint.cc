@@ -434,7 +434,7 @@ void Worker::_HandlePutRequest_AsynCP(const string& d, const RPCInfo& info){
 	if(!_cp_async_sig_rec[put.source()]){
 		t->write_message(put);
 	}
-	DVLOG(1)<<"cp write a message from "<<put.source()<<" at worker "<<id();
+	DVLOG(1) << "W" << id() << " write a cp message from " << put.source();
 	stats_["time_cp_blocked"]+=tmr_cp_block_.elapsed();
 }
 

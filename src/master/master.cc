@@ -46,7 +46,9 @@ Master::Master(const ConfigData &conf) :
 	running_ = true;
 	network_ = NetworkThread::Get();
 	shards_assigned_ = false;
-	conv_track_log.open(FLAGS_track_log.c_str());
+	if(!FLAGS_track_log.empty()){
+		conv_track_log.open(FLAGS_track_log.c_str());
+	}
 	if(FLAGS_sync_track){
 		sync_track_log.open("sync_track_log");
 		iter = 0;
@@ -95,12 +97,13 @@ Master::~Master(){
 		}
 		buff<<setprecision(3)<<w.total_runtime<<" ";
 	}
-	LOG(INFO)<< "Worker execution time:\n"<<buff.str();
+	LOG(INFO)<< "Worker execution time: "<<buff.str();
 
 	LOG(INFO)<< "Kernel stats: ";
 	for(MethodStatsMap::iterator i = method_stats_.begin(); i != method_stats_.end(); ++i){
 		LOG(INFO)<< i->first << "--> " << i->second.ShortDebugString();
 	}
+	LOG(INFO) << "Termcheck count: " << termcheck_epoch_ << ". Checkpoint count: " << checkpoint_epoch_;
 
 	LOG(INFO)<< "Shutting down workers.";
 //	EmptyMessage msg;
@@ -141,7 +144,7 @@ void Master::termcheck(){
 		if(kernel_terminated_)
 			break;
 
-		Timer cp_timer;
+		//Timer cp_timer;
 		long total_updates = 0;
 		vector<double> partials;
 		partials.reserve(workers_.size());
@@ -154,20 +157,20 @@ void Master::termcheck(){
 		TermChecker<int, double>* ptc=static_cast<TermChecker<int, double>*>(tables_[0]->info_.termchecker);
 		bool bterm = ptc->terminate(partials);
 
-		LOG(INFO) << "Termination check at " << barrier_timer->elapsed() << " finished in "
-				<< cp_timer.elapsed() << " total current "<< StringPrintf("%.05f",ptc->get_curr())
-				<< " total updates " << total_updates;
-		conv_track_log << "Termination check at " << barrier_timer->elapsed() << " finished in "
-				<< cp_timer.elapsed() << " total current "<< StringPrintf("%.05f",ptc->get_curr())
-				<< " total updates " << total_updates << "\n";
-		conv_track_log.flush();
+		LOG(INFO) << "Termination check at " << barrier_timer->elapsed() << ", total current "
+			<< StringPrintf("%.05f",ptc->get_curr()) << " total updates " << total_updates;
+		if(conv_track_log){
+			conv_track_log << "Termination check at " << barrier_timer->elapsed() << ", total current "
+				<< StringPrintf("%.05f", ptc->get_curr()) << " total updates " << total_updates << "\n";
+			conv_track_log.flush();
+		}
 
 		kernel_terminated_=bterm;
 		if(kernel_terminated_){
 			terminate_iteration();
 		}
 	}
-	VLOG(1)<<"termination checking thread finished";
+	VLOG(1) << "termination checking thread finished.";
 }
 
 WorkerState* Master::worker_for_shard(int table, int shard){
