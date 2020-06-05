@@ -388,8 +388,6 @@ void Worker::_finishCP_Async(){
 	{
 		lock_guard<mutex> lg(m_cp_control_);
 		RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::_HandlePutRequest_AsynCP);
-		_cp_async_sig_rec.assign(config_.num_workers(), false);
-		rph.input(MTYPE_CHECKPOINT_SIG,id());	//input itself, others for incoming msg
 	}
 	_enableProcess();
 	pause_pop_msg_=false;
@@ -402,6 +400,12 @@ void Worker::_finishCP_Async(){
 void Worker::_processCPSig_Async(const int wid){
 	lock_guard<mutex> lg(m_cp_control_);
 	_cp_async_sig_rec[wid]=true;
+	if(VLOG_IS_ON(2)){
+		string s;
+		for(bool b : _cp_async_sig_rec)
+			s += to_string(b) + " ";
+		DVLOG(2) << "W" << id() << " receive sig from " << wid << ". state: " << s;
+	}
 	rph.input(MTYPE_CHECKPOINT_SIG,wid);
 
 	if(all_of(_cp_async_sig_rec.begin(), _cp_async_sig_rec.end(), [](bool v){return v; })){
