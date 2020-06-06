@@ -7,7 +7,7 @@
 //static const int kMaxNetworkPending = 1 << 26;
 //static const int kMaxNetworkChunk = 1 << 20;
 
-DECLARE_int32(snapshot_interval);
+DECLARE_double(snapshot_interval);
 DECLARE_double(buftime);
 
 namespace dsm {

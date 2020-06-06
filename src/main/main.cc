@@ -20,7 +20,7 @@ DEFINE_bool(dump_results, false, "");
 //DEFINE_int32(bufmsg, 10000, "expected minimum number of message per sending");
 DEFINE_double(bufmsg_portion, 0.01,"portion of buffered sending");
 DEFINE_double(buftime, 0.5, "maximum time interval between 2 sendings");
-DEFINE_int32(snapshot_interval, 10, "termination check interval (second)");
+DEFINE_double(snapshot_interval, 10, "termination check interval (second)");
 
 DEFINE_string(graph_dir, "graph", "graph files");
 DEFINE_string(result_dir, "result", "result files");
