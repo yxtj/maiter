@@ -16,6 +16,8 @@ build/
 *.o
 *.a
 *.so
+__pycache__/
+*.pyc
 
 #temporary files:
 
