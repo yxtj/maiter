@@ -1,5 +1,6 @@
 #include "global-table.h"
-#include "statetable.h"
+//#include "statetable.h"
+#include "table-coder.h"
 #include "util/timer.h"
 #include <gflags/gflags.h>
 #include <mutex>
@@ -166,28 +167,30 @@ void MutableGlobalTable::load_checkpoint(const string& pre){
 	}
 }
 
-void MutableGlobalTable::dump(std::ofstream& fout)
+void MutableGlobalTable::dump(const std::string& f, TableCoder* out)
 {
+	TableStateCoder c(f, "wb");
 	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable* t = partitions_[i];
 		if(is_local_shard(i)){
-			t->dump(fout);
+			t->dump("state", &c);
 		} else{
-			t->dump(fout);
+			t->dump("delta", &c);
 		}
 	}
 }
 
-void MutableGlobalTable::restore(std::ifstream& fin)
+void MutableGlobalTable::restore(const std::string& f, TableCoder* in)
 {
+	TableStateCoder c(f, "rb");
 	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable *t = partitions_[i];
 		if(is_local_shard(i)){
-			t->restore(fin);
+			t->restore("state", &c);
 		}else{
-			t->restore(fin);
+			t->restore("delta", &c);
 		}
 	}
 }

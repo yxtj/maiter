@@ -162,6 +162,22 @@ private:
 	typename std::vector<std::pair<K, V1> >::iterator intit;
 };
 
+class RecordFile;
+// Encodes or decodes table entries, reading and writing from the specified file.
+struct TableStateCoder : public TableCoder{
+	TableStateCoder(const std::string& f, const std::string& mode);
+	virtual ~TableStateCoder();
+
+	virtual void WriteEntryToFile(StringPiece k, StringPiece v1, StringPiece v2, StringPiece v3);
+	virtual bool ReadEntryFromFile(std::string* k, std::string* v1, std::string* v2, std::string* v3);
+
+	void WriteHeader(StringPiece type, const int shard, const int64_t n);
+	void ReadHeader(std::string* type, int *shard, int64_t* n);
+
+	RecordFile* f_;
+};
+
+
 }
 
 #endif /* TABLE_TABLE_CODER_H_ */

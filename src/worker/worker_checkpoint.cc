@@ -246,14 +246,13 @@ void Worker::_CP_dump_gtables()
 	VLOG(1) << "W" << config_.worker_id() << " dump checkpoint of epoch: " << epoch_;
 	Timer tmr;
 	string fn = _CP_local_file_name(epoch_);
-	ofstream fout(fn);
-	CHECK(fout.good()) << "failed in opening checkpoint file: " << fn;
+	//CHECK(fout.good()) << "failed in opening checkpoint file: " << fn;
 	//archive current table state:
 	TableRegistry::Map& tbls = TableRegistry::Get()->tables();
 	for(TableRegistry::Map::iterator it = tbls.begin(); it != tbls.end(); ++it){
 		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(it->second);
 		//archive local state
-		t->dump(fout);
+		t->dump(fn, nullptr);
 	}
 	stats_["time_cp_archive"] += tmr.elapsed();
 }
@@ -488,9 +487,9 @@ void Worker::restore(int epoch){
 		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(i->second);
 		if(t){
 			if(kreq.cp_type() == CP_SYNC || kreq.cp_type() == CP_VS){
-				ifstream fin(fn);
-				CHECK(fin) << "Cannot open checkpoint file: " << fn;
-				t->restore(fin);
+				//ifstream fin(fn);
+				//CHECK(fin) << "Cannot open checkpoint file: " << fn;
+				t->restore(fn, nullptr);
 			} else{
 				t->load_checkpoint(fn);
 			}

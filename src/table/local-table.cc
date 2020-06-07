@@ -118,6 +118,30 @@ void LocalTable::load_checkpoint(const string& f){
 	}
 }
 
+void LocalTable::dump(const std::string& f, TableCoder* out)
+{
+	TableStateCoder* pc = dynamic_cast<TableStateCoder*>(out);
+	pc->WriteHeader(f, shard(), size());
+	serializeToFile(out);
+}
+
+void LocalTable::restore(const std::string& f, TableCoder* in)
+{
+	string k, v1, v2, v3;
+	TableStateCoder* pc = dynamic_cast<TableStateCoder*>(in);
+	string type;
+	int s;
+	int64_t n;
+	pc->ReadHeader(&type, &s, &n);
+	CHECK_EQ(f, type) << "Archived shard type does not match";
+	CHECK_EQ(shard(), s) << "Archived shard id does not match";
+	for(int64_t i = 0; i < n; ++i){
+		string k, v1, v2, v3;
+		in->ReadEntryFromFile(&k, &v1, &v2, &v3);
+		restoreState(k, v1, v2);
+	}
+}
+
 
 //Dummy stub
 //void LocalTable::DecodeUpdates(TableCoder *in, DecodeIteratorBase *itbase) { return; }

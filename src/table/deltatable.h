@@ -125,10 +125,10 @@ public:
 		return nullptr;
 	}
 
-	void dump(std::ofstream& fout);
-	void restore(std::ifstream& fin);
+	void restoreState(const std::string& k, const std::string& v1, const std::string& v2);
 
 	void serializeToFile(TableCoder *out);
+	void serializeStateToFile(TableCoder* out){ return serializeToFile(out); }
 	void serializeToNet(KVPairCoder *out);
 	void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
 	void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase);
@@ -195,6 +195,7 @@ DeltaTable<K, V1, D>::DeltaTable(int size):buckets_(0), entries_(0), size_(0)
 	resize(size);
 }
 
+/*
 template<class K, class V1, class D>
 inline void DeltaTable<K, V1, D>::dump(std::ofstream& fout)
 {
@@ -230,6 +231,19 @@ inline void DeltaTable<K, V1, D>::restore(std::ifstream& fin)
 		put(k, v1);
 		n--;
 	}
+}
+*/
+
+
+template<class K, class V1, class D>
+inline void DeltaTable<K, V1, D>::restoreState(
+	const std::string& k, const std::string& v1, const std::string& v2)
+{
+	K kr;
+	V1 v1r;
+	((Marshal<K>*)info_.key_marshal)->unmarshal(k, &kr);
+	((Marshal<V1>*)info_.value1_marshal)->unmarshal(v1, &v1r);
+	update(kr, v1r);
 }
 
 template<class K, class V1, class D>

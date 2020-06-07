@@ -442,10 +442,10 @@ public:
 		return new EntirePassIterator(*this);
 	}
 
-	void dump(std::ofstream& fout);
-	void restore(std::ifstream& fin);
+	void restoreState(const std::string& k, const std::string& v1, const std::string& v2);
 
 	void serializeToFile(TableCoder *out);
+	void serializeStateToFile(TableCoder* out);
 	void serializeToNet(KVPairCoder *out);
 	void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
 	void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase);
@@ -520,6 +520,7 @@ StateTable<K, V1, V2, V3>::StateTable(int size) :
 	resize(size);
 }
 
+/*
 template<class K, class V1, class V2, class V3>
 inline void StateTable<K, V1, V2, V3>::dump(std::ofstream& fout)
 {
@@ -559,6 +560,20 @@ inline void StateTable<K, V1, V2, V3>::restore(std::ifstream& fin)
 		n--;
 	}
 }
+*/
+
+template<class K, class V1, class V2, class V3>
+inline void StateTable<K, V1, V2, V3>::restoreState(
+	const std::string& k, const std::string& v1, const std::string& v2)
+{
+	K kr;
+	V1 v1r;
+	V2 v2r;
+	((Marshal<K>*)info_.key_marshal)->unmarshal(k, &kr);
+	((Marshal<V1>*)info_.value1_marshal)->unmarshal(v1, &v1r);
+	((Marshal<V2>*)info_.value2_marshal)->unmarshal(v2, &v2r);
+	updateF12(kr, v1r, v2r);
+}
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeToFile(TableCoder *out){
@@ -575,10 +590,32 @@ void StateTable<K, V1, V2, V3>::serializeToFile(TableCoder *out){
 		((Marshal<V1>*)info_.value1_marshal)->marshal(i->value1(), &v1);
 //		DVLOG(1)<<"v1="<<i->value1()<<" - "<<v1;
 		((Marshal<V2>*)info_.value2_marshal)->marshal(i->value2(), &v2);
-//		DVLOG(1)<<"v2="<<i->value2()<<" - "<<v3;
-//		((Marshal<V3>*)info_.value3_marshal)->marshal(i->value3(), &v3);
+//		DVLOG(1)<<"v2="<<i->value2()<<" - "<<v2;
+		((Marshal<V3>*)info_.value3_marshal)->marshal(i->value3(), &v3);
 //		DVLOG(1)<<"v3="<<i->value3()<<" - "<<v3;
 		out->WriteEntryToFile(k, v1, v2, v3);
+		i->Next();
+	}
+	delete i;
+}
+
+template<class K, class V1, class V2, class V3>
+void StateTable<K, V1, V2, V3>::serializeStateToFile(TableCoder* out){
+	Iterator* i = (Iterator*)get_iterator(nullptr, false);
+	string k, v1, v2, v3;
+	while(!i->done()){
+		k.clear();
+		v1.clear();
+		v2.clear();
+		v3.clear();
+		DVLOG(2) << i->pos << ": k=" << i->key() << " v1=" << i->value1() << " v2=" << i->value2();
+		((Marshal<K>*)info_.key_marshal)->marshal(i->key(), &k);
+//		DVLOG(1)<<"k="<<i->key()<<" - "<<k;
+		((Marshal<V1>*)info_.value1_marshal)->marshal(i->value1(), &v1);
+//		DVLOG(1)<<"v1="<<i->value1()<<" - "<<v1;
+		((Marshal<V2>*)info_.value2_marshal)->marshal(i->value2(), &v2);
+//		DVLOG(1)<<"v2="<<i->value2()<<" - "<<v2;
+		out->WriteEntryToFile(k, v1, v2, "");
 		i->Next();
 	}
 	delete i;
