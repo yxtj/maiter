@@ -258,7 +258,7 @@ void Worker::realClear(const int tid){
 	LOG(INFO)<<"Invalid. (signal the master to perform this)";
 }
 
-void Worker::realSendTermCheck(int snapshot, long updates, double current){
+void Worker::realSendTermCheck(int snapshot, int64_t updates, double current){
 	lock_guard<recursive_mutex> sl(state_lock_);
 
 	TermcheckDelta req;

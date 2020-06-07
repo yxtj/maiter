@@ -288,7 +288,7 @@ bool RecordFile::read(google::protobuf::Message *m) {
   return true;
 }
 
-void RecordFile::seek(uint64_t pos) {
+void RecordFile::seek(long pos) {
   while (fp->tell() < pos && read(NULL));
 }
 

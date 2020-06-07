@@ -29,13 +29,13 @@ public:
   virtual int read(char *buffer, int len) = 0;
   virtual bool read_line(std::string *out) = 0;
   virtual bool eof() = 0;
-  virtual void seek(int64_t pos) = 0;
-  virtual uint64_t tell() = 0;
+  virtual void seek(long pos) = 0;
+  virtual long tell() = 0;
   virtual const char* name() { return ""; }
   virtual void sync() = 0;
 
   int write_string(const std::string& buffer) {
-    return write(buffer.data(), buffer.size());
+    return write(buffer.data(), (int)buffer.size());
   }
 
   virtual int write(const char* buffer, int len) = 0;
@@ -75,8 +75,8 @@ public:
   bool read_line(std::string *out);
   int read(char *buffer, int len);
   int write(const char* buffer, int len);
-  void seek(int64_t pos) { fseek(fp, pos, SEEK_SET); }
-  uint64_t tell() { return ftell(fp); }
+  void seek(long pos) { fseek(fp, pos, SEEK_SET); }
+  long tell() { return ftell(fp); }
 
   void Printf(const char* p, ...);
   virtual FILE* filePointer() { return fp; }
@@ -194,8 +194,8 @@ public:
 
   virtual int read(char *buffer, int len);
   virtual int write(const char* buffer, int len);
-  void seek(int64_t pos) { LOG(FATAL) << "Not seekable."; }
-  uint64_t tell() { return pos_; }
+  void seek(long pos) { LOG(FATAL) << "Not seekable."; }
+  long tell() { return pos_; }
 
   const char* name() { return f_->name(); }
   bool eof() { return f_->eof() && block.pos == block.len; }
@@ -244,7 +244,7 @@ public:
   bool eof() { return fp->eof(); }
   void sync() { fp->sync(); }
 
-  void seek(uint64_t pos);
+  void seek(long pos);
 
   void writeChunk(StringPiece data);
   bool readChunk(std::string *s);

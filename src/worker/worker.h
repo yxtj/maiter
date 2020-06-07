@@ -59,7 +59,7 @@ public:
 	// step 4: check whether current task is finished
 	virtual void signalToTermCheck();
 	void HandleTermCheck(const std::string&, const RPCInfo&);	//dummy parameters
-	virtual void realSendTermCheck(int index, long updates, double current);
+	virtual void realSendTermCheck(int index, int64_t updates, double current);
 
 	// Barrier: wait until all table data is transmitted.
 	void HandleFlush(const std::string& d, const RPCInfo& rpc);

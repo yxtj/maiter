@@ -22,7 +22,7 @@ static constexpr int FETCH_NUM = (2048);
 
 namespace dsm {
 
-struct Table;
+class Table;
 
 template<class K, class V1, class V2, class V3>
 struct ClutterRecord{
@@ -105,7 +105,7 @@ public:
 	}
 
 	int num_triggers(){
-		return info_.triggers.size();
+		return static_cast<int>(info_.triggers.size());
 	}
 	TriggerBase *trigger(int idx){
 		return info_.triggers[idx];
@@ -116,7 +116,7 @@ public:
 			t->helper = helper();
 		}
 		t->table = this;
-		t->triggerid = info_.triggers.size();
+		t->triggerid = static_cast<TriggerID>(info_.triggers.size());
 
 		info_.triggers.push_back(t);
 		return t->triggerid;

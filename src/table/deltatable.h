@@ -132,7 +132,7 @@ public:
 	void serializeToNet(KVPairCoder *out);
 	void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
 	void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase);
-	void serializeToSnapshot(const string& f, long* updates, double* totalF2){return;}
+	void serializeToSnapshot(const string& f, int64_t* updates, double* totalF2){return;}
 
 	Marshal<K>* kmarshal(){return ((Marshal<K>*)info_.key_marshal);}
 	Marshal<V1>* v1marshal(){return ((Marshal<V1>*)info_.value1_marshal);}
@@ -140,7 +140,7 @@ public:
 private:
 	uint32_t bucket_idx(K k){
 		CHECK_NE(size_,0)<<"size of deltable is 0";
-		return hashobj_(k) % size_;
+		return static_cast<uint32_t>(hashobj_(k) % size_);
 	}
 
 	int bucket_for_key(const K& k){
@@ -306,7 +306,7 @@ void DeltaTable<K, V1, D>::resize(int64_t size){
 		return;
 
 	std::vector<Bucket> old_b = move(buckets_);
-	int old_entries = entries_;
+	int64_t old_entries = entries_;
 
 	DVLOG(2) << "Rehashing... " << entries_ << " : " << size_ << " -> " << size;
 

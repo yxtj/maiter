@@ -27,27 +27,27 @@ public:
 	// IO with text and table state
 	virtual void dump(std::ofstream& fout) = 0;
 	virtual void restore(std::ifstream& fin) = 0;
-	virtual ~Checkpointable(){}
+	virtual ~Checkpointable() = default;
 };
 
 class Serializable{
 public:
 	virtual void deserializeFromFile(TableCoder *in, DecodeIteratorBase *it) = 0;
 	virtual void serializeToFile(TableCoder* out) = 0;
-	virtual ~Serializable(){}
+	virtual ~Serializable() = default;
 };
 
 class Transmittable{
 public:
 	virtual void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *it) = 0;
 	virtual void serializeToNet(KVPairCoder* out) = 0;
-	virtual ~Transmittable(){}
+	virtual ~Transmittable() = default;
 };
 
 class Snapshottable{
 public:
-	virtual void serializeToSnapshot(const std::string& f, long* updates, double* totalF2) = 0;
-	virtual ~Snapshottable(){}
+	virtual void serializeToSnapshot(const std::string& f, int64_t* updates, double* totalF2) = 0;
+	virtual ~Snapshottable() = default;
 };
 
 

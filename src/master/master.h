@@ -46,7 +46,7 @@ public:
 	virtual void signalToTermCheck();
 
 	virtual void realSendUpdates(int dstWorkerID, const KVPairData& put){}
-	virtual void realSendTermCheck(int index, long updates, double current){}
+	virtual void realSendTermCheck(int index, int64_t updates, double current){}
 
 	virtual void realSwap(const int tid1, const int tid2);
 	virtual void realClear(const int tid);

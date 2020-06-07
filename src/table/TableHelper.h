@@ -18,7 +18,8 @@ class KVPairData;
 
 // This interface is used by global tables to communicate with the outside
 // world and determine the current state of a computation.
-struct TableHelper{
+class TableHelper{
+public:
 	virtual int id() const = 0;
 	virtual int epoch() const = 0;
 //	virtual int ownerOfShard(int table, int shard) const = 0;
@@ -35,7 +36,7 @@ struct TableHelper{
 	virtual void realSendUpdates(int dstWorkerID, const KVPairData& put) = 0;
 //	virtual void HandlePutRequest() = 0;
 //	virtual void FlushUpdates() = 0;
-	virtual void realSendTermCheck(int index, long updates, double current) = 0;
+	virtual void realSendTermCheck(int index, int64_t updates, double current) = 0;
 
 	virtual void realSwap(const int tid1, const int tid2) = 0;
 	virtual void realClear(const int tid) = 0;

@@ -51,7 +51,7 @@ struct TaskState: private noncopyable{
 
 	Taskid id;
 	int status;
-	int size;
+	int64_t size;
 	bool stolen;
 };
 
@@ -180,7 +180,7 @@ struct WorkerState: private noncopyable{
 //	std::vector<TaskState*> finished() const;
 
 	int num_assigned() const{
-		return work.size();
+		return static_cast<int>(work.size());
 	}
 	int64_t total_size() const{
 		int64_t out = 0;

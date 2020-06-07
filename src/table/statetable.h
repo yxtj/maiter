@@ -19,7 +19,7 @@
 
 namespace dsm {
 
-static constexpr int SAMPLE_SIZE = 1000;
+static constexpr int64_t SAMPLE_SIZE = 1000;
 
 template<class K, class V1, class V2, class V3>
 class StateTable:
@@ -53,12 +53,13 @@ public:
 			if(bfilter){
 				std::mt19937 gen(std::chrono::system_clock::now().time_since_epoch().count());
 //				DVLOG(1)<<"bunket size="<<parent_.buckets_.size();
-				std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
+				std::uniform_int_distribution<int> dist(0, static_cast<int>(parent_.buckets_.size()) - 1);
 				auto rand_num = [&](){return dist(gen);};
 
 				//check if there is a change
 				b_no_change = true;
-				int end_i=SAMPLE_SIZE<=parent_.entries_*2?SAMPLE_SIZE:parent_.entries_*2;
+				int end_i = static_cast<int>(
+					SAMPLE_SIZE <= parent_.entries_ * 2 ? SAMPLE_SIZE : parent_.entries_ * 2);
 				for(int i = 0; i < end_i && b_no_change; i++){
 					int rand_pos = rand_num();
 					while(!parent_.buckets_[rand_pos].in_use){
@@ -111,7 +112,8 @@ public:
 
 			//random number generator
 			std::mt19937 gen(time(0));
-			std::uniform_int_distribution<int> dist(0, parent_.buckets_.size() - 1);
+			//std::mt19937 gen(std::chrono::system_clock::now().time_since_epoch().count());
+			std::uniform_int_distribution<int> dist(0, static_cast<int>(parent_.buckets_.size()) - 1);
 			auto rand_num = [&](){return dist(gen);};
 
 			if(parent_.entries_ <= SAMPLE_SIZE){
@@ -129,7 +131,7 @@ public:
 				//sample random pos, the sample reflect the whole data set more or less
 				std::vector<int> sampled_pos;
 				int trials = 0;
-				for(int i = 0; i < SAMPLE_SIZE; i++){
+				for(int i = 0; i < static_cast<int>(SAMPLE_SIZE); i++){
 					int rand_pos = rand_num();
 					trials++;
 					while(!parent_.buckets_[rand_pos].in_use){
@@ -155,7 +157,7 @@ public:
 
 				//get the cut index, everything larger than the cut will be scheduled
 				sort(sampled_pos.begin(), sampled_pos.end(), compare_priority(parent_));
-				int cut_index = SAMPLE_SIZE * parent_.info_.schedule_portion;
+				int cut_index = static_cast<int>(SAMPLE_SIZE * parent_.info_.schedule_portion);
 				V1 threshold = parent_.buckets_[sampled_pos[cut_index]].priority;
 				//V1 threshold = ((Scheduler<K, V1>*)parent_.info_.scheduler)->priority(parent_.buckets_[sampled_pos[cut_index]].k, parent_.buckets_[sampled_pos[cut_index]].v1);
 
@@ -447,7 +449,7 @@ public:
 	void serializeToNet(KVPairCoder *out);
 	void deserializeFromFile(TableCoder *in, DecodeIteratorBase *itbase);
 	void deserializeFromNet(KVPairCoder *in, DecodeIteratorBase *itbase);
-	void serializeToSnapshot(const string& f, long *updates, double *totalF2);
+	void serializeToSnapshot(const string& f, int64_t* updates, double *totalF2);
 
 	Marshal<K>* kmarshal(){return ((Marshal<K>*)info_.key_marshal);}
 	Marshal<V1>* v1marshal(){return ((Marshal<V1>*)info_.value1_marshal);}
@@ -456,7 +458,7 @@ public:
 
 private:
 	uint32_t bucket_idx(const K& k){
-		return hashobj_(k) % size_;
+		return static_cast<uint32_t>(hashobj_(k) % size_);
 	}
 
 	//get bucket for existed key, otherwise return -1
@@ -639,7 +641,7 @@ void StateTable<K, V1, V2, V3>::deserializeFromNet(KVPairCoder *in, DecodeIterat
 //but focus on termination check
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeToSnapshot(
-	const string& f, long* updates, double* totalF2)
+	const string& f, int64_t* updates, double* totalF2)
 {
 	total_curr = 0;
 	EntirePassIterator* entireIter = new EntirePassIterator(*this);
@@ -657,7 +659,7 @@ void StateTable<K, V1, V2, V3>::resize(int64_t size){
 		return;
 
 	std::vector<Bucket> old_b = move(buckets_);
-	int old_entries = entries_;
+	int64_t old_entries = entries_;
 
 	// LOG(INFO) << "Rehashing.vd.. " << entries_ << " : " << size_ << " -> " << size;
 

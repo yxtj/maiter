@@ -301,12 +301,12 @@ void MutableGlobalTable::BufTermCheck(){
 void MutableGlobalTable::TermCheck(){
 	Timer tmr;
 	double total_current = 0;
-	long total_updates = 0;
+	int64_t total_updates = 0;
 	for(int i = 0; i < partitions_.size(); ++i){
 		if(is_local_shard(i)){
 			LocalTable *t = partitions_[i];
 			double partF2;
-			long partUpdates;
+			int64_t partUpdates;
 			string f = "snapshot/iter" + to_string(snapshot_index) + "-part" + to_string(i);
 			t->termcheck(f, &partUpdates, &partF2);
 			total_current += partF2;
