@@ -93,7 +93,7 @@ struct StringMarshal<int, void> : public MarshalBase {
 	}
 };
 template<class T>
-struct StringMarshal<T, typename std::enable_if<std::is_unsigned<T>::value >::type> : public MarshalBase{
+struct StringMarshal<T, typename std::enable_if<std::is_integral<T>::value >::type> : public MarshalBase{
 	void marshal(const T& t, std::string* out){
 		*out = std::to_string(t);
 	}
@@ -101,7 +101,7 @@ struct StringMarshal<T, typename std::enable_if<std::is_unsigned<T>::value >::ty
 		unmarshal(s.data, t);
 	}
 	void unmarshal(const std::string& s, T* t){
-		*t = std::stoull(s);
+		*t = std::stoll(s);
 	}
 };
 
@@ -126,7 +126,7 @@ struct StringMarshal<double, void> : public MarshalBase{
 		unmarshal(s.data, t);
 	}
 	void unmarshal(const std::string& s, double* t){
-		*t = std::stof(s);
+		*t = std::stod(s);
 	}
 };
 
