@@ -10,101 +10,106 @@ static const int kFileBufferSize = 4 * 1024 * 1024;
 
 
 string File::Slurp(const string& f) {
-  FILE* fp = fopen(f.c_str(), "r");
-  CHECK(fp != NULL) << "Failed to read input file " << f;
+    FILE* fp = fopen(f.c_str(), "r");
+    CHECK(fp != NULL) << "Failed to read input file " << f;
 
-  string out;
-  char buffer[32768];
+    string out;
+    char buffer[32768];
 
-  while (!feof(fp) && !ferror(fp)) {
-    int read = fread(buffer, 1, 32768, fp);
-    if (read > 0) {
-      out.append(buffer, read);
-    } else {
-      break;
+    while(!feof(fp) && !ferror(fp)) {
+        int read = fread(buffer, 1, 32768, fp);
+        if(read > 0) {
+            out.append(buffer, read);
+        } else {
+            break;
+        }
     }
-  }
 
-  return out;
+    return out;
 }
 
 bool File::Exists(const string& f) {
-  FILE* fp = fopen(f.c_str(), "r");
-  if (fp) {
-    fclose(fp);
-    return true;
-  }
-  return false;
+    FILE* fp = fopen(f.c_str(), "r");
+    if(fp) {
+        fclose(fp);
+        return true;
+    }
+    return false;
 }
 
 void File::Dump(const string& f, const StringPiece& data) {
-  FILE* fp = fopen(f.c_str(), "w+");
-  if (!fp) { LOG(FATAL) << "Failed to open output file " << f.c_str(); }
-  fwrite(data.data.c_str(), 1, data.len, fp);
-  fflush(fp);
-  fclose(fp);
+    FILE* fp = fopen(f.c_str(), "w+");
+    if(!fp) { LOG(FATAL) << "Failed to open output file " << f.c_str(); }
+    fwrite(data.data.c_str(), 1, data.len, fp);
+    fflush(fp);
+    fclose(fp);
 }
 
 void File::Move(const string& src, const string& dst) {
-    //LOG(INFO) << src << " - " << dst;
+    LOG(INFO) << src << " - " << dst;
     //PCHECK(rename("a.txt", "b.txt") == 0);
     remove(dst.c_str());
-  PCHECK(rename(src.c_str(), dst.c_str()) == 0);
+    PCHECK(rename(src.c_str(), dst.c_str()) == 0);
 }
 
 void LocalFile::sync() {
     fflush(fp);
 }
-
-bool LocalFile::read_line(string *out) {
-  out->clear();
-  out->resize(8192);
-  char* res = fgets(&(*out)[0], out->size(), fp);
-  out->resize(strlen(out->data()));
-  return res != NULL;
+void LocalFile::close() {
+    if(close_on_delete)
+        fclose(fp);
+    close_on_delete = false;
 }
 
-int LocalFile::read(char *buffer, int len) {
-  return fread(buffer, 1, len, fp);
+bool LocalFile::read_line(string* out) {
+    out->clear();
+    out->resize(8192);
+    char* res = fgets(&(*out)[0], out->size(), fp);
+    out->resize(strlen(out->data()));
+    return res != NULL;
 }
 
-int LocalFile::write(const char *buffer, int len) {
-  return fwrite(buffer, 1, len, fp);
+int LocalFile::read(char* buffer, int len) {
+    return fread(buffer, 1, len, fp);
+}
+
+int LocalFile::write(const char* buffer, int len) {
+    return fwrite(buffer, 1, len, fp);
 }
 
 void LocalFile::Printf(const char* p, ...) {
-  va_list args;
-  va_start(args, p);
-  write_string(VStringPrintf(p, args));
-  va_end(args);
+    va_list args;
+    va_start(args, p);
+    write_string(VStringPrintf(p, args));
+    va_end(args);
 }
 
 bool LocalFile::eof() {
-  return feof(fp);
+    return feof(fp);
 }
 
 LocalFile::LocalFile(FILE* stream) {
-  CHECK(stream != NULL);
-  fp = stream;
-  path = "<EXTERNAL FILE>";
-  close_on_delete = false;
+    CHECK(stream != NULL);
+    fp = stream;
+    path = "<EXTERNAL FILE>";
+    close_on_delete = false;
 }
 
-LocalFile::LocalFile(const string &name, const string& mode) {
-  fp = fopen(name.c_str(), mode.c_str());
-  PCHECK(fp != NULL) << "; failed to open file " << name << " with mode " << mode;
-  path = name;
-  close_on_delete = true;
-  setvbuf(fp, NULL, _IOFBF, kFileBufferSize);
+LocalFile::LocalFile(const string& name, const string& mode) {
+    fp = fopen(name.c_str(), mode.c_str());
+    PCHECK(fp != NULL) << "; failed to open file " << name << " with mode " << mode;
+    path = name;
+    close_on_delete = true;
+    setvbuf(fp, NULL, _IOFBF, kFileBufferSize);
 }
 
 template <class T>
 void Encoder::write(const T& v) {
-  if (out_) {
-    out_->append((const char*)&v, (size_t)sizeof(v));
-  } else {
-    out_f_->write((const char*)&v, (size_t)sizeof(v));
-  }
+    if(out_) {
+        out_->append((const char*)&v, (size_t)sizeof(v));
+    } else {
+        out_f_->write((const char*)&v, (size_t)sizeof(v));
+    }
 }
 
 #define INSTANTIATE(T) template void Encoder::write<T>(const T& t)
@@ -124,56 +129,54 @@ void Encoder::write(const StringPiece& v) { write_string(v); }
 
 
 void Encoder::write_string(StringPiece v) {
-  write((uint32_t)v.size());
-  write_bytes(v);
+    write((uint32_t)v.size());
+    write_bytes(v);
 }
 
 void Encoder::write_bytes(StringPiece s) {
-  if (out_) { out_->append(s.data.c_str(), s.len); }
-  else { out_f_->write(s.data.c_str(), s.len); }
+    if(out_) { out_->append(s.data.c_str(), s.len); } else { out_f_->write(s.data.c_str(), s.len); }
 }
 
 void Encoder::write_bytes(const char* a, int len) {
-  if (out_) { out_->append(a, len); }
-  else { out_f_->write(a, len); }
+    if(out_) { out_->append(a, len); } else { out_f_->write(a, len); }
 }
 
 int LZOFile::write(const char* data, int len) {
-  int left = len;
-  do {
-    if (block.len + left > kBlockSize) {
-      write_block();
-    }
+    int left = len;
+    do {
+        if(block.len + left > kBlockSize) {
+            write_block();
+        }
 
-    int bytes_to_write = min(kBlockSize - block.len, left);
-    memcpy(block.raw + block.len, data, bytes_to_write);
-    block.len += bytes_to_write;
-    left -= bytes_to_write;
-    data += bytes_to_write;
-  } while (left > 0);
+        int bytes_to_write = min(kBlockSize - block.len, left);
+        memcpy(block.raw + block.len, data, bytes_to_write);
+        block.len += bytes_to_write;
+        left -= bytes_to_write;
+        data += bytes_to_write;
+    } while(left > 0);
 
-  return len;
+    return len;
 }
 
 int LZOFile::read(char* data, int len) {
-  int left = len;
-  do {
-//    LOG_EVERY_N(INFO, 1000) << MP(left, block.pos, block.len);
-    if (block.pos == block.len) {
-      if (!read_block()) {
-        return 0;
-      }
-    }
+    int left = len;
+    do {
+        //    LOG_EVERY_N(INFO, 1000) << MP(left, block.pos, block.len);
+        if(block.pos == block.len) {
+            if(!read_block()) {
+                return 0;
+            }
+        }
 
-    int bytes_to_read = min(left, block.len - block.pos);
-    memcpy(data, block.raw + block.pos, bytes_to_read);
-    block.pos += bytes_to_read;
-    pos_ += bytes_to_read;
-    left -= bytes_to_read;
-    data += bytes_to_read;
-  } while (left > 0);
+        int bytes_to_read = min(left, block.len - block.pos);
+        memcpy(data, block.raw + block.pos, bytes_to_read);
+        block.pos += bytes_to_read;
+        pos_ += bytes_to_read;
+        left -= bytes_to_read;
+        data += bytes_to_read;
+    } while(left > 0);
 
-  return len;
+    return len;
 }
 
 void LZOFile::init(LocalFile* f, const std::string& mode) {
@@ -187,109 +190,110 @@ void LZOFile::init(LocalFile* f, const std::string& mode) {
 }
 
 void LZOFile::write_block() {
-  if (block.len == 0)
-    return;
+    if(block.len == 0)
+        return;
 
-//  LOG(INFO) << "Writing... " << block.len << " : " << f_->tell();
+    //  LOG(INFO) << "Writing... " << block.len << " : " << f_->tell();
 
-  lzo_uint comp_size = kCompressedBlockSize;
-  CHECK_EQ(0, lzo1x_1_15_compress((unsigned char*)block.raw, block.len,
-                                  (unsigned char*)block.comp, (lzo_uint*)&comp_size,
-                                  (unsigned char*)block.scratch));
+    lzo_uint comp_size = kCompressedBlockSize;
+    CHECK_EQ(0, lzo1x_1_15_compress((unsigned char*)block.raw, block.len,
+        (unsigned char*)block.comp, (lzo_uint*)&comp_size,
+        (unsigned char*)block.scratch));
 
-  f_->write((char*)&comp_size, sizeof(int));
-  f_->write(block.comp, comp_size);
-  block.len = 0;
+    f_->write((char*)&comp_size, sizeof(int));
+    f_->write(block.comp, comp_size);
+    block.len = 0;
 }
 
 bool LZOFile::read_block() {
-  block.len = kBlockSize;
-  int comp_size;
-  if (f_->read((char*)&comp_size, sizeof(int)) != sizeof(int)) {
-    block.len = 0;
+    block.len = kBlockSize;
+    int comp_size;
+    if(f_->read((char*)&comp_size, sizeof(int)) != sizeof(int)) {
+        block.len = 0;
+        block.pos = 0;
+        return false;
+    }
+
+    CHECK_EQ(f_->read(block.comp, comp_size), comp_size);
+    CHECK_GT(comp_size, 0);
+    CHECK_EQ(0, lzo1x_decompress_safe((unsigned char*)block.comp, comp_size,
+        (unsigned char*)block.raw, (lzo_uint*)&block.len,
+        (unsigned char*)block.scratch));
+
+    //  LOG(INFO) << "Read block of size: " << MP(block.len, comp_size);
     block.pos = 0;
-    return false;
-  }
-
-  CHECK_EQ(f_->read(block.comp, comp_size), comp_size);
-  CHECK_GT(comp_size, 0);
-  CHECK_EQ(0, lzo1x_decompress_safe((unsigned char*)block.comp, comp_size,
-                                    (unsigned char*)block.raw, (lzo_uint*)&block.len,
-                                    (unsigned char*)block.scratch));
-
-//  LOG(INFO) << "Read block of size: " << MP(block.len, comp_size);
-  block.pos = 0;
-  return true;
+    return true;
 }
 
 RecordFile::RecordFile(const string& path, const string& mode, int compression) {
-  path_ = path;
-  mode_ = mode;
+    path_ = path;
+    mode_ = mode;
 
-  if (mode == "r" || mode == "rb") {
-    fp = new LocalFile(path_, mode);
-  } else {
-    fp = new LocalFile(path_ + ".tmp", mode);
-  }
+    if(mode == "r" || mode == "rb") {
+        fp = new LocalFile(path_, mode);
+    } else {
+        fp = new LocalFile(path_ + ".tmp", mode);
+    }
 
-  if (compression == LZO) {
-    fp = new LZOFile((LocalFile*)fp, mode);
-  }
+    if(compression == LZO) {
+        fp = new LZOFile((LocalFile*)fp, mode);
+    }
 }
 
 RecordFile::~RecordFile() {
-  if (!fp) { return; }
+    if(!fp) { return; }
+    delete fp;
 
-  if (mode_ != "r") {
-    fp->sync();
-    VLOG(2) << "Renaming: " << path_;
-    File::Move(path_+".tmp", path_);
-    //File::Move(StringPrintf("%s.tmp", path_.c_str()), path_);
-  }
-  delete fp;
+    if(mode_ != "r") {
+        //fp->sync();
+        //fp->close();
+        //VLOG(2) << "Renaming: " << path_;
+        File::Move(path_ + ".tmp", path_);
+        //File::Move(StringPrintf("%s.tmp", path_.c_str()), path_);
+    }
 }
 
-void RecordFile::write(const google::protobuf::Message & m) {
-  //LOG_EVERY_N(DEBUG, 1000) << "Writing... " << m.ByteSize() << " bytes at pos " << ftell(fp->filePointer());
-  writeChunk(m.SerializeAsString());
-  //LOG_EVERY_N(DEBUG, 1000) << "New pos: " <<  ftell(fp->filePointer());
+void RecordFile::write(const google::protobuf::Message& m) {
+    //LOG_EVERY_N(DEBUG, 1000) << "Writing... " << m.ByteSize() << " bytes at pos " << ftell(fp->filePointer());
+    writeChunk(m.SerializeAsString());
+    //LOG_EVERY_N(DEBUG, 1000) << "New pos: " <<  ftell(fp->filePointer());
 }
 
 void RecordFile::writeChunk(StringPiece data) {
-  int len = data.size();
-  fp->write((char*)&len, sizeof(int));
-  fp->write(data.data.c_str(), data.size());
+    int len = data.size();
+    fp->write((char*)&len, sizeof(int));
+    fp->write(data.data.c_str(), data.size());
 }
 
-bool RecordFile::readChunk(string *s) {
-  s->clear();
+bool RecordFile::readChunk(string* s) {
+    s->clear();
 
-  int len;
-  int bytes_read = fp->read((char*)&len, sizeof(len));
+    int len;
+    int bytes_read = fp->read((char*)&len, sizeof(len));
 
-  if (bytes_read < sizeof(int)) {
-    return false;
-  }
+    if(bytes_read < sizeof(int)) {
+        return false;
+    }
 
-  s->resize(len);
-  fp->read(&(*s)[0], len);
-  return true;
-}
-
-bool RecordFile::read(google::protobuf::Message *m) {
-  if (!readChunk(&buf_)) {
-    return false; 
-  }
-
-  if (!m)
+    s->resize(len);
+    fp->read(&(*s)[0], len);
     return true;
+}
 
-  CHECK(m->ParseFromString(buf_));
-  return true;
+bool RecordFile::read(google::protobuf::Message* m) {
+    if(!readChunk(&buf_)) {
+        return false;
+    }
+
+    if(!m)
+        return true;
+
+    CHECK(m->ParseFromString(buf_));
+    return true;
 }
 
 void RecordFile::seek(long pos) {
-  while (fp->tell() < pos && read(NULL));
+    while(fp->tell() < pos && read(NULL));
 }
 
 }
