@@ -46,7 +46,7 @@ void File::Dump(const string& f, const StringPiece& data) {
 }
 
 void File::Move(const string& src, const string& dst) {
-    LOG(INFO) << src << " - " << dst;
+    //LOG(INFO) << src << " - " << dst;
     //PCHECK(rename("a.txt", "b.txt") == 0);
     remove(dst.c_str());
     PCHECK(rename(src.c_str(), dst.c_str()) == 0);
