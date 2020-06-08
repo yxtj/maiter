@@ -128,6 +128,7 @@ void MutableGlobalTable::clear(){
 }
 
 void MutableGlobalTable::start_checkpoint(const string& pre){
+	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 	for(int i = 0; i < partitions_.size(); ++i){
 		if(is_local_shard(i)){
 			LocalTable *t = partitions_[i];
@@ -174,9 +175,13 @@ void MutableGlobalTable::dump(const std::string& f, TableCoder* out)
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable* t = partitions_[i];
 		if(is_local_shard(i)){
+			Timer tmr;
 			t->dump("state", &c);
+			stats["time_cp_archive_local"] += tmr.elapsed();
 		} else{
+			Timer tmr;
 			t->dump("delta", &c);
+			stats["time_cp_archive_delta"] += tmr.elapsed();
 		}
 	}
 }
