@@ -120,7 +120,7 @@ bool Worker::startCheckpoint(const int epoch){
 	default:
 		LOG(ERROR)<<"given checkpoint type is not implemented.";
 	}
-	stats_["time_cp"]+=tmr_.elapsed();
+	//stats_["time_cp"]+=tmr_.elapsed();
 	stats_["time_cp_blocked"]+=tmr_cp_block_.elapsed();
 	return true;
 }
@@ -140,6 +140,7 @@ bool Worker::finishCheckpoint(const int epoch){
 		if(th_cp_)	th_cp_->join();
 		delete th_cp_; th_cp_=nullptr;
 		th_cp_=new thread(&Worker::_finishCP_SyncSig,this);
+		// add: stats_["time_cp"] += tmr_.elapsed(); in _finishCP_SyncSig
 		break;
 		//_finishCP_SyncSig();break;
 	case CP_ASYNC:
@@ -343,8 +344,9 @@ void Worker::_finishCP_SyncSig(){
 	_CP_stop();
 	_enableProcess();
 	pause_pop_msg_=false;
-	stats_["time_cp_blocked"]+=tmr_cp_block_.elapsed();
 	_CP_report();
+	stats_["time_cp_blocked"]+=tmr_cp_block_.elapsed();
+	stats_["time_cp"] += tmr_.elapsed();
 }
 void Worker::_processCPSig_SyncSig(const int wid){
 	const deque<pair<string, RPCInfo> >& que = driver.getQue();
@@ -394,6 +396,7 @@ void Worker::_finishCP_Async(){
 	stats_["time_cp_blocked"]+=tmr_cp_block_.elapsed();
 
 	DVLOG(1)<<"wait for receiving all cp flush signals at W"<<id();
+	// The checkpoint does not finish here. It finished in _processCPSig_Async.
 	//su_cp_sig.wait();
 	//su_cp_sig.reset();
 }
@@ -413,14 +416,12 @@ void Worker::_processCPSig_Async(const int wid){
 		//pause_pop_msg_=true;
 		DVLOG(1)<<"received all cp flush signals at "<<id();
 		_cp_async_sig_rec.assign(config_.num_workers(), false);
-		{
-			//lock_guard<mutex> lg(m_cp_control_);
-			RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
-			_CP_report();
-			_CP_stop();
-		}
+		RegDSPProcess(MTYPE_PUT_REQUEST, &Worker::HandlePutRequest);
+		_CP_report();
+		_CP_stop();
 		//pause_pop_msg_=false;
 		stats_["time_cp_blocked"]+=tmr_cp_block_.elapsed();
+		stats_["time_cp"] += tmr_.elapsed();
 	}
 }
 
