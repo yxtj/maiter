@@ -364,6 +364,7 @@ void Worker::_processCPSig_SyncSig(const int wid){
 			t->write_message(d);
 		}
 	}
+	stats_["count_cp_message"] += count;
 	stats_["time_cp_archive"] += tmr.elapsed();
 	DVLOG(1)<<"archived msg: "<<count;
 	rph.input(MTYPE_CHECKPOINT_SIG,wid);
@@ -438,6 +439,8 @@ void Worker::_HandlePutRequest_AsynCP(const string& d, const RPCInfo& info){
 		t->write_message(put);
 	}
 	DVLOG(1) << "W" << id() << " write a cp message from " << put.source();
+	stats_["count_cp_message"] += 1;
+	stats_["time_cp_archive"] += tmr_cp_block_.elapsed();
 	stats_["time_cp_blocked"]+=tmr_cp_block_.elapsed();
 }
 
@@ -457,6 +460,7 @@ void Worker::_finishCP_VS()
 	_cp_async_sig_rec.assign(config_.num_workers(), false);
 	//_cp_async_sig_rec[config_.worker_id()] = true;
 	_enableSend();
+	stats_["time_cp_blocked"]+=tmr_cp_block_.elapsed();
 }
 
 void Worker::_processCPSig_VS(const int wid)
