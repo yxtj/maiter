@@ -63,7 +63,7 @@ class Item():
         else:
             l = int(nodes / 10**f)
             return str(f)+str(l)
-        
+
 
 def merge_time_cp(tdata, cdata):
     mdata = {}
@@ -174,6 +174,69 @@ def check_table(tbl):
     return res_name, res_row
 
 
+def line2name(line, with_si=True, with_ci=True, ctype=None):
+    gname = Item.nodes2gid(line[0])
+    prefix = 't%s-%d-%g' % (gname, line[1], line[2])
+    suffix = ''
+    if with_si:
+        suffix += '-%g' % line[3]
+    if with_ci:
+        suffix += '-%g' % line[4]
+    if ctype is not None:
+        suffix += ctype
+    return prefix + suffix
+
+
+def sortUpDataList(dataList, sync_mthd='max', async_mthd='max', vs_mthd='min'):
+    '''
+    1, use the minimal ntime by ignoring ci difference within each file
+    2, merge multiple data files by min/max
+    '''
+    assert sync_mthd in ['max','min','mean']
+    assert async_mthd in ['max','min','mean']
+    assert vs_mthd in ['max','min','mean']
+    tmpList = []
+    for data in dataList:
+        nts = {}
+        for line in data:
+            n = line2name(line, True, False)
+            nts[n] = min(nts.get(n, np.inf), line[5])
+        tmp = data.copy()
+        for line in tmp:
+            n = line2name(line, True, False)
+            line[5] = nts[n]
+        tmpList.append(tmp)
+    res = tmpList[0]
+    n = res.shape[0]
+    ntime = np.min([d[:,5] for d in tmpList], 0)
+    res[:,5] = ntime
+    def getTCPairByMthd(off, mthd):
+        res = np.zeros([data.shape[0], 2])
+        if mthd == 'mean':
+            res[:,0] = np.mean([d[:,off] for d in tmpList], 0)
+            res[:,1] = np.mean([d[:,off+1] for d in tmpList], 0)
+            return res
+        v = [(d[:,off]-ntime)/d[:,off+1] for d in tmpList]
+        if mthd == 'max':
+            sidx = np.argmax(v, 0)
+        elif mthd == 'min':
+            sidx = np.argmin(v, 0)
+        for i in range(n):
+            res[i] = tmpList[sidx[i]][i,off:off+2]
+        return res
+    res[:,6:8] = getTCPairByMthd(6, sync_mthd)
+    res[:,8:10] = getTCPairByMthd(8, async_mthd)
+    res[:,10:12] = getTCPairByMthd(10, vs_mthd)
+    #sidx = np.argmax([(d[:,6]-ntime)/d[:,7] for d in tmpList], 0)
+    #aidx = np.argmin([(d[:,8]-ntime)/d[:,9] for d in tmpList], 0)    
+    #vidx = np.argmax([(d[:,10]-ntime)/d[:,11] for d in tmpList], 0)
+    #for i in range(n):
+    #    res[i,6:8] = tmpList[sidx[i]][i,6:8]
+    #    res[i,8:10] = tmpList[aidx[i]][i,8:10]
+    #    res[i,10:12] = tmpList[vidx[i]][i,10:12]
+    return res
+
+
 def dump(fn, table, sep=','):
     headers=['nodes', 'worker', 'portion', 'si', 'ci', 'ntime', 
              'sync_t', 'sync_cp', 'async_t', 'async_cp', 'vs_t', 'vs_cp']
@@ -217,6 +280,13 @@ def main(time_fn, count_fn, smy_fn, rmv_f_rec, rmv_f_exper):
     if smy_fn.endswith('.txt') or smy_fn.endswith('.tsv'):
         sep = '\t'
     dump(smy_fn, tbl, sep)
+    
+    # merge
+    #tbl1 = np.loadtxt('../data/res1.txt',delimiter='\t',skiprows=1)
+    #tbl2 = np.loadtxt('../data/res2.txt',delimiter='\t',skiprows=1)
+    #tbl3 = np.loadtxt('../data/res3.txt',delimiter='\t',skiprows=1)
+    #tbl = sortUpDataList([tbl1, tbl2, tbl3])
+    #ump(smy_fn, tbl, sep)
 
 
 if __name__ == '__main__':

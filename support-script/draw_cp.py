@@ -17,21 +17,6 @@ def set_small_figure():
 def set_large_figure():
     plt.rcParams["figure.figsize"] = [6,4.5]
     plt.rcParams["font.size"] = 16
-    
-
-def nodes2gid(nodes):
-    f = int(np.log10(nodes))
-    r = nodes - 10**f
-    if r == 0:
-        return str(f)
-    else:
-        l = int(nodes / 10**f)
-        return str(f)+str(l)
-
-
-def line2name(line):
-    gname = node2gid(line[0])
-    return 't%s-%d-%g-%g-%g' % (gname, line[1], line[2], line[3], line[4])
 
 
 def select(data, cond):
@@ -63,7 +48,7 @@ def makeCondition(nodes=None, workers=None, portion=None, si=None, ci=None):
     if workers is not None:
         cond.append((1, workers))
     if portion is not None:
-        cond.append((2, porrtion))
+        cond.append((2, portion))
     if si is not None:
         cond.append((3, si))
     if ci is not None:
@@ -96,7 +81,7 @@ def makeXlableTick(ds, nodes=None, workers=None, portion=None, si=None, ci=None)
     return xlbl, xticks
 
 
-def drawRunTime(data, width=0.8, xlbl=None, xticks=None, ncol=1,
+def drawRunTime(data, width=0.8, xlbl=None, xticks=None, ncol=1, loc=None,
                 nodes=None, workers=None, portion=None, si=None, ci=None):
     cond = makeCondition(nodes, workers, portion, si, ci)
     ds = select(data, cond)
@@ -112,22 +97,21 @@ def drawRunTime(data, width=0.8, xlbl=None, xticks=None, ncol=1,
         y = dp[:,i]
         plt.bar(x + off + barWidth*i, y, barWidth)
     if xlbl is None and xticks is None:
-        xlbl, xticks = makeXlableTick(data, nodes, workers, portion, si, ci)
+        xlbl, xticks = makeXlableTick(ds, nodes, workers, portion, si, ci)
     plt.xticks(x, xticks)
     plt.xlabel(xlbl)
     plt.ylabel('running time (s)')
-    plt.legend(['None','Sync','Async','VS'], ncol=ncol)
+    plt.legend(['None','Sync','Async','VS'], ncol=ncol, loc=loc)
     plt.tight_layout()
     
     
     
 def drawOverhead(data, average=False, relative=False,
-                 width=0.8, xlbl=None,xticks=None, ncol=1,
+                 width=0.8, xlbl=None,xticks=None, ncol=1, loc=None,
                  nodes=None, workers=None, portion=None, si=None, ci=None):
-    plt.figure()
     cond = makeCondition(nodes, workers, portion, si, ci)
     ds = select(data, cond)
-    dnone = ds[:,5]
+    dnone = ds[:,5][:,np.newaxis]
     dp = ds[:,[6,8,10]] - dnone
     dp[dp<0] = 0
     dc = ds[:,[7,9,11]]
@@ -146,7 +130,7 @@ def drawOverhead(data, average=False, relative=False,
         y = dp[:,i]
         plt.bar(x + off + barWidth*i, y, barWidth)
     if xlbl is None and xticks is None:
-        xlbl, xticks = makeXlableTick(data, nodes, workers, portion, si, ci)
+        xlbl, xticks = makeXlableTick(ds, nodes, workers, portion, si, ci)
     plt.xticks(x, xticks)
     plt.xlabel(xlbl)
     if average:
@@ -160,10 +144,12 @@ def drawOverhead(data, average=False, relative=False,
         else:
             ylbl = 'overhead time (s)'
     plt.ylabel(ylbl)
-    plt.legend(['Sync','Async','VS'], ncol=ncol)
+    plt.legend(['Sync','Async','VS'], ncol=ncol, loc=loc)
     plt.tight_layout()
     
     
 
-data=np.loadtxt('../data/maiter-pagerank.txt',delimiter='\t',skiprows=1)
-
+def main():
+    data=np.loadtxt('../data/res1.txt',delimiter='\t',skiprows=1)
+    drawRunTime(data, nodes=5000000, col=1, loc='lower right')
+    drawOverhead(data, nodes=1000000, si=2)
