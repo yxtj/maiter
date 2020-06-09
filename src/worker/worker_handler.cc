@@ -182,14 +182,15 @@ void Worker::HandleShardAssignment(const string& d,const RPCInfo& rpc){
 
 void Worker::HandleFlush(const string& d, const RPCInfo& rpc){
 	Timer net;
-	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
-	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
-		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
-		if(t){
-			t->SendUpdates();
+	if(kreq.process()){
+		TableRegistry::Map& tmap = TableRegistry::Get()->tables();
+		for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+			MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+			if(t){
+				t->SendUpdates();
+			}
 		}
 	}
-
 	network_->Flush();
 	stats_["time_flush"] += net.elapsed();
 	sendReply(rpc);
@@ -197,11 +198,13 @@ void Worker::HandleFlush(const string& d, const RPCInfo& rpc){
 
 
 void Worker::HandleApply(const string& d, const RPCInfo& rpc){
-	TableRegistry::Map &tmap = TableRegistry::Get()->tables();
-	for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
-		MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
-		if(t){
-			t->ProcessUpdates();
+	if(kreq.process()){
+		TableRegistry::Map& tmap = TableRegistry::Get()->tables();
+		for(TableRegistry::Map::iterator i = tmap.begin(); i != tmap.end(); ++i){
+			MutableGlobalTableBase* t = dynamic_cast<MutableGlobalTableBase*>(i->second);
+			if(t){
+				t->ProcessUpdates();
+			}
 		}
 	}
 	sendReply(rpc);

@@ -297,6 +297,7 @@ void Master::assign_tasks(const RunDescriptor& r, vector<int> shards){
 int Master::startWorkers(const RunDescriptor& r){
 	int num_dispatched = 0;
 	KernelRequest w_req;
+	w_req.set_process(r.process);
 	w_req.set_cp_type(r.checkpoint_type);
 	w_req.set_termcheck(r.termcheck);
 	w_req.set_restore(r.restore);

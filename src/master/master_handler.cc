@@ -150,7 +150,7 @@ void Master::handleKernelDone(const std::string& d, const RPCInfo& info){
 	mstats.set_shard_calls(mstats.shard_calls() + 1);
 
 	w.ping();
-
+	/*
 	//second part
 	PERIODIC(0.1, {
 		double avg_completion_time = mstats.shard_time() / mstats.shard_calls();
@@ -179,7 +179,7 @@ void Master::handleKernelDone(const std::string& d, const RPCInfo& info){
 	if(dispatched_ < current_run_.shards.size()){
 		dispatched_ += startWorkers(current_run_);
 	}
-
+	*/
 	finished_++;
 	rph_.input(MTYPE_KERNEL_DONE, w_id);
 }

@@ -57,18 +57,18 @@ public:
 
 	// N.B.  All run_* methods are blocking.
 	void run_all(const string& kernel, const string& method, GlobalTableBase* locality,
-			const bool checkpoint, const bool termcheck, const bool restore){
-		run_all(RunDescriptor(kernel, method, locality, checkpoint, termcheck, restore));
+		const bool process, const bool checkpoint, const bool termcheck, const bool restore){
+		run_all(RunDescriptor(kernel, method, locality, process, checkpoint, termcheck, restore));
 	}
 	// Run the given kernel function on one (arbitrary) worker node.
 	void run_one(const string& kernel, const string& method, GlobalTableBase* locality,
-			const bool checkpoint, const bool termcheck, const bool restore){
-		run_one(RunDescriptor(kernel, method, locality, termcheck, checkpoint, restore));
+		const bool process, const bool checkpoint, const bool termcheck, const bool restore){
+		run_one(RunDescriptor(kernel, method, locality, process, termcheck, checkpoint, restore));
 	}
 	// Run the kernel function on the given set of shards.
 	void run_range(const string& kernel, const string& method, GlobalTableBase* locality,
-			const bool checkpoint, const bool termcheck, const bool restore, const std::vector<int>& shards){
-		run_range(RunDescriptor(kernel, method, locality, checkpoint, termcheck, restore), shards);
+		const bool process, const bool checkpoint, const bool termcheck, const bool restore, const std::vector<int>& shards){
+		run_range(RunDescriptor(kernel, method, locality, process, checkpoint, termcheck, restore), shards);
 	}
 
 	void run(RunDescriptor&& r);
@@ -76,33 +76,13 @@ public:
 	//maiter program
 	template<class K, class V, class D>
 	void run_maiter(MaiterKernel<K, V, D>* maiter);
-//	{
-//		if(maiter->sharder == nullptr){
-//			LOG(FATAL)<<"sharder is not specified in current kernel";
-//			return;
-//		}
-//
-//		run_all("MaiterKernel1", "run", maiter->table, false, false, false);
-//
-////		if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
-////			run_all("MaiterKernel2", "map", maiter->table, true, true, true);
-////		}
-//
-////		run_all("MaiterKernel3", "run", maiter->table, false, false, false);
-//	}
 
 	template<class T>
 	T& get_cp_var(const string& key, T defval = T());
-//	{
-//		if(!cp_vars_.contains(key)){
-//			cp_vars_.put(key, defval);
-//		}
-//		return cp_vars_.get<T>(key);
-//	}
 
 	void enable_trigger(const TriggerID triggerid, int table, bool enable);
 
-	void barrier();
+//	void barrier();
 	void barrier2();
 
 	// Blocking.  Instruct workers to save table and kernel state.

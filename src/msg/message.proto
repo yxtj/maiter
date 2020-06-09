@@ -82,10 +82,11 @@ message KernelRequest {
   optional int32 table = 3;
   optional int32 shard = 4;
   required Args args = 5;
-  required CheckpointType cp_type = 6;
-  required bool termcheck = 7;
-  required bool restore = 8;
-  optional int32 restore_from_epoch = 9 [default = -1]; //-1 means no restore
+  required bool process = 6;
+  required CheckpointType cp_type = 7;
+  required bool termcheck = 8;
+  required bool restore = 9;
+  optional int32 restore_from_epoch = 10 [default = -1]; //-1 means no restore
 }
 
 message KernelDone {

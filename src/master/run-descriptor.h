@@ -24,6 +24,7 @@ struct RunDescriptor{
 	GlobalTableBase *table;
 	bool barrier;
 	bool termcheck;
+	bool process;
 
 	CheckpointType checkpoint_type;	//CP_NONE means do no t do checkpoint
 	double checkpoint_interval;
@@ -39,22 +40,24 @@ struct RunDescriptor{
 	MarshalledMap params;
 
 	RunDescriptor(){
-		Init("bogus", "bogus", nullptr, false, false, false);
+		Init("bogus", "bogus", nullptr, false, false, false, false);
 	}
 
 	RunDescriptor(const std::string& kernel,
 			const std::string& method,
 			GlobalTableBase *table,
+			const bool process,
 			const bool checkpoint,
 			const bool termcheck,
 			const bool restore,
 			std::vector<int> cp_tables = std::vector<int>()){
-		Init(kernel, method, table, checkpoint, termcheck, restore, cp_tables);
+		Init(kernel, method, table, process, checkpoint, termcheck, restore, cp_tables);
 	}
 
 	void Init(const std::string& kernel,
 			const std::string& method,
 			GlobalTableBase *table,
+			const bool process,
 			const bool checkpoint,
 			const bool termcheck,
 			const bool restore,

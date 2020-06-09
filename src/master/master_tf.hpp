@@ -23,13 +23,13 @@ void Master::run_maiter(MaiterKernel<K, V, D>* maiter){
 		return;
 	}
 
-	run_all("MaiterKernel1", "run", maiter->table, false, false, false);
+	run_all("MaiterKernel1", "run", maiter->table, false, false, false, false);
 
 	if(maiter->iterkernel != nullptr && maiter->termchecker != nullptr){
-		run_all("MaiterKernel2", "map", maiter->table, true, true, true);
+		run_all("MaiterKernel2", "map", maiter->table, true, true, true, true);
 	}
 
-	run_all("MaiterKernel3", "run", maiter->table, false, false, false);
+	run_all("MaiterKernel3", "run", maiter->table, false, false, false, false);
 }
 
 template<class T>

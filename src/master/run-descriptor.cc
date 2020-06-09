@@ -19,12 +19,15 @@ namespace dsm{
 void RunDescriptor::Init(const std::string& kernel,
 		const std::string& method,
 		GlobalTableBase *table,
+		const bool process,
 		const bool checkpoint,
 		const bool termcheck,
 		const bool restore,
 		const std::vector<int>& cp_tables)
 {
 	barrier = true;
+	this->process = process;
+
 	checkpoint_type = CP_NONE;
 	if(checkpoint){
 		if(checkpoint && !FLAGS_checkpoint_type.empty() &&
