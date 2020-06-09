@@ -139,7 +139,7 @@ def transform2table(records, sort=True):
     #         ('sync_time', float), ('sync_cp', int),
     #         ('async_time', float), ('async_cp', int),
     #         ('vs_time', float), ('vs_cp', int)]
-    tbl = np.array(res)#, dtype=float)
+    tbl = np.array(res, dtype=float)
     #tbl.sort(order=['node','worker','portion','si','ci'])
     if sort:
         for i in range(4,-1,-1):
@@ -187,14 +187,14 @@ def line2name(line, with_si=True, with_ci=True, ctype=None):
     return prefix + suffix
 
 
-def sortUpDataList(dataList, sync_mthd='max', async_mthd='max', vs_mthd='min'):
+def sortUpDataList(dataList, sync_mthd='max', async_mthd='max', vs_mthd='mean'):
     '''
     1, use the minimal ntime by ignoring ci difference within each file
     2, merge multiple data files by min/max
     '''
-    assert sync_mthd in ['max','min','mean']
-    assert async_mthd in ['max','min','mean']
-    assert vs_mthd in ['max','min','mean']
+    assert isinstance(sync_mthd, int) or sync_mthd in ['max','min','mean']
+    assert isinstance(async_mthd, int) or async_mthd in ['max','min','mean']
+    assert isinstance(vs_mthd, int) or vs_mthd in ['max','min','mean']
     tmpList = []
     for data in dataList:
         nts = {}
@@ -211,6 +211,8 @@ def sortUpDataList(dataList, sync_mthd='max', async_mthd='max', vs_mthd='min'):
     ntime = np.min([d[:,5] for d in tmpList], 0)
     res[:,5] = ntime
     def getTCPairByMthd(off, mthd):
+        if isinstance(mthd, int):
+            return tmpList[mthd][:,off:off+2]
         res = np.zeros([data.shape[0], 2])
         if mthd == 'mean':
             res[:,0] = np.mean([d[:,off] for d in tmpList], 0)
@@ -274,12 +276,14 @@ def main(time_fn, count_fn, smy_fn, rmv_f_rec, rmv_f_exper):
         if rmv_f_exper:
             tbl = np.delete(tbl, failed_tbl_row, 0)
             print('After pruning unmatched rows, %d left'%tbl.shape[0])
+    #tbl_ = sortUpDataList([tbl])
     # dump        
     #np.savetxt(smy_fn, tbl, delimiter=',')
     sep = ','
     if smy_fn.endswith('.txt') or smy_fn.endswith('.tsv'):
         sep = '\t'
     dump(smy_fn, tbl, sep)
+    #dump(smy_fn, tbl_, sep)
     
     # merge
     #tbl1 = np.loadtxt('../data/res1.txt',delimiter='\t',skiprows=1)
