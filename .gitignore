@@ -28,6 +28,7 @@ __pycache__/
 /test/
 /conf/
 /data/
+*.npz
 
 /Makefile
 Makefile
