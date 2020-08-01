@@ -9,6 +9,7 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 
+# %% prepare
 
 def set_small_figure():
     plt.rcParams["figure.figsize"] = [4,3]
@@ -38,6 +39,7 @@ def nodes2gid(nodes):
         l = int(nodes / 10**f)
         return str(f)+str(l)
 
+# %% data selection
 
 def select(data, cond, rel='and'):
     '''
@@ -90,7 +92,6 @@ def select(data, cond, rel='and'):
             flag = np.logical_or(flag, f)
         return data[flag]
 
-
 def makeCondition(nodes=None, workers=None, portion=None, si=None, ci=None):
     cond = []
     if nodes is not None:
@@ -115,6 +116,8 @@ def makeConditionByName(cond_str):
     ci = float(m[5]) if m[5] != '*' else None
     return makeCondition(nodes, workers, portion, si, ci)
 
+# %% plot helper
+    
 def makeXlableTick(ds, nodes=None, workers=None, portion=None, si=None, ci=None):
     xlbl = None
     xticks = None
@@ -140,6 +143,7 @@ def makeXlableTick(ds, nodes=None, workers=None, portion=None, si=None, ci=None)
         xticks = ds[:,4]
     return xlbl, xticks
 
+# %% plot functions
 
 def drawRunTime(data, width=0.8, xlbl=None, xticks=None, ncol=1, loc=None,
                 cond=None, nodes=None, workers=None, portion=None, si=None, ci=None):
@@ -162,11 +166,10 @@ def drawRunTime(data, width=0.8, xlbl=None, xticks=None, ncol=1, loc=None,
     plt.xticks(x, xticks)
     plt.xlabel(xlbl)
     plt.ylabel('running time (s)')
-    plt.legend(['None','Sync','Async','VS'], ncol=ncol, loc=loc)
+    plt.legend(['None','Sync','Async','FAIC'], ncol=ncol, loc=loc)
     plt.tight_layout()
-    
-    
-    
+
+
 def drawOverhead(data, average=False, relative=False,
                  width=0.8, xlbl=None,xticks=None, ncol=1, loc=None,
                  cond=None, nodes=None, workers=None, portion=None, si=None, ci=None):
@@ -174,9 +177,10 @@ def drawOverhead(data, average=False, relative=False,
         cond = makeCondition(nodes, workers, portion, si, ci)
     ds = select(data, cond)
     dnone = ds[:,5][:,np.newaxis]
-    dp = ds[:,[6,8,10]] - dnone
+    idx = np.array([6,10,8])
+    dp = ds[:,idx] - dnone
     dp[dp<0] = 0
-    dc = ds[:,[7,9,11]]
+    dc = ds[:,idx+1]
     if average:
         dp = dp/dc
     if relative:
@@ -206,51 +210,110 @@ def drawOverhead(data, average=False, relative=False,
         else:
             ylbl = 'overhead time (s)'
     plt.ylabel(ylbl)
-    plt.legend(['Sync','Async','VS'], ncol=ncol, loc=loc)
+    plt.legend(['Sync','FAIC','Async'], ncol=ncol, loc=loc)
+    plt.tight_layout()
+
+def drawOverheadGroup(data, relative=False, xlbl=None, xticks=None,
+                      width=0.6, capsize=8, cond=None,
+                      nodes=None, workers=None, portion=None, si=None, ci=None):
+    if cond is None:
+        cond = makeCondition(nodes, workers, portion, si, ci)
+    ds = select(data, cond)
+    dnone = ds[:,5][:,np.newaxis]
+    idx = np.array([6,10,8])
+    dp = ds[:,idx] - dnone
+    dp[dp<0] = 0
+    dc = ds[:,idx+1]
+    d = dp / dc
+    if relative:
+        d = d/dnone
+    #plt.plot(d)
+    y = d.mean(0)
+    err = d.std(0)
+    nb = 3
+    x = np.arange(nb)
+    plt.figure()
+    for i in range(nb):
+        plt.bar(x[i], y[i], yerr=err[i], width=width, capsize=capsize)
+    if xticks is None:
+        xticks = ['Sync','FAIC','Async']
+    plt.xticks(x, xticks)
+    if xlbl is None:
+        xlbl = 'checkpoint method'
+    plt.xlabel(xlbl)
+    if relative:
+        ylbl = 'average overhead ratio (%)'
+    else:
+        ylbl = 'overhead per checkpoint (s)'
+    plt.ylabel(ylbl)
+    #plt.legend(['Sync','Async','FAIC'], ncol=ncol, loc=loc)
     plt.tight_layout()
 
 
-def drawScale(data, overhead=False, average=False,
-              xscale='nodes', ncol=1, loc=None):
-    assert xscale in ['nodes', 'workers']
-    if xscale == 'nodes':
+def drawScale(data, overhead=False, average=False, xterm='nodes',
+              ref=False, fit=False,
+              logx=False, logy=False, xtick=False, ncol=1, loc=None):
+    assert xterm in ['nodes', 'workers']
+    if xterm == 'nodes':
         x = data[:,0]
     else:
         x = data[:,1]
+    idx = np.array([6,10,8])
     if overhead:
         y0 = data[:,5].reshape(data.shape[0], 1)
-        y = data[:,[6,8,10]] - y0
+        y = data[:,idx] - y0
         if average:
-            y /= data[:,[7,9,11]]
+            y /= data[:,idx+1]
     else:
-        y = data[:,[5,6,8,10]]
+        y = data[:,[5,6,10,8]]
     plt.figure()
     plt.plot(x, y)
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('number of nodes')
     if overhead:
-        ylbl = 'overhead per checkpoint (s)' if average else 'overhead time (s)'
-        lgd = ['Sync','Async','VS']
+        if ref:
+            plt.gca().set_prop_cycle(None) # reset color rotation
+            r = y[0] * x[0] / x.reshape(-1,1)
+            plt.plot(x, r, linestyle='-.')
+        if fit:
+            plt.gca().set_prop_cycle(None) # reset color rotation
+            lx = np.log(x)
+            ly = np.log(y)
+            for i in range(y.shape[1]):
+                a,b = np.polyfit(lx, ly[:,i], 1)
+                plt.plot(x, np.exp(a*lx + b), linestyle='--')
+    if logx:
+        plt.xscale('log')
+    if logy:
+        plt.yscale('log')
+    else:
+        plt.ylim(0.0, None)
+    if xtick:
+        plt.xticks(x, x)
+    plt.xlabel('number of ' + xterm)
+    if overhead:
+        ylbl = 'average overhead (s)' if average else 'overhead time (s)'
+        lgd = ['Sync','FAIC','Async']
     else:
         ylbl = 'running time (s)'
-        lgd = ['None', 'Sync','Async','VS']
+        lgd = ['None', 'Sync','FAIC','Async']
+    plt.xticks(x, x.astype('int'))
     plt.ylabel(ylbl)
     plt.legend(lgd, ncol=ncol, loc=loc)
     plt.tight_layout()
 
-
+# %% main
+    
 def main():
     data=np.loadtxt('../data/res1.txt',delimiter='\t',skiprows=1)
-    drawRunTime(data, nodes=5000000, col=1, loc='lower right')
+    drawRunTime(data, nodes=5000000, ncol=1, loc='lower right')
     drawOverhead(data, nodes=1000000, si=2)
+    drawOverheadGroup(data, nodes=1000000, si=2)
     # scale
-    dscale = np.vstack([select(data, 't5-*-*-1-5'),
-                       select(data, 't52-*-*-1-5'),
-                       select(data, 't55-*-*-1-5'),
-                       select(data, 't6-*-*-2-5'),
-                       select(data, 't62-*-*-5-5'),
-                       select(data, 't65-*-*-5-5'),
+    dscale = np.vstack([select(data, 't5-6-*-1-5'),
+                       select(data, 't52-6-*-1-5'),
+                       select(data, 't55-6-*-1-5'),
+                       select(data, 't6-*6*-2-5'),
+                       select(data, 't62-6-*-5-5'),
+                       select(data, 't65-6-*-5-5'),
                        ])
-    drawScale(dsale, False)
-    drawScale(dsale, True)
+    drawScale(dscale, False)
+    drawScale(dscale, True, logx=True)
