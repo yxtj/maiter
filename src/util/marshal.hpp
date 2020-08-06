@@ -21,7 +21,7 @@ template<class T, class Enable = void>
 struct Marshal: public MarshalBase{
 	virtual void marshal(const T& t, std::string* out){
 		//GOOGLE_GLOG_COMPILE_ASSERT(std::tr1::is_pod<T>::value, Invalid_Value_Type);
-		out->assign(reinterpret_cast<const char*>(&t), sizeof(t)+1);
+		out->assign(reinterpret_cast<const char*>(&t), sizeof(t));
 	}
 
 	virtual void unmarshal(const StringPiece& s, T *t){
