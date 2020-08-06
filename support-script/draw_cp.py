@@ -11,14 +11,14 @@ import matplotlib.pyplot as plt
 
 # %% prepare
 
-def set_small_figure():
+def set_small_figure(fontsize=12):
     plt.rcParams["figure.figsize"] = [4,3]
-    plt.rcParams["font.size"]=12
+    plt.rcParams["font.size"] = fontsize
 
 
-def set_large_figure():
+def set_large_figure(fontsize=16):
     plt.rcParams["figure.figsize"] = [6,4.5]
-    plt.rcParams["font.size"] = 16
+    plt.rcParams["font.size"] = fontsize
 
 
 def gid2nodes(title):
@@ -184,7 +184,7 @@ def drawOverhead(data, average=False, relative=False,
     if average:
         dp = dp/dc
     if relative:
-        dp = dp/dnone
+        dp = dp/dnone*100
     #plt.plot(dp)
     ng = dp.shape[0]
     nb = 3
@@ -201,12 +201,12 @@ def drawOverhead(data, average=False, relative=False,
     plt.xlabel(xlbl)
     if average:
         if relative:
-            ylbl = 'ratio of overhead per checkpoint'
+            ylbl = 'ratio of overhead (%)'
         else:
-            ylbl = 'overhead per checkpoint (s)'
+            ylbl = 'average overhead (s)'
     else:
         if relative:
-            ylbl = 'ratio of overhead'
+            ylbl = 'ratio of overhead (%)'
         else:
             ylbl = 'overhead time (s)'
     plt.ylabel(ylbl)
@@ -226,7 +226,7 @@ def drawOverheadGroup(data, relative=False, xlbl=None, xticks=None,
     dc = ds[:,idx+1]
     d = dp / dc
     if relative:
-        d = d/dnone
+        d = d/dnone*100
     #plt.plot(d)
     y = d.mean(0)
     err = d.std(0)
@@ -242,9 +242,9 @@ def drawOverheadGroup(data, relative=False, xlbl=None, xticks=None,
         xlbl = 'checkpoint method'
     plt.xlabel(xlbl)
     if relative:
-        ylbl = 'average overhead ratio (%)'
+        ylbl = 'ratio of overhead (%)'
     else:
-        ylbl = 'overhead per checkpoint (s)'
+        ylbl = 'average overhead (s)'
     plt.ylabel(ylbl)
     #plt.legend(['Sync','Async','FAIC'], ncol=ncol, loc=loc)
     plt.tight_layout()
@@ -300,6 +300,54 @@ def drawScale(data, overhead=False, average=False, xterm='nodes',
     plt.legend(lgd, ncol=ncol, loc=loc)
     plt.tight_layout()
 
+def drawScaleWorker(data, idx=10, name='FAIC', overhead=True, speedup=False,
+                    ref=False, fit=False, refIdx=0,
+                    logx=False, logy=False, ncol=1, loc=None):
+    x = data[:,1]
+    y = data[:,idx]
+    if overhead:
+        y = (y - data[:,5]) / data[:,idx+1]
+        ylbl = 'average overhead (s)'
+    else:
+        ylbl = 'running time (s)'
+    if speedup:
+        y = y[refIdx]/y*x[refIdx]
+        ylbl = 'speed-up'
+    plt.figure()
+    lgd = []
+    plt.plot(x, y)
+    lgd.append(name)
+    if ref:
+        if speedup:
+            r = x
+        else:
+            r = y[0] * x[0] / x
+        plt.plot(x, r, linestyle='-.')
+        lgd.append('Ideal')
+    if fit:
+        if speedup:
+            a,b = np.polyfit(x, y, 1)
+            f = a*x + b
+        else:
+            lx = np.log(x)
+            ly = np.log(y)
+            a,b = np.polyfit(lx, ly, 1)
+            f = np.exp(a*lx + b)
+        plt.plot(x, f, linestyle='--')
+        lgd.append(name+'-ref.')
+    if logx:
+        plt.xscale('log')
+    if logy:
+        plt.yscale('log')
+    else:
+        plt.ylim(0.0, None)
+    plt.xlabel('number of worker')
+    plt.xticks(x, x.astype('int'))
+    plt.ylabel(ylbl)
+    plt.grid(True)
+    plt.legend(lgd, ncol=ncol, loc=loc)
+    plt.tight_layout()
+    
 # %% main
     
 def main():
