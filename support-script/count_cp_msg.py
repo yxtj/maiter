@@ -104,27 +104,28 @@ def countMsgAsync(fn):
 # %% estimate
 
 
+def transGraphSize(fn):
+    with open(fn) as f:
+        data = f.read()
+        nk = data.count('\t')
+        nl = data.count(' ')
+        return nk, nl
+
 def loadRefSize(path, nworker):
     flist = os.listdir(path)
-    size = []
+    size = [(0, 0) for i in range(nworker)]
     for i in range(nworker):
-        fn = 'part-%d' % i
-        if fn in flist:
-            size[i] = os.path.getsize(fn)
-            continue
-        fn = 'part%d' % i
-        if fn in flist:
-            size[i] = os.path.getsize(fn)
-            continue
-        return None
+        fn = 'part-%d' % i if 'part-%d' % i in flist else 'part%d' % i
+        size[i] = transGraphSize(path+'/'+fn)
     return size
+
 
 def loadCPSizeSync(path, nworker):
     flist = os.listdir(path)
     size = []
     epoch = 0
     while 'cp-t0-e%d-p0' % epoch in flist:
-        pre = 'cp-t0-e%d-p' % epoch
+        pre = path + '/cp-t0-e%d-p' % epoch
         t = [os.path.getsize(pre + str(i)) for i in range(nworker)]
         size.append(t)
         epoch += 1
@@ -135,24 +136,28 @@ def loadCPSizeAsync(path, nworker):
     size = []
     epoch = 0
     while 'cp-t0-e%d-p0.delta' % epoch in flist:
-        pre = 'cp-t0-e%d-p' % epoch
+        pre = path + '/cp-t0-e%d-p' % epoch
         t = [os.path.getsize(pre + str(i) + '.delta') for i in range(nworker)]
         size.append(t)
         epoch += 1
     return size
 
+def calcSizeDiff(nk, nl, cpSize):
+    # graph file: 4*nk + 4*nl
+    # cp file (graph part): 9*nk+9*nk+9*nk+29*nk = 56*nk
+    return cpSize - 56*nk
+
 def estimateMsg(fn, refsize, usize=26):
     size = os.path.getsize(fn)
     return (size - refsize) // usize
 
-def estimate(refPath, cpPath, method, nnode, nworker, pad=2, usize=26):
-    #pad = 1 + 1 (key, v1)
+def estimate(refPath, cpPath, method, nnode, nworker, usize=26):
     #usize = 9 + 9 + 4 + 4
-    off = nnode//nworker*pad
-    refSize = np.array(loadRefSize(refPath))
+    #off = nnode//nworker*pad
+    refSize = np.array(loadRefSize(refPath, nworker))
     if method == 'sync':
         cpSize = np.array(loadCPSizeSync(cpPath, nworker))
-        diff = cpSize - refSize - off
+        diff = calcSizeDiff(refSize[:,0], refSize[:,1], cpSize)
     elif method == 'async':
         cpSize = np.array(loadCPSizeAsync(cpPath, nworker))
         diff = cpSize
