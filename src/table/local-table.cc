@@ -122,7 +122,7 @@ void LocalTable::dump(const std::string& f, TableCoder* out)
 {
 	TableStateCoder* pc = dynamic_cast<TableStateCoder*>(out);
 	pc->WriteHeader(f, shard(), size());
-	serializeToFile(out);
+	serializeStateToFile(out);
 }
 
 void LocalTable::restore(const std::string& f, TableCoder* in)
