@@ -70,7 +70,7 @@ void LocalTable::start_checkpoint(const string& f){
 //	Timer t;
 
 	LocalTableCoder c(f, "wb");
-	serializeToFile(&c);
+	serializeStateToFile(&c);
 
 	delta_file_ = new LocalTableCoder(f + ".delta", "wb");
 	VLOG(1) << "End.";
