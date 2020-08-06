@@ -31,7 +31,7 @@ public:
 	void finish_checkpoint();
 	void load_checkpoint(const std::string& f);
 
-	void dump(const std::string& f, TableCoder* out = nullptr);
+	int64_t dump(const std::string& f, TableCoder* out = nullptr);
 	void restore(const std::string& f, TableCoder* in = nullptr);
 	virtual void restoreState(const std::string& k, const std::string& v1, const std::string& v2) = 0;
 

@@ -25,7 +25,7 @@ public:
 	virtual void load_checkpoint(const std::string& f) = 0;
 
 	// IO for general methods, local state and buffer data 
-	virtual void dump(const std::string& f, TableCoder* out = nullptr) = 0;
+	virtual int64_t dump(const std::string& f, TableCoder* out = nullptr) = 0;
 	virtual void restore(const std::string& f, TableCoder* in = nullptr) = 0;
 	virtual ~Checkpointable() = default;
 };

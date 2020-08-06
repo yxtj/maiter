@@ -253,7 +253,8 @@ void Worker::_CP_dump_gtables()
 	for(TableRegistry::Map::iterator it = tbls.begin(); it != tbls.end(); ++it){
 		MutableGlobalTable* t = dynamic_cast<MutableGlobalTable*>(it->second);
 		//archive local state
-		t->dump(fn, nullptr);
+		int64_t n = t->dump(fn, nullptr);
+		stats_["count_cp_message"] += n;
 	}
 	stats_["time_cp_archive"] += tmr.elapsed();
 }

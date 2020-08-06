@@ -118,11 +118,12 @@ void LocalTable::load_checkpoint(const string& f){
 	}
 }
 
-void LocalTable::dump(const std::string& f, TableCoder* out)
+int64_t LocalTable::dump(const std::string& f, TableCoder* out)
 {
 	TableStateCoder* pc = dynamic_cast<TableStateCoder*>(out);
 	pc->WriteHeader(f, shard(), size());
 	serializeStateToFile(out);
+	return size();
 }
 
 void LocalTable::restore(const std::string& f, TableCoder* in)

@@ -168,9 +168,10 @@ void MutableGlobalTable::load_checkpoint(const string& pre){
 	}
 }
 
-void MutableGlobalTable::dump(const std::string& f, TableCoder* out)
+int64_t MutableGlobalTable::dump(const std::string& f, TableCoder* out)
 {
 	TableStateCoder c(f, "wb");
+	int cnt = 0;
 	std::lock_guard<std::recursive_mutex> sl(get_mutex());
 	for(int i = 0; i < partitions_.size(); ++i){
 		LocalTable* t = partitions_[i];
@@ -182,8 +183,10 @@ void MutableGlobalTable::dump(const std::string& f, TableCoder* out)
 			Timer tmr;
 			t->dump("delta", &c);
 			stats["time_cp_archive_delta"] += tmr.elapsed();
+			cnt += t->size();
 		}
 	}
+	return cnt;
 }
 
 void MutableGlobalTable::restore(const std::string& f, TableCoder* in)

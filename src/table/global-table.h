@@ -189,7 +189,7 @@ public:
 	void finish_checkpoint();
 	void load_checkpoint(const std::string& f);
 
-	void dump(const std::string& f, TableCoder* out = nullptr);
+	int64_t dump(const std::string& f, TableCoder* out = nullptr);
 	void restore(const std::string& f, TableCoder* in = nullptr);
 	//convenient functions for checkpoint
 	//void start_checkpoint(const int taskid, const int epoch);
