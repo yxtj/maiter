@@ -577,7 +577,7 @@ inline void StateTable<K, V1, V2, V3>::restoreState(
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeToFile(TableCoder *out){
-	Iterator *i = (Iterator*)get_iterator(nullptr, false);
+	Iterator *i = (Iterator*)entirepass_iterator(nullptr);
 	string k, v1, v2, v3;
 	while(!i->done()){
 		k.clear();
@@ -601,7 +601,7 @@ void StateTable<K, V1, V2, V3>::serializeToFile(TableCoder *out){
 
 template<class K, class V1, class V2, class V3>
 void StateTable<K, V1, V2, V3>::serializeStateToFile(TableCoder* out){
-	Iterator* i = (Iterator*)get_iterator(nullptr, false);
+	Iterator* i = (Iterator*)entirepass_iterator(nullptr);
 	string k, v1, v2, v3;
 	while(!i->done()){
 		k.clear();
